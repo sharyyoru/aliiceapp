@@ -1,0 +1,482 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { parseSwissDateTimeLocal } from "@/lib/swissTimezone";
+import { brandedEmail, infoRow, infoTable } from "@/utils/emailTemplate";
+import { sendEmail as sendEmailViaResend, isEmailConfigured } from "@/lib/email";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+type CreateAppointmentPayload = {
+  patientId: string;
+  dealId?: string | null;
+  providerId?: string | null;
+  title?: string;
+  appointmentDate: string;
+  durationMinutes?: number;
+  location?: string;
+  notes?: string;
+  sendPatientEmail?: boolean;
+  sendUserEmail?: boolean;
+  scheduleReminder?: boolean;
+  appointmentType?: "appointment" | "operation";
+};
+
+// Resend allows scheduling emails up to 72 hours in advance
+const RESEND_MAX_SCHEDULE_HOURS = 72;
+
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  scheduledFor?: Date | null
+): Promise<{ sent: boolean; scheduled: boolean; reason?: string }> {
+  if (!isEmailConfigured()) {
+    console.log("Resend not configured, skipping email send");
+    return { sent: false, scheduled: false, reason: "Email service not configured" };
+  }
+
+  // Check if we can use Resend's scheduled delivery (must be within 72 hours)
+  const now = Date.now();
+  const maxScheduleTime = now + RESEND_MAX_SCHEDULE_HOURS * 60 * 60 * 1000;
+  
+  if (scheduledFor && scheduledFor.getTime() > now) {
+    if (scheduledFor.getTime() > maxScheduleTime) {
+      // Beyond 72 hours - don't send now, will be handled by cron job from scheduled_emails table
+      console.log(`Email scheduled for ${scheduledFor.toISOString()} is beyond Resend's 72-hour limit. Will be sent by cron job.`);
+      return { sent: false, scheduled: true, reason: "Beyond 72-hour limit, stored for cron job" };
+    }
+  }
+
+  const result = await sendEmailViaResend({
+    to,
+    subject,
+    html,
+    scheduledAt: scheduledFor && scheduledFor.getTime() > now ? scheduledFor : undefined,
+  });
+
+  if (!result.success) {
+    console.error("Error sending email via Resend:", result.error);
+    throw new Error(`Failed to send email: ${result.error}`);
+  }
+  
+  return { sent: true, scheduled: !!scheduledFor };
+}
+
+function formatAppointmentDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function generatePatientEmailHtml(
+  patientName: string,
+  appointmentDate: Date,
+  location: string | null,
+  notes: string | null
+): string {
+  const formattedDate = formatAppointmentDate(appointmentDate);
+
+  const rows =
+    infoRow("Date &amp; Time", formattedDate) +
+    (location ? infoRow("Location", location) : "") +
+    (notes ? infoRow("Notes", notes) : "");
+
+  const body = `
+    <p style="margin: 0 0 20px 0; font-size: 15px; color: #1a1a18;">Dear ${patientName},</p>
+    <p style="margin: 0 0 8px 0; color: #4a4742;">Your appointment has been confirmed. Please find the details below.</p>
+    ${infoTable(rows)}
+    <p style="margin: 0; color: #4a4742;">Should you need to reschedule or cancel, please contact us as soon as possible.</p>
+  `;
+
+  return brandedEmail(body);
+}
+
+function generateUserEmailHtml(
+  userName: string,
+  patientName: string,
+  patientEmail: string,
+  appointmentDate: Date,
+  location: string | null,
+  notes: string | null
+): string {
+  const formattedDate = formatAppointmentDate(appointmentDate);
+
+  const rows =
+    infoRow("Patient", patientName) +
+    infoRow("Email", patientEmail) +
+    infoRow("Date &amp; Time", formattedDate) +
+    (location ? infoRow("Location", location) : "") +
+    (notes ? infoRow("Notes", notes) : "");
+
+  const body = `
+    <p style="margin: 0 0 20px 0; font-size: 15px; color: #1a1a18;">Dear ${userName},</p>
+    <p style="margin: 0 0 8px 0; color: #4a4742;">A new appointment has been scheduled with one of your patients.</p>
+    ${infoTable(rows)}
+    <p style="margin: 0; color: #4a4742;">This appointment has been added to the patient's record in the system.</p>
+  `;
+
+  return brandedEmail(body);
+}
+
+function generateReminderEmailHtml(
+  recipientName: string,
+  isPatient: boolean,
+  patientName: string,
+  appointmentDate: Date,
+  location: string | null
+): string {
+  const formattedDate = formatAppointmentDate(appointmentDate);
+
+  if (isPatient) {
+    const rows =
+      infoRow("Date &amp; Time", formattedDate) +
+      (location ? infoRow("Location", location) : "");
+
+    const body = `
+      <p style="margin: 0 0 20px 0; font-size: 15px; color: #1a1a18;">Dear ${recipientName},</p>
+      <p style="margin: 0 0 8px 0; color: #4a4742;">This is a reminder of your appointment scheduled for tomorrow.</p>
+      ${infoTable(rows)}
+      <p style="margin: 0; color: #4a4742;">Should you need to reschedule, please contact us in advance.</p>
+    `;
+
+    return brandedEmail(body);
+  }
+
+  const rows =
+    infoRow("Patient", patientName) +
+    infoRow("Date &amp; Time", formattedDate) +
+    (location ? infoRow("Location", location) : "");
+
+  const body = `
+    <p style="margin: 0 0 20px 0; font-size: 15px; color: #1a1a18;">Dear ${recipientName},</p>
+    <p style="margin: 0 0 8px 0; color: #4a4742;">This is a reminder of your appointment scheduled for tomorrow with a patient.</p>
+    ${infoTable(rows)}
+  `;
+
+  return brandedEmail(body);
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json()) as CreateAppointmentPayload;
+
+    const {
+      patientId,
+      dealId,
+      providerId,
+      title,
+      appointmentDate,
+      durationMinutes = 60,
+      location,
+      notes,
+      sendPatientEmail = true,
+      sendUserEmail = true,
+      scheduleReminder = true,
+      appointmentType = "appointment",
+    } = body;
+
+    if (!patientId || !appointmentDate) {
+      return NextResponse.json(
+        { error: "Missing required fields: patientId, appointmentDate" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get patient details
+    const { data: patient, error: patientError } = await supabase
+      .from("patients")
+      .select("id, first_name, last_name, email")
+      .eq("id", patientId)
+      .single();
+
+    if (patientError || !patient) {
+      return NextResponse.json(
+        { error: "Patient not found" },
+        { status: 404 }
+      );
+    }
+
+    const patientName = [patient.first_name, patient.last_name]
+      .filter(Boolean)
+      .join(" ") || "Patient";
+    const patientEmail = patient.email;
+
+    // Get service name from deal if dealId provided
+    let serviceName: string | null = null;
+    if (dealId) {
+      const { data: dealData } = await supabase
+        .from("deals")
+        .select("service_id, service:services(name)")
+        .eq("id", dealId)
+        .single();
+      
+      if (dealData?.service && Array.isArray(dealData.service) && dealData.service[0]?.name) {
+        serviceName = dealData.service[0].name;
+      } else if (dealData?.service && typeof dealData.service === 'object' && 'name' in dealData.service) {
+        serviceName = (dealData.service as { name: string }).name;
+      }
+    }
+
+    // Get user details if providerId (userId) provided
+    let assignedUserName = "Staff Member";
+    let assignedUserEmail: string | null = null;
+
+    if (providerId) {
+      // providerId is actually a user ID from the platform users
+      const { data: userData } = await supabase.auth.admin.getUserById(providerId);
+      if (userData?.user) {
+        const meta = userData.user.user_metadata || {};
+        assignedUserName = meta.full_name || 
+                          [meta.first_name, meta.last_name].filter(Boolean).join(" ") || 
+                          userData.user.email?.split("@")[0] || "Staff Member";
+        assignedUserEmail = userData.user.email || null;
+      }
+    }
+
+    // Parse the datetime-local string as Swiss timezone to ensure correct UTC time
+    // This fixes the 1-hour offset issue when server runs in UTC
+    const appointmentDateObj = parseSwissDateTimeLocal(appointmentDate);
+
+    // Calculate end time from duration
+    const endDateObj = new Date(appointmentDateObj.getTime() + durationMinutes * 60 * 1000);
+
+    // Build reason field with patient name and service
+    let reason = patientName;
+    if (serviceName) {
+      reason += ` - ${serviceName}`;
+    }
+    if (assignedUserName && assignedUserName !== "Staff Member") {
+      reason += ` [Doctor: ${assignedUserName}]`;
+    }
+    // Add category for operation type appointments
+    if (appointmentType === "operation") {
+      reason += ` [Category: OP Surgery]`;
+    }
+
+    // Create the appointment using the existing schema
+    // Note: provider_id has a foreign key to providers table, so we leave it null
+    // when assigning to a platform user (staff info is stored in the reason field)
+    const { data: appointment, error: appointmentError } = await supabase
+      .from("appointments")
+      .insert({
+        patient_id: patientId,
+        provider_id: null,
+        start_time: appointmentDateObj.toISOString(),
+        end_time: endDateObj.toISOString(),
+        reason,
+        title: title || null,
+        notes: notes || null,
+        location: location || null,
+        status: "scheduled",
+        source: "manual",
+      })
+      .select("id")
+      .single();
+
+    if (appointmentError || !appointment) {
+      console.error("Error creating appointment:", appointmentError);
+      return NextResponse.json(
+        { error: "Failed to create appointment", details: appointmentError?.message },
+        { status: 500 }
+      );
+    }
+
+    const appointmentId = appointment.id;
+
+    // Send confirmation emails in parallel (non-blocking for faster response)
+    const confirmationEmailPromises: Promise<void>[] = [];
+
+    // Send confirmation email to patient
+    if (sendPatientEmail && patientEmail) {
+      confirmationEmailPromises.push((async () => {
+        try {
+          const patientEmailHtml = generatePatientEmailHtml(
+            patientName,
+            appointmentDateObj,
+            location || null,
+            notes || null
+          );
+          await sendEmail(
+            patientEmail,
+            `Appointment Confirmed - ${formatAppointmentDate(appointmentDateObj)}`,
+            patientEmailHtml
+          );
+          console.log("Patient confirmation email sent to:", patientEmail);
+        } catch (err) {
+          console.error("Error sending patient email:", err);
+        }
+      })());
+    }
+
+    // Send notification email to provider/staff
+    if (sendUserEmail && assignedUserEmail) {
+      confirmationEmailPromises.push((async () => {
+        try {
+          const userEmailHtml = generateUserEmailHtml(
+            assignedUserName,
+            patientName,
+            patientEmail || "Not provided",
+            appointmentDateObj,
+            location || null,
+            notes || null
+          );
+          await sendEmail(
+            assignedUserEmail,
+            `New Appointment: ${patientName} - ${formatAppointmentDate(appointmentDateObj)}`,
+            userEmailHtml
+          );
+          console.log("Provider notification email sent to:", assignedUserEmail);
+        } catch (err) {
+          console.error("Error sending provider email:", err);
+        }
+      })());
+    }
+
+    // Wait for confirmation emails (these are important, so we wait)
+    // But they run in parallel, so it's faster than sequential
+    await Promise.allSettled(confirmationEmailPromises);
+
+    // Schedule reminder emails for 1 day before (non-blocking)
+    if (scheduleReminder) {
+      const reminderDate = new Date(appointmentDateObj);
+      reminderDate.setDate(reminderDate.getDate() - 1);
+
+      // Only schedule if reminder date is in the future
+      if (reminderDate.getTime() > Date.now()) {
+        // Run reminder scheduling in background (don't await to prevent blocking)
+        const scheduleReminders = async () => {
+          const reminderPromises: Promise<void>[] = [];
+
+          // Schedule patient reminder
+          if (patientEmail) {
+            reminderPromises.push((async () => {
+              try {
+                const patientReminderHtml = generateReminderEmailHtml(
+                  patientName,
+                  true,
+                  patientName,
+                  appointmentDateObj,
+                  location || null
+                );
+
+                // Always store in scheduled_emails table for cron job backup
+                await supabase.from("scheduled_emails").insert({
+                  patient_id: patientId,
+                  appointment_id: appointmentId,
+                  recipient_type: "patient",
+                  recipient_email: patientEmail,
+                  subject: `Reminder: Appointment Tomorrow - ${formatAppointmentDate(appointmentDateObj)}`,
+                  body: patientReminderHtml,
+                  scheduled_for: reminderDate.toISOString(),
+                  status: "pending",
+                });
+
+                // Try to send via Resend (will skip if beyond 24-hour limit)
+                const result = await sendEmail(
+                  patientEmail,
+                  `Reminder: Appointment Tomorrow - ${formatAppointmentDate(appointmentDateObj)}`,
+                  patientReminderHtml,
+                  reminderDate
+                );
+                
+                // If Resend sent/scheduled it, mark as sent in DB
+                if (result.sent) {
+                  await supabase.from("scheduled_emails")
+                    .update({ status: "sent" })
+                    .eq("appointment_id", appointmentId)
+                    .eq("recipient_type", "patient");
+                }
+                
+                console.log("Patient reminder scheduled for:", reminderDate.toISOString(), result);
+              } catch (err) {
+                console.error("Error scheduling patient reminder:", err);
+                // Don't throw - this is a non-critical operation
+              }
+            })());
+          }
+
+          // Schedule provider reminder
+          if (assignedUserEmail) {
+            reminderPromises.push((async () => {
+              try {
+                const providerReminderHtml = generateReminderEmailHtml(
+                  assignedUserName,
+                  false,
+                  patientName,
+                  appointmentDateObj,
+                  location || null
+                );
+
+                // Always store in scheduled_emails table for cron job backup
+                await supabase.from("scheduled_emails").insert({
+                  patient_id: patientId,
+                  appointment_id: appointmentId,
+                  recipient_type: "provider",
+                  recipient_email: assignedUserEmail,
+                  subject: `Reminder: Appointment with ${patientName} Tomorrow`,
+                  body: providerReminderHtml,
+                  scheduled_for: reminderDate.toISOString(),
+                  status: "pending",
+                });
+
+                // Try to send via Resend (will skip if beyond 24-hour limit)
+                const result = await sendEmail(
+                  assignedUserEmail,
+                  `Reminder: Appointment with ${patientName} Tomorrow`,
+                  providerReminderHtml,
+                  reminderDate
+                );
+                
+                // If Resend sent/scheduled it, mark as sent in DB
+                if (result.sent) {
+                  await supabase.from("scheduled_emails")
+                    .update({ status: "sent" })
+                    .eq("appointment_id", appointmentId)
+                    .eq("recipient_type", "provider");
+                }
+                
+                console.log("Provider reminder scheduled for:", reminderDate.toISOString(), result);
+              } catch (err) {
+                console.error("Error scheduling provider reminder:", err);
+                // Don't throw - this is a non-critical operation
+              }
+            })());
+          }
+
+          // Run all reminder scheduling in parallel
+          await Promise.allSettled(reminderPromises);
+        };
+
+        // Fire and forget - don't block the response
+        scheduleReminders().catch(err => {
+          console.error("Error in reminder scheduling:", err);
+        });
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      appointmentId,
+      message: "Appointment created successfully",
+      emailsSent: {
+        patient: sendPatientEmail && !!patientEmail,
+        provider: sendUserEmail && !!assignedUserEmail,
+      },
+      reminderScheduled: scheduleReminder,
+    });
+  } catch (error) {
+    console.error("Error creating appointment:", error);
+    return NextResponse.json(
+      { error: "Failed to create appointment", details: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    );
+  }
+}
