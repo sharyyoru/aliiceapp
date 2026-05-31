@@ -1,896 +1,280 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { supabaseClient } from "@/lib/supabaseClient";
-import { useCommentsUnread } from "@/components/CommentsUnreadContext";
+import {
+  Calendar,
+  Users,
+  FileText,
+  CreditCard,
+  MessageSquare,
+  BarChart3,
+  Shield,
+  Building2,
+  UserPlus,
+  Clock,
+  CheckCircle,
+  ArrowRight,
+} from "lucide-react";
 
-type PlatformUser = {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-};
+const features = [
+  {
+    icon: Users,
+    title: "Patient Management",
+    description:
+      "Comprehensive patient records, medical history, and treatment tracking all in one place.",
+  },
+  {
+    icon: Calendar,
+    title: "Smart Scheduling",
+    description:
+      "Intelligent appointment booking with automated reminders and calendar sync.",
+  },
+  {
+    icon: FileText,
+    title: "Medical Documentation",
+    description:
+      "Digital forms, prescriptions, and clinical notes with secure storage.",
+  },
+  {
+    icon: CreditCard,
+    title: "Billing & Invoicing",
+    description:
+      "Swiss billing standards support including TarMed, and insurance integrations.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Patient Communication",
+    description:
+      "Email, SMS, and WhatsApp messaging for seamless patient engagement.",
+  },
+  {
+    icon: BarChart3,
+    title: "Analytics & Reports",
+    description:
+      "Real-time insights into clinic performance, revenue, and patient flow.",
+  },
+];
 
-function renderTextWithMentions(text: string) {
-  const parts = text.split(/(\s+)/);
-  return parts.map((part, index) => {
-    if (part.startsWith("@") && part.length > 1 && part[1] !== "@") {
-      return (
-        <span key={index} className="font-semibold text-emerald-600">
-          {part}
-        </span>
-      );
-    }
-    return (
-      <span key={index}>{part}</span>
-    );
-  });
-}
+const benefits = [
+  {
+    icon: Building2,
+    title: "Multi-Clinic Support",
+    description: "Manage multiple clinic locations from a single dashboard.",
+  },
+  {
+    icon: Shield,
+    title: "Swiss Data Protection",
+    description: "GDPR compliant with data hosted in Swiss data centers.",
+  },
+  {
+    icon: UserPlus,
+    title: "Team Collaboration",
+    description: "Role-based access for doctors, staff, and administrators.",
+  },
+  {
+    icon: Clock,
+    title: "24/7 Availability",
+    description: "Cloud-based access from anywhere, anytime, any device.",
+  },
+];
 
-export default function Home() {
-  const t = useTranslations("dashboard");
-  const [appointments, setAppointments] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [mentions, setMentions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userFirstName, setUserFirstName] = useState<string | null>(null);
-
-  const { unreadCount } = useCommentsUnread();
-
-  const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<any | null>(null);
-  const [taskDetails, setTaskDetails] = useState<any | null>(null);
-  const [taskDetailsLoading, setTaskDetailsLoading] = useState(false);
-  const [taskComments, setTaskComments] = useState<any[]>([]);
-  const [taskCommentsLoading, setTaskCommentsLoading] = useState(false);
-  const [taskCommentInput, setTaskCommentInput] = useState("");
-  const [taskCommentError, setTaskCommentError] = useState<string | null>(null);
-  const [taskCommentSaving, setTaskCommentSaving] = useState(false);
-  const [taskCommentMentionUserIds, setTaskCommentMentionUserIds] = useState<
-    string[]
-  >([]);
-  const [mentionUsers, setMentionUsers] = useState<PlatformUser[]>([]);
-  const [mentionUsersLoaded, setMentionUsersLoaded] = useState(false);
-  const [activeMentionQuery, setActiveMentionQuery] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        setLoading(true);
-
-        const { data: authData } = await supabaseClient.auth.getUser();
-        const user = authData?.user ?? null;
-
-        // Extract user's first name from metadata
-        if (user) {
-          const meta = (user.user_metadata || {}) as Record<string, unknown>;
-          const firstName = (meta["first_name"] as string) || null;
-          setUserFirstName(firstName);
-        }
-
-        const today = new Date();
-        const dayStart = new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          today.getDate(),
-          0,
-          0,
-          0,
-          0,
-        ).toISOString();
-        const dayEnd = new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          today.getDate(),
-          23,
-          59,
-          59,
-          999,
-        ).toISOString();
-
-        const appointmentsPromise = supabaseClient
-          .from("appointments")
-          .select(
-            "id, start_time, status, reason, title, notes, patient:patients(id, first_name, last_name)",
-          )
-          .neq("status", "cancelled")
-          .gte("start_time", dayStart)
-          .lte("start_time", dayEnd)
-          .order("start_time", { ascending: true })
-          .limit(3);
-
-        const tasksPromise = user
-          ? supabaseClient
-              .from("tasks")
-              .select(
-                "id, name, content, activity_date, created_at, patient_id, patient:patients(id, first_name, last_name)",
-              )
-              .eq("assigned_user_id", user.id)
-              .neq("status", "completed")
-              .lte("activity_date", dayEnd) // Only show tasks up to today (not future)
-              .order("activity_date", { ascending: true })
-              .limit(5)
-          : Promise.resolve({ data: [], error: null } as any);
-
-        const mentionsPromise = user
-          ? supabaseClient
-              .from("patient_note_mentions")
-              .select(
-                "id, created_at, read_at, patient_id, note:patient_notes(id, body, author_name, created_at), patient:patients(id, first_name, last_name)",
-              )
-              .eq("mentioned_user_id", user.id)
-              .is("read_at", null)
-              .order("created_at", { ascending: false })
-              .limit(3)
-          : Promise.resolve({ data: [], error: null } as any);
-
-        const [appointmentsResult, tasksResult, mentionsResult] =
-          await Promise.all([appointmentsPromise, tasksPromise, mentionsPromise]);
-
-        if (cancelled) return;
-
-        setAppointments(
-          !appointmentsResult.error && appointmentsResult.data
-            ? (appointmentsResult.data as any[])
-            : [],
-        );
-
-        setTasks(
-          !tasksResult.error && tasksResult.data ? (tasksResult.data as any[]) : [],
-        );
-
-        setMentions(
-          !mentionsResult.error && mentionsResult.data
-            ? (mentionsResult.data as any[])
-            : [],
-        );
-      } catch {
-        if (cancelled) return;
-        setAppointments([]);
-        setTasks([]);
-        setMentions([]);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (unreadCount === null) return;
-
-    let cancelled = false;
-
-    async function reloadMentions() {
-      try {
-        const { data: authData } = await supabaseClient.auth.getUser();
-        const user = authData?.user ?? null;
-        if (!user) {
-          if (!cancelled) setMentions([]);
-          return;
-        }
-
-        const { data, error } = await supabaseClient
-          .from("patient_note_mentions")
-          .select(
-            "id, created_at, read_at, patient_id, note:patient_notes(id, body, author_name, created_at), patient:patients(id, first_name, last_name)",
-          )
-          .eq("mentioned_user_id", user.id)
-          .is("read_at", null)
-          .order("created_at", { ascending: false })
-          .limit(3);
-
-        if (cancelled) return;
-
-        setMentions(!error && data ? (data as any[]) : []);
-      } catch {
-        if (!cancelled) {
-          setMentions([]);
-        }
-      }
-    }
-
-    void reloadMentions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [unreadCount]);
-
-  const trimmedMentionQuery = activeMentionQuery.trim();
-  const mentionOptions =
-    trimmedMentionQuery && mentionUsers.length > 0
-      ? mentionUsers
-          .filter((user) => {
-            const hay = (user.full_name || user.email || "").toLowerCase();
-            return hay.includes(trimmedMentionQuery);
-          })
-          .slice(0, 6)
-      : [];
-
-  async function handleOpenTaskModal(task: any) {
-    setSelectedTask(task);
-    setTaskModalOpen(true);
-    setTaskDetails(null);
-    setTaskComments([]);
-    setTaskCommentInput("");
-    setTaskCommentError(null);
-    setTaskCommentMentionUserIds([]);
-    setActiveMentionQuery("");
-    setTaskDetailsLoading(true);
-    setTaskCommentsLoading(true);
-
-    try {
-      const [taskResult, commentsResult] = await Promise.all([
-        supabaseClient
-          .from("tasks")
-          .select(
-            "id, patient_id, name, content, status, priority, type, activity_date, created_at, created_by_name, assigned_user_name, patient:patients(id, first_name, last_name, email, phone)",
-          )
-          .eq("id", task.id)
-          .single(),
-        supabaseClient
-          .from("task_comments")
-          .select(
-            "id, task_id, author_user_id, author_name, body, created_at",
-          )
-          .eq("task_id", task.id)
-          .order("created_at", { ascending: true }),
-      ]);
-
-      if (!taskResult.error && taskResult.data) {
-        setTaskDetails(taskResult.data as any);
-      } else {
-        setTaskDetails(task);
-      }
-
-      if (!commentsResult.error && commentsResult.data) {
-        setTaskComments(commentsResult.data as any[]);
-      } else {
-        setTaskComments([]);
-      }
-
-      if (!mentionUsersLoaded) {
-        try {
-          const response = await fetch("/api/users/list");
-          if (response.ok) {
-            const json = (await response.json()) as PlatformUser[];
-            setMentionUsers(json);
-          }
-        } catch {
-        } finally {
-          setMentionUsersLoaded(true);
-        }
-      }
-    } catch {
-      setTaskDetails(task);
-      setTaskComments([]);
-    } finally {
-      setTaskDetailsLoading(false);
-      setTaskCommentsLoading(false);
-    }
-  }
-
-  function handleCloseTaskModal() {
-    setTaskModalOpen(false);
-    setSelectedTask(null);
-    setTaskDetails(null);
-    setTaskComments([]);
-    setTaskCommentInput("");
-    setTaskCommentError(null);
-    setTaskCommentMentionUserIds([]);
-    setActiveMentionQuery("");
-  }
-
-  function handleTaskCommentInputChangeDashboard(value: string) {
-    setTaskCommentInput(value);
-    setTaskCommentError(null);
-
-    const match = value.match(/@([^\s@]{0,50})$/);
-    if (match) {
-      setActiveMentionQuery(match[1].toLowerCase());
-    } else {
-      setActiveMentionQuery("");
-    }
-  }
-
-  function handleTaskMentionSelectDashboard(user: PlatformUser) {
-    const display =
-      (user.full_name && user.full_name.length > 0
-        ? user.full_name
-        : user.email) || "User";
-
-    setTaskCommentInput((prev) =>
-      prev.replace(/@([^\s@]{0,50})$/, `@${display} `),
-    );
-
-    setTaskCommentMentionUserIds((prev) => {
-      if (prev.includes(user.id)) return prev;
-      return [...prev, user.id];
-    });
-
-    setActiveMentionQuery("");
-  }
-
-  async function handleTaskCommentSubmitDashboard() {
-    const current = taskCommentInput;
-    const trimmed = current.trim();
-    const task = selectedTask;
-    if (!task) return;
-
-    if (!trimmed) {
-      setTaskCommentError(t("commentEmpty"));
-      return;
-    }
-
-    try {
-      setTaskCommentSaving(true);
-      setTaskCommentError(null);
-
-      const { data: authData } = await supabaseClient.auth.getUser();
-      const authUser = authData?.user;
-      if (!authUser) {
-        setTaskCommentError(t("commentLoginRequired"));
-        setTaskCommentSaving(false);
-        return;
-      }
-
-      const meta = (authUser.user_metadata || {}) as Record<string, unknown>;
-      const first = (meta["first_name"] as string) || "";
-      const last = (meta["last_name"] as string) || "";
-      const fullName =
-        [first, last].filter(Boolean).join(" ") || authUser.email || null;
-
-      const { data: inserted, error: insertError } = await supabaseClient
-        .from("task_comments")
-        .insert({
-          task_id: task.id as string,
-          author_user_id: authUser.id,
-          author_name: fullName,
-          body: trimmed,
-        })
-        .select("id, task_id, author_user_id, author_name, body, created_at")
-        .single();
-
-      if (insertError || !inserted) {
-        setTaskCommentError(insertError?.message ?? t("commentFailed"));
-        setTaskCommentSaving(false);
-        return;
-      }
-
-      const comment = inserted as any;
-      setTaskComments((prev) => [...prev, comment]);
-
-      const mentionedUserIds = taskCommentMentionUserIds;
-      if (mentionedUserIds.length > 0) {
-        const rows = mentionedUserIds.map((mentionedUserId) => ({
-          task_comment_id: comment.id as string,
-          task_id: task.id as string,
-          mentioned_user_id: mentionedUserId,
-        }));
-
-        try {
-          await supabaseClient.from("task_comment_mentions").insert(rows);
-        } catch {
-        }
-      }
-
-      setTaskCommentInput("");
-      setTaskCommentMentionUserIds([]);
-      setActiveMentionQuery("");
-      setTaskCommentSaving(false);
-    } catch {
-      setTaskCommentError(t("commentFailed"));
-      setTaskCommentSaving(false);
-    }
-  }
-
+export default function LandingPage() {
   return (
-    <div className="space-y-8">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            {t("greeting")}{userFirstName ? ` ${userFirstName}` : ""}
-          </h1>
-          <p className="text-sm text-slate-500">
-            {t("subtitle")}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 text-xs sm:text-sm">
-          <Link
-            href="/add-patients"
-            className="inline-flex items-center gap-2 rounded-full border border-sky-200/70 bg-white/70 px-4 py-1.5 font-medium text-sky-700 shadow-[0_10px_25px_rgba(15,23,42,0.16)] backdrop-blur hover:bg-white hover:text-sky-800"
-          >
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-[12px] font-semibold text-white shadow-sm">
-              +
-            </span>
-            <span>{t("addPatient")}</span>
+    <div className="min-h-screen bg-white">
+      {/* Navigation */}
+      <nav className="fixed top-0 z-50 w-full border-b border-slate-100 bg-white/80 backdrop-blur-lg">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/logos/aliice-logo.png"
+              alt="ALiice"
+              width={100}
+              height={32}
+              className="h-8 w-auto"
+            />
           </Link>
-          <Link
-            href="/appointments"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/60 px-4 py-1.5 font-medium text-slate-700 shadow-[0_10px_25px_rgba(15,23,42,0.10)] backdrop-blur hover:bg-white hover:text-slate-900"
-          >
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/80 text-[11px] text-white shadow-sm">
-              <svg
-                className="h-3.5 w-3.5"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          <div className="flex items-center gap-4">
+            <Link
+              href="/login"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+            >
+              Login
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-sky-600/25 transition-all hover:bg-sky-700 hover:shadow-sky-600/30"
+            >
+              Get Started
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-32">
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-sky-50 via-white to-violet-50" />
+        <div className="absolute inset-y-0 right-0 -z-10 w-1/2 bg-gradient-to-l from-sky-100/50" />
+        
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+              The Complete{" "}
+              <span className="bg-gradient-to-r from-sky-600 to-violet-600 bg-clip-text text-transparent">
+                Medical CRM
+              </span>{" "}
+              for Aesthetics Clinics
+            </h1>
+            <p className="mt-6 text-lg leading-8 text-slate-600">
+              Streamline your clinic operations with ALiice. From patient management
+              to billing, scheduling to analytics — everything you need to run a
+              successful aesthetics practice.
+            </p>
+            <div className="mt-10 flex items-center justify-center gap-4">
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-600/25 transition-all hover:bg-sky-700 hover:shadow-sky-600/30"
               >
-                <rect x="3" y="5" width="18" height="16" rx="2" />
-                <path d="M16 3v4M8 3v4M3 11h18" />
-              </svg>
-            </span>
-            <span>{t("scheduleAppointment")}</span>
-          </Link>
-        </div>
-      </header>
-
-      <section className="space-y-4">
-        <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">
-                {t("todaysAppointments")}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {t("todaysAppointmentsDesc")}
-              </p>
+                Start Free Trial
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50"
+              >
+                Sign In
+              </Link>
             </div>
-            <Link
-              href="/appointments"
-              className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              {t("viewAll")}
-            </Link>
           </div>
-          {loading ? (
-            <p className="text-xs text-slate-500">
-              {t("loadingAppointments")}
-            </p>
-          ) : appointments.length === 0 ? (
-            <p className="text-xs text-slate-500">
-              {t("noAppointments")}
-            </p>
-          ) : (
-            <div className="divide-y divide-slate-100 text-sm">
-              {appointments.map((appt) => {
-                const start = appt.start_time ? new Date(appt.start_time as string) : null;
-                const timeLabel =
-                  start && !Number.isNaN(start.getTime())
-                    ? start.toLocaleTimeString(undefined, {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "";
-                const patientName = appt.patient
-                  ? `${appt.patient.first_name ?? ""} ${
-                      appt.patient.last_name ?? ""
-                    }`
-                      .trim()
-                      .replace(/\s+/g, " ")
-                  : t("unknownPatient");
-                const rawService = (appt.reason as string | null) ?? null;
-                const service = rawService
-                  ? (rawService.split("[")[0] || t("appointment")).trim()
-                  : t("appointment");
-
-                let badgeLabel = t("statusScheduled");
-                let badgeClasses =
-                  "rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700";
-                if (appt.status === "confirmed") {
-                  badgeLabel = t("statusConfirmed");
-                  badgeClasses =
-                    "rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700";
-                } else if (appt.status === "completed") {
-                  badgeLabel = t("statusCompleted");
-                  badgeClasses =
-                    "rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700";
-                }
-
-                return (
-                  <div
-                    key={appt.id as string}
-                    className="flex items-center justify-between py-2"
-                  >
-                    <div>
-                      <p className="font-medium text-slate-800">
-                        {timeLabel} · {service || t("appointment")}
-                      </p>
-                      <p className="text-xs text-slate-500">{patientName}</p>
-                    </div>
-                    <span className={badgeClasses}>{badgeLabel}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">{t("tasks")}</h2>
-              <p className="text-xs text-slate-500">
-                {t("tasksDesc")}
-              </p>
-            </div>
-            <Link
-              href="/tasks"
-              className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              {t("viewAllTasks")}
-            </Link>
-          </div>
-          {loading ? (
-            <p className="text-xs text-slate-500">{t("loadingTasks")}</p>
-          ) : tasks.length === 0 ? (
-            <p className="text-xs text-slate-500">
-              {t("noOpenTasks")}
-            </p>
-          ) : (
-            <div className="space-y-2 text-sm">
-              {tasks.map((task) => {
-                const patient = task.patient;
-                const patientName = patient
-                  ? `${patient.first_name ?? ""} ${patient.last_name ?? ""}`
-                      .trim()
-                      .replace(/\s+/g, " ")
-                  : null;
-
-                const rawDate =
-                  (task.activity_date as string | null) ?? (task.created_at as string);
-                let badgeLabel = t("badgePending");
-                let badgeClasses =
-                  "rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700";
-                if (rawDate) {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const d = new Date(rawDate);
-                  if (!Number.isNaN(d.getTime())) {
-                    const taskDate = new Date(
-                      d.getFullYear(),
-                      d.getMonth(),
-                      d.getDate(),
-                    );
-                    const diffMs = taskDate.getTime() - today.getTime();
-                    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-                    if (diffDays === 0) {
-                      badgeLabel = t("badgeToday");
-                      badgeClasses =
-                        "rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700";
-                    } else if (diffDays < 0) {
-                      badgeLabel = t("badgeOverdue");
-                      badgeClasses =
-                        "rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700";
-                    } else if (diffDays <= 7) {
-                      badgeLabel = t("badgeThisWeek");
-                      badgeClasses =
-                        "rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700";
-                    }
-                  }
-                }
-
-                return (
-                  <button
-                    key={task.id as string}
-                    type="button"
-                    onClick={() => void handleOpenTaskModal(task)}
-                    className="flex w-full items-center justify-between rounded-lg bg-slate-50/80 px-3 py-2 text-left hover:bg-slate-100"
-                  >
-                    <div>
-                      <p className="font-medium text-slate-800">
-                        {task.name as string}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {task.content
-                          ? (task.content as string)
-                          : patientName || t("task")}
-                      </p>
-                    </div>
-                    <span className={badgeClasses}>{badgeLabel}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">{t("mentions")}</h2>
-              <p className="text-xs text-slate-500">
-                {t("mentionsDesc")}
-              </p>
-            </div>
-            <Link
-              href="/comments"
-              className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              {t("viewInbox")}
-            </Link>
-          </div>
-          {loading ? (
-            <p className="text-xs text-slate-500">{t("loadingMentions")}</p>
-          ) : mentions.length === 0 ? (
-            <p className="text-xs text-slate-500">{t("noMentions")}</p>
-          ) : (
-            <div className="space-y-2 text-sm">
-              {mentions.map((mention) => {
-                const createdLabel = mention.created_at
-                  ? (() => {
-                      const d = new Date(mention.created_at as string);
-                      return Number.isNaN(d.getTime()) ? null : d.toLocaleString();
-                    })()
-                  : null;
-                const patient = mention.patient;
-                const patientName = patient
-                  ? `${patient.first_name} ${patient.last_name}`.trim()
-                  : t("unknownPatient");
-                const note = mention.note;
-
-                return (
-                  <Link
-                    key={mention.id as string}
-                    href="/comments"
-                    className="flex items-start justify-between rounded-lg bg-slate-50/80 px-3 py-2 hover:bg-slate-100"
-                  >
-                    <div className="pr-4">
-                      <p className="text-xs font-medium text-slate-500">
-                        {createdLabel ?? ""} {createdLabel ? "· " : ""}
-                        {patientName}
-                      </p>
-                      <p className="mt-0.5 text-slate-800">
-                        {note?.author_name ? (
-                          <span className="font-medium">
-                            {note.author_name}:{" "}
-                          </span>
-                        ) : null}
-                        <span>{note?.body ?? t("noteUnavailable")}</span>
-                      </p>
-                    </div>
-                    <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-sky-500" />
-                  </Link>
-                );
-              })}
-            </div>
-          )}
         </div>
       </section>
 
-      {taskModalOpen && selectedTask ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-4 text-sm shadow-xl">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  {((taskDetails ?? selectedTask) as any).name as string}
+      {/* Features Section */}
+      <section className="py-20 sm:py-32">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+              Everything You Need to Run Your Clinic
+            </h2>
+            <p className="mt-4 text-lg text-slate-600">
+              Powerful features designed specifically for aesthetics and medical practices.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-16 grid max-w-5xl gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature) => (
+              <div
+                key={feature.title}
+                className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:border-sky-100 hover:shadow-lg hover:shadow-sky-100/50"
+              >
+                <div className="mb-4 inline-flex rounded-xl bg-sky-50 p-3 text-sky-600 transition-colors group-hover:bg-sky-100">
+                  <feature.icon className="h-6 w-6" />
+                </div>
+                <h3 className="mb-2 text-lg font-semibold text-slate-900">
+                  {feature.title}
                 </h3>
-                <p className="text-xs text-slate-500">
-                  {t("taskDetailsDesc")}
+                <p className="text-sm leading-relaxed text-slate-600">
+                  {feature.description}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleCloseTaskModal}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-xs text-slate-500 hover:bg-slate-50"
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="bg-slate-50 py-20 sm:py-32">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+              Built for Swiss Healthcare
+            </h2>
+            <p className="mt-4 text-lg text-slate-600">
+              Compliant, secure, and tailored for the Swiss medical industry.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-16 grid max-w-4xl gap-8 sm:grid-cols-2">
+            {benefits.map((benefit) => (
+              <div
+                key={benefit.title}
+                className="flex gap-4 rounded-2xl bg-white p-6 shadow-sm"
               >
-                ×
-              </button>
-            </div>
-
-            {taskDetailsLoading ? (
-              <p className="text-xs text-slate-500">{t("loadingTaskDetails")}</p>
-            ) : (
-              <div className="space-y-2 text-xs text-slate-700">
-                {(() => {
-                  const task = (taskDetails ?? selectedTask) as any;
-                  const statusLabel = task?.status
-                    ? (task.status === "completed"
-                        ? t("statusCompleted2")
-                        : task.status === "in_progress"
-                          ? t("statusInProgress")
-                          : t("statusNotStarted"))
-                    : null;
-                  const priorityLabel = task?.priority ?? null;
-
-                  const whenRaw =
-                    (task?.activity_date as string | null) ??
-                    (task?.created_at as string | null);
-                  let whenLabel: string | null = null;
-                  if (whenRaw) {
-                    const d = new Date(whenRaw);
-                    if (!Number.isNaN(d.getTime())) {
-                      whenLabel = d.toLocaleString();
-                    }
-                  }
-
-                  const patient = task?.patient as
-                    | {
-                        first_name: string | null;
-                        last_name: string | null;
-                        email: string | null;
-                        phone: string | null;
-                      }
-                    | null
-                    | undefined;
-                  const patientName = patient
-                    ? `${patient.first_name ?? ""} ${patient.last_name ?? ""}`
-                        .trim()
-                        .replace(/\s+/g, " ")
-                    : null;
-
-                  return (
-                    <>
-                      {task?.content ? (
-                        <p className="text-slate-800">{task.content as string}</p>
-                      ) : null}
-                      <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
-                        {statusLabel ? (
-                          <span>
-                            {t("statusLabel")} <span className="font-medium">{statusLabel}</span>
-                          </span>
-                        ) : null}
-                        {priorityLabel ? (
-                          <span>
-                            {t("priorityLabel")}{" "}
-                            <span className="font-medium capitalize">
-                              {priorityLabel as string}
-                            </span>
-                          </span>
-                        ) : null}
-                        {whenLabel ? (
-                          <span>
-                            {t("whenLabel")} <span className="font-medium">{whenLabel}</span>
-                          </span>
-                        ) : null}
-                      </div>
-                      {patientName || patient?.email || patient?.phone ? (
-                        <p className="text-[11px] text-slate-500">
-                          {t("patientLabel")}{" "}
-                          <span className="font-medium">
-                            {patientName || t("unknownPatient")}
-                          </span>
-                          {patient?.email || patient?.phone ? (
-                            <span className="text-slate-400">
-                              {" "}• {patient.email || patient.phone}
-                            </span>
-                          ) : null}
-                        </p>
-                      ) : null}
-                      {task?.patient_id ? (
-                        <div className="mt-3 flex gap-2">
-                          <Link
-                            href={`/patients/${task.patient_id}?tab=tasks`}
-                            className="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-500 px-3 py-1 text-[11px] font-medium text-white shadow-sm hover:bg-emerald-600"
-                          >
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            {t("editTask")}
-                          </Link>
-                        </div>
-                      ) : null}
-                    </>
-                  );
-                })()}
+                <div className="flex-shrink-0 rounded-xl bg-sky-50 p-3 text-sky-600">
+                  <benefit.icon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="mb-1 font-semibold text-slate-900">
+                    {benefit.title}
+                  </h3>
+                  <p className="text-sm text-slate-600">{benefit.description}</p>
+                </div>
               </div>
-            )}
+            ))}
+          </div>
+        </div>
+      </section>
 
-            <div className="mt-3 border-t border-slate-200 pt-3">
-              <p className="mb-1 text-[11px] font-semibold text-slate-600">
-                {t("comments")}
+      {/* CTA Section */}
+      <section className="py-20 sm:py-32">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-sky-600 to-sky-700 px-8 py-16 text-center shadow-2xl sm:px-16 sm:py-24">
+            <div className="relative">
+              <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                Ready to Transform Your Clinic?
+              </h2>
+              <p className="mx-auto mt-4 max-w-xl text-lg text-sky-100">
+                Join hundreds of clinics already using ALiice to streamline their operations
+                and deliver better patient experiences.
               </p>
-              {taskCommentsLoading ? (
-                <p className="text-[11px] text-slate-500">{t("loadingComments")}</p>
-              ) : taskComments.length === 0 ? (
-                <p className="text-[11px] text-slate-400">{t("noComments")}</p>
-              ) : (
-                <div className="mb-2 max-h-48 space-y-1.5 overflow-y-auto">
-                  {taskComments.map((comment) => {
-                    const cDate = comment.created_at
-                      ? new Date(comment.created_at as string)
-                      : null;
-                    const cLabel =
-                      cDate && !Number.isNaN(cDate.getTime())
-                        ? cDate.toLocaleDateString()
-                        : null;
-
-                    return (
-                      <div
-                        key={comment.id as string}
-                        className="rounded-md bg-slate-50 px-2 py-1 text-[11px] text-slate-800"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-medium">
-                              {(comment.author_name as string) || t("unknownAuthor")}
-                            </p>
-                            <p className="mt-0.5 whitespace-pre-wrap">
-                              {renderTextWithMentions(comment.body as string)}
-                            </p>
-                          </div>
-                          {cLabel ? (
-                            <p className="shrink-0 text-[10px] text-slate-400">
-                              {cLabel}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleTaskCommentSubmitDashboard();
-                }}
-              >
-                <div className="relative flex items-center gap-1">
-                  <input
-                    type="text"
-                    value={taskCommentInput}
-                    onChange={(event) =>
-                      handleTaskCommentInputChangeDashboard(event.target.value)
-                    }
-                    placeholder={t("commentPlaceholder")}
-                    className="flex-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    disabled={taskCommentSaving}
-                  />
-                  <button
-                    type="submit"
-                    disabled={taskCommentSaving}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-sky-200/80 bg-sky-600 text-[11px] font-medium text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {taskCommentSaving ? "…" : ">"}
-                  </button>
-                </div>
-                {taskCommentError ? (
-                  <p className="mt-0.5 text-[10px] text-red-600">
-                    {taskCommentError}
-                  </p>
-                ) : null}
-
-                {mentionOptions.length > 0 ? (
-                  <div className="mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white text-[10px] shadow">
-                    {mentionOptions.map((user) => {
-                      const display =
-                        user.full_name || user.email || t("unnamedUser");
-                      return (
-                        <button
-                          key={user.id}
-                          type="button"
-                          onClick={() => handleTaskMentionSelectDashboard(user)}
-                          className="block w-full cursor-pointer px-2 py-1 text-left text-slate-700 hover:bg-slate-50"
-                        >
-                          {display}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </form>
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3 text-sm font-semibold text-sky-600 shadow-lg transition-all hover:bg-sky-50"
+                >
+                  <CheckCircle className="h-5 w-5" />
+                  Start 14-Day Free Trial
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-8 py-3 text-sm font-semibold text-white backdrop-blur transition-all hover:bg-white/20"
+                >
+                  Already have an account? Sign in
+                </Link>
+              </div>
             </div>
           </div>
         </div>
-      ) : null}
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-100 bg-white py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
+            <div className="flex items-center gap-2">
+              <Image
+                src="/logos/aliice-logo.png"
+                alt="ALiice"
+                width={80}
+                height={26}
+                className="h-6 w-auto"
+              />
+              <span className="text-sm text-slate-500">
+                © {new Date().getFullYear()} ALiice. All rights reserved.
+              </span>
+            </div>
+            <div className="flex items-center gap-6 text-sm text-slate-500">
+              <Link href="/privacy" className="hover:text-slate-700">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="hover:text-slate-700">
+                Terms of Service
+              </Link>
+              <Link href="/contact" className="hover:text-slate-700">
+                Contact
+              </Link>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

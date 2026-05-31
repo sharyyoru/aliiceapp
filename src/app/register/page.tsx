@@ -1,416 +1,274 @@
 "use client";
 
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import Image from "next/image";
-
-type Language = "en" | "fr";
-
-const translations = {
-  en: {
-    title: "Patient Registration",
-    subtitle: "Create your patient profile to get started.",
-    firstName: "First name",
-    lastName: "Last name",
-    email: "Email address",
-    phone: "Phone number",
-    gender: "Gender",
-    genderOptions: { "": "Select gender", male: "Male", female: "Female", other: "Other" },
-    dob: "Date of birth",
-    address: "Street address",
-    streetNumber: "Number",
-    postalCode: "Postal code",
-    town: "City",
-    country: "Country",
-    languagePref: "Preferred language",
-    langOptions: { "": "Select language", en: "English", fr: "French", de: "German", it: "Italian" },
-    submit: "Register",
-    submitting: "Registering...",
-    required: "* Required fields",
-    successTitle: "Registration complete",
-    successMessage: "Your patient profile has been created. Our team will be in touch with you soon.",
-    errors: {
-      required: "Please fill in all required fields.",
-      email: "Please enter a valid email address.",
-      duplicate: "A patient with this email already exists.",
-      generic: "Something went wrong. Please try again.",
-    },
-  },
-  fr: {
-    title: "Inscription patient",
-    subtitle: "Créez votre profil patient pour commencer.",
-    firstName: "Prénom",
-    lastName: "Nom de famille",
-    email: "Adresse e-mail",
-    phone: "Numéro de téléphone",
-    gender: "Genre",
-    genderOptions: { "": "Sélectionner", male: "Homme", female: "Femme", other: "Autre" },
-    dob: "Date de naissance",
-    address: "Adresse",
-    streetNumber: "Numéro",
-    postalCode: "Code postal",
-    town: "Ville",
-    country: "Pays",
-    languagePref: "Langue préférée",
-    langOptions: { "": "Sélectionner", en: "Anglais", fr: "Français", de: "Allemand", it: "Italien" },
-    submit: "S'inscrire",
-    submitting: "Inscription...",
-    required: "* Champs obligatoires",
-    successTitle: "Inscription terminée",
-    successMessage: "Votre profil patient a été créé. Notre équipe vous contactera bientôt.",
-    errors: {
-      required: "Veuillez remplir tous les champs obligatoires.",
-      email: "Veuillez saisir une adresse e-mail valide.",
-      duplicate: "Un patient avec cet e-mail existe déjà.",
-      generic: "Une erreur s'est produite. Veuillez réessayer.",
-    },
-  },
-};
-
-const countryCodes = [
-  { code: "+41", flag: "🇨🇭", label: "🇨🇭 +41" },
-  { code: "+33", flag: "🇫🇷", label: "🇫🇷 +33" },
-  { code: "+49", flag: "🇩🇪", label: "🇩🇪 +49" },
-  { code: "+39", flag: "🇮🇹", label: "🇮🇹 +39" },
-  { code: "+44", flag: "🇬🇧", label: "🇬🇧 +44" },
-  { code: "+1",  flag: "🇺🇸", label: "🇺🇸 +1"  },
-  { code: "+43", flag: "🇦🇹", label: "🇦🇹 +43" },
-  { code: "+34", flag: "🇪🇸", label: "🇪🇸 +34" },
-  { code: "+971", flag: "🇦🇪", label: "🇦🇪 +971" },
-];
-
-const inputClass =
-  "w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-black placeholder:text-slate-400 focus:border-black focus:outline-none focus:ring-2 focus:ring-slate-200 text-sm";
-const labelClass = "block text-xs font-medium text-slate-600 mb-1";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabaseClient } from "@/lib/supabaseClient";
+import { Loader2 } from "lucide-react";
 
 export default function RegisterPage() {
-  const [lang, setLang] = useState<Language>("en");
-  const t = translations[lang];
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("invite");
+  const inviteEmail = searchParams.get("email");
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [countryCode, setCountryCode] = useState("+41");
-  const [phone, setPhone] = useState("");
-  const [gender, setGender] = useState("");
-  const [dob, setDob] = useState("");
-  const [streetAddress, setStreetAddress] = useState("");
-  const [streetNumber, setStreetNumber] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [town, setTown] = useState("");
-  const [country, setCountry] = useState("Switzerland");
-  const [languagePref, setLanguagePref] = useState("");
-
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState(inviteEmail || "");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setError(null);
 
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
-      setError(t.errors.required);
+    if (!fullName.trim() || !email.trim() || !password.trim()) {
+      setError("Please fill in all required fields.");
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setError(t.errors.email);
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
-      const res = await fetch("/api/public/register-patient", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          first_name: firstName,
-          last_name: lastName,
-          email,
-          phone,
-          country_code: countryCode,
-          gender: gender || undefined,
-          dob: dob || undefined,
-          street_address: streetAddress || undefined,
-          street_number: streetNumber || undefined,
-          postal_code: postalCode || undefined,
-          town: town || undefined,
-          country: country || undefined,
-          language_preference: languagePref || undefined,
-        }),
+      // Create user account
+      const { data, error: signUpError } = await supabaseClient.auth.signUp({
+        email: email.trim(),
+        password: password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+          },
+        },
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 409) {
-          setError(t.errors.duplicate);
-        } else {
-          setError(data.error || t.errors.generic);
-        }
+      if (signUpError) {
+        setError(signUpError.message);
+        setLoading(false);
         return;
       }
 
-      setSuccess(true);
-    } catch {
-      setError(t.errors.generic);
+      if (data.user) {
+        // Create user profile in users table
+        await supabaseClient.from("users").upsert({
+          id: data.user.id,
+          email: email.trim(),
+          full_name: fullName.trim(),
+          role: "staff",
+        });
+
+        // If there's an invite token, redirect to accept it
+        if (inviteToken) {
+          router.replace(`/invite/${inviteToken}`);
+        } else {
+          setSuccess(true);
+        }
+      }
+    } catch (err) {
+      console.error("Registration error:", err);
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex flex-col">
-      {/* Header */}
-      <header className="px-4 sm:px-6 py-4 flex items-center justify-between">
-        <div />
-        <div className="flex items-center gap-2">
-          {(["en", "fr"] as Language[]).map((l) => (
-            <button
-              key={l}
-              onClick={() => setLang(l)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                lang === l
-                  ? "bg-slate-800 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {l.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      <div className="flex-1 flex flex-col items-center px-4 sm:px-6 py-6 sm:py-10">
-        <div className="w-full max-w-lg">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-sky-50 p-4">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="mb-8 flex justify-center">
+          <Link href="/">
             <Image
-              src="/logos/maisontoa-logo.png"
-              alt="Maison Toa"
-              width={280}
-              height={80}
-              className="h-16 sm:h-20 w-auto"
-              priority
+              src="/logos/aliice-logo.png"
+              alt="ALiice"
+              width={120}
+              height={40}
+              className="h-10 w-auto"
             />
-          </div>
+          </Link>
+        </div>
 
+        <div className="rounded-3xl border border-white/70 bg-white/90 p-8 shadow-[0_22px_50px_rgba(15,23,42,0.18)] backdrop-blur-xl">
           {success ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <div className="text-center py-8">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <svg
+                  className="h-8 w-8 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </div>
-              <h2 className="text-xl font-medium text-slate-900 mb-2">{t.successTitle}</h2>
-              <p className="text-slate-600 text-sm">{t.successMessage}</p>
+              <h2 className="text-xl font-semibold text-slate-900 mb-2">
+                Check Your Email
+              </h2>
+              <p className="text-sm text-slate-600 mb-6">
+                We&apos;ve sent a confirmation link to <strong>{email}</strong>.
+                Please check your inbox and click the link to verify your account.
+              </p>
+              <Link
+                href="/login"
+                className="text-sm font-medium text-sky-600 hover:text-sky-700"
+              >
+                Back to Login
+              </Link>
             </div>
           ) : (
             <>
-              <div className="text-center mb-8">
-                <h1 className="text-2xl sm:text-3xl font-light text-slate-900 mb-2">{t.title}</h1>
-                <p className="text-slate-600 text-sm">{t.subtitle}</p>
+              <div className="mb-6 text-center">
+                <h1 className="text-lg font-semibold text-slate-900">
+                  Create Your Account
+                </h1>
+                <p className="mt-1 text-xs text-slate-500">
+                  {inviteToken
+                    ? "Complete your registration to join the clinic."
+                    : "Sign up to start managing your clinic."}
+                </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Name row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>{t.firstName} *</label>
-                    <input
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder={t.firstName}
-                      className={inputClass}
-                      disabled={loading}
-                      autoComplete="given-name"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>{t.lastName} *</label>
-                    <input
-                      type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder={t.lastName}
-                      className={inputClass}
-                      disabled={loading}
-                      autoComplete="family-name"
-                    />
-                  </div>
-                </div>
-
-                {/* Email */}
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className={labelClass}>{t.email} *</label>
+                  <label
+                    htmlFor="fullName"
+                    className="block text-xs font-medium text-slate-700 mb-1"
+                  >
+                    Full Name
+                  </label>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className={inputClass}
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Dr. John Smith"
+                    required
                     disabled={loading}
-                    autoComplete="email"
+                    className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-60"
                   />
                 </div>
 
-                {/* Phone */}
                 <div>
-                  <label className={labelClass}>{t.phone} *</label>
-                  <div className="flex gap-2">
-                    <select
-                      value={countryCode}
-                      onChange={(e) => setCountryCode(e.target.value)}
-                      className="w-28 px-3 py-3 rounded-lg border border-slate-300 bg-white text-black focus:border-black focus:outline-none focus:ring-2 focus:ring-slate-200 text-sm"
-                      disabled={loading}
-                    >
-                      {countryCodes.map((c) => (
-                        <option key={c.code} value={c.code}>{c.label}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="79 123 45 67"
-                      className={`${inputClass} flex-1`}
-                      disabled={loading}
-                      autoComplete="tel"
-                    />
-                  </div>
+                  <label
+                    htmlFor="email"
+                    className="block text-xs font-medium text-slate-700 mb-1"
+                  >
+                    Email Address
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    disabled={loading || !!inviteEmail}
+                    className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-60"
+                  />
                 </div>
 
-                {/* Gender + DOB */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>{t.gender}</label>
-                    <select
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value)}
-                      className={inputClass}
-                      disabled={loading}
-                    >
-                      {Object.entries(t.genderOptions).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelClass}>{t.dob}</label>
-                    <input
-                      type="date"
-                      value={dob}
-                      onChange={(e) => setDob(e.target.value)}
-                      className={inputClass}
-                      disabled={loading}
-                      autoComplete="bday"
-                    />
-                  </div>
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-xs font-medium text-slate-700 mb-1"
+                  >
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    required
+                    disabled={loading}
+                    className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-60"
+                  />
                 </div>
 
-                {/* Address */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <label className={labelClass}>{t.address}</label>
-                    <input
-                      type="text"
-                      value={streetAddress}
-                      onChange={(e) => setStreetAddress(e.target.value)}
-                      placeholder={t.address}
-                      className={inputClass}
-                      disabled={loading}
-                      autoComplete="street-address"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>{t.streetNumber}</label>
-                    <input
-                      type="text"
-                      value={streetNumber}
-                      onChange={(e) => setStreetNumber(e.target.value)}
-                      placeholder="1a"
-                      className={inputClass}
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>{t.postalCode}</label>
-                    <input
-                      type="text"
-                      value={postalCode}
-                      onChange={(e) => setPostalCode(e.target.value)}
-                      placeholder="1000"
-                      className={inputClass}
-                      disabled={loading}
-                      autoComplete="postal-code"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>{t.town}</label>
-                    <input
-                      type="text"
-                      value={town}
-                      onChange={(e) => setTown(e.target.value)}
-                      placeholder="Lausanne"
-                      className={inputClass}
-                      disabled={loading}
-                      autoComplete="address-level2"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>{t.country}</label>
-                    <input
-                      type="text"
-                      value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      placeholder="Switzerland"
-                      className={inputClass}
-                      disabled={loading}
-                      autoComplete="country-name"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>{t.languagePref}</label>
-                    <select
-                      value={languagePref}
-                      onChange={(e) => setLanguagePref(e.target.value)}
-                      className={inputClass}
-                      disabled={loading}
-                    >
-                      {Object.entries(t.langOptions).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-xs font-medium text-slate-700 mb-1"
+                  >
+                    Confirm Password
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat your password"
+                    required
+                    disabled={loading}
+                    className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-60"
+                  />
                 </div>
 
                 {error && (
-                  <p className="text-sm text-red-600">{error}</p>
+                  <p className="text-xs text-red-600">{error}</p>
                 )}
-
-                <p className="text-xs text-slate-400">{t.required}</p>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 rounded-full bg-black text-white font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 text-sm"
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-600/25 transition-all hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? t.submitting : t.submit}
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creating Account...
+                    </>
+                  ) : (
+                    "Create Account"
+                  )}
                 </button>
               </form>
+
+              <div className="mt-6 text-center">
+                <p className="text-xs text-slate-500">
+                  Already have an account?{" "}
+                  <Link
+                    href="/login"
+                    className="font-medium text-sky-600 hover:text-sky-700"
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </div>
+
+              <p className="mt-4 text-center text-[10px] text-slate-400">
+                By signing up, you agree to our{" "}
+                <Link href="/terms" className="underline hover:text-slate-600">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="underline hover:text-slate-600">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
             </>
           )}
         </div>
       </div>
-    </main>
+    </div>
   );
 }
