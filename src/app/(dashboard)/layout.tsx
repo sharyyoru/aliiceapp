@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import RequireAuth from "@/components/RequireAuth";
+import OrganizationGuard from "@/components/OrganizationGuard";
 import { ShellSidebar, ShellHeader, ShellFrame } from "@/components/ShellVisibility";
 import HeaderUser from "@/components/HeaderUser";
 import HeaderCommentsButton from "@/components/HeaderCommentsButton";
@@ -126,6 +127,7 @@ export default async function DashboardLayout({
         </ShellSidebar>
         <main className="flex-1 min-w-0 bg-slate-50/40">
           <RequireAuth>
+            <OrganizationGuard>
             <div className="flex h-full flex-col">
               <ShellHeader>
                 <header className="flex items-center justify-between border-b border-slate-100/80 bg-white/70 px-4 py-3 sm:px-6 lg:px-8 app-shell-header">
@@ -165,6 +167,7 @@ export default async function DashboardLayout({
               <PatientTabBar />
               <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">{children}</div>
             </div>
+            </OrganizationGuard>
           </RequireAuth>
         </main>
       </div>
