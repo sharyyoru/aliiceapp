@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Get organization_id from query params if provided
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get("organization_id");
+
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({
       page: 1,
       perPage: 200,
@@ -15,10 +19,31 @@ export async function GET() {
       );
     }
 
-    // Get existing users from public.users table (including provider_id for doctor-provider mapping)
+    // Get existing users from public.users table (including provider_id and current_organization_id for filtering)
     const { data: existingPublicUsers } = await supabaseAdmin
       .from("users")
-      .select("id, provider_id");
+      .select("id, provider_id, current_organization_id");
+    
+    // Build set of user IDs that belong to the requested organization
+    const orgUserIds = new Set<string>();
+    if (organizationId) {
+      // Get users who are members of this organization
+      const { data: orgMembers } = await supabaseAdmin
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", organizationId);
+      
+      for (const member of orgMembers || []) {
+        if (member.user_id) orgUserIds.add(member.user_id);
+      }
+      
+      // Also include users whose current_organization_id matches
+      for (const u of existingPublicUsers || []) {
+        if (u.current_organization_id === organizationId) {
+          orgUserIds.add(u.id);
+        }
+      }
+    }
     
     const existingIds = new Set((existingPublicUsers || []).map((u) => u.id));
     const providerIdMap = new Map<string, string | null>();
@@ -54,7 +79,12 @@ export async function GET() {
         .upsert(syncRecords, { onConflict: "id", ignoreDuplicates: true });
     }
 
-    const users = data.users.map((user) => {
+    // Filter users by organization if organizationId is provided
+    const filteredAuthUsers = organizationId 
+      ? data.users.filter((user) => orgUserIds.has(user.id))
+      : data.users;
+
+    const users = filteredAuthUsers.map((user) => {
       const meta = (user.user_metadata || {}) as Record<string, unknown>;
       const firstName = (meta["first_name"] as string) ?? null;
       const lastName = (meta["last_name"] as string) ?? null;

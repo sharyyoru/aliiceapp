@@ -1007,7 +1007,21 @@ export default function MedicalConsultationsCard({
 
     async function loadUsers() {
       try {
-        const response = await fetch("/api/users/list");
+        // Get current user's organization to filter doctors
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        let orgParam = "";
+        if (user) {
+          const { data: userData } = await supabaseClient
+            .from("users")
+            .select("current_organization_id")
+            .eq("id", user.id)
+            .single();
+          if (userData?.current_organization_id) {
+            orgParam = `?organization_id=${userData.current_organization_id}`;
+          }
+        }
+        
+        const response = await fetch(`/api/users/list${orgParam}`);
         if (!response.ok) return;
         const json = (await response.json()) as PlatformUser[];
         if (!isMounted) return;
