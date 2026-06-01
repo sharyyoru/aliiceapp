@@ -268,8 +268,8 @@ export default function LandingPageClient() {
                   ))}
                 </div>
 
-                {/* Demo Content */}
-                <div className="p-6 min-h-[400px]">
+                {/* Demo Content - Fixed height to prevent layout shift */}
+                <div className="p-6 h-[420px] overflow-hidden">
                   {activeDemo === "patient" && <PatientCardDemo />}
                   {activeDemo === "calendar" && <CalendarDemo />}
                   {activeDemo === "ai" && <AIScribeDemo />}
