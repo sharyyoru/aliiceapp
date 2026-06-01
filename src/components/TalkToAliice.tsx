@@ -187,18 +187,80 @@ export default function TalkToAliice() {
   }
 
   async function startVoiceCall() {
-    // Retell Web SDK integration would go here
-    // For now, show placeholder
-    setIsOnCall(true);
-    setMessages(prev => [...prev, {
-      id: `system-${Date.now()}`,
-      role: "assistant",
-      content: "🎤 Voice call started. You can now speak to Aliice directly. Click the red phone button to end the call.",
-      timestamp: new Date()
-    }]);
+    try {
+      setMessages(prev => [...prev, {
+        id: `system-${Date.now()}`,
+        role: "assistant",
+        content: "🔄 Connecting to voice assistant...",
+        timestamp: new Date()
+      }]);
+
+      // Get access token from our API
+      const response = await fetch("/api/retell/create-web-call", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create call");
+      }
+
+      const { access_token } = await response.json();
+
+      // Dynamically import Retell Web SDK
+      const { RetellWebClient } = await import("retell-client-js-sdk");
+      const retellClient = new RetellWebClient();
+
+      // Start the call
+      await retellClient.startCall({
+        accessToken: access_token,
+        sampleRate: 24000,
+        captureDeviceId: "default",
+        playbackDeviceId: "default",
+      });
+
+      setIsOnCall(true);
+      setMessages(prev => [...prev, {
+        id: `system-${Date.now()}`,
+        role: "assistant",
+        content: "🎤 Voice call connected! You can now speak to Aliice directly. Click the red phone button to end the call.",
+        timestamp: new Date()
+      }]);
+
+      // Store client reference for ending call
+      (window as unknown as { retellClient: typeof retellClient }).retellClient = retellClient;
+
+      // Listen for call end
+      retellClient.on("call_ended", () => {
+        setIsOnCall(false);
+        setIsMuted(false);
+        setMessages(prev => [...prev, {
+          id: `system-${Date.now()}`,
+          role: "assistant",
+          content: "📞 Voice call ended. You can continue chatting or start a new call anytime.",
+          timestamp: new Date()
+        }]);
+      });
+
+    } catch (error) {
+      console.error("Error starting voice call:", error);
+      setMessages(prev => [...prev, {
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: "❌ Sorry, I couldn't connect the voice call. Please try again or use the chat instead.",
+        timestamp: new Date()
+      }]);
+    }
   }
 
   function endVoiceCall() {
+    try {
+      const retellClient = (window as unknown as { retellClient?: { stopCall: () => void } }).retellClient;
+      if (retellClient) {
+        retellClient.stopCall();
+      }
+    } catch (error) {
+      console.error("Error ending call:", error);
+    }
     setIsOnCall(false);
     setIsMuted(false);
     setMessages(prev => [...prev, {
