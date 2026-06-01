@@ -36,20 +36,22 @@ export default async function RootLayout({
   return (
     <html lang={locale}>
       <body className={`${manrope.variable} ${geistMono.variable} antialiased`}>
-        <GlobalLoader />
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          <AuthProvider>
-            <CommentsUnreadProvider>
-              <TasksNotificationsProvider>
-                <EmailNotificationsProvider>
-                  <PatientTabsProvider>
-                    {children}
-                  </PatientTabsProvider>
-                </EmailNotificationsProvider>
-              </TasksNotificationsProvider>
-            </CommentsUnreadProvider>
-          </AuthProvider>
-        </NextIntlClientProvider>
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#eef2ff,_#e0f2fe_40%,_#fdf2ff_80%)] px-4 py-6 sm:px-6 lg:px-8">
+          <GlobalLoader />
+          <NextIntlClientProvider locale={locale} messages={messages}>
+            <AuthProvider>
+              <CommentsUnreadProvider>
+                <TasksNotificationsProvider>
+                  <EmailNotificationsProvider>
+                    <PatientTabsProvider>
+                      {children}
+                    </PatientTabsProvider>
+                  </EmailNotificationsProvider>
+                </TasksNotificationsProvider>
+              </CommentsUnreadProvider>
+            </AuthProvider>
+          </NextIntlClientProvider>
+        </div>
       </body>
     </html>
   );

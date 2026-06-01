@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { useCommentsUnread } from "@/components/CommentsUnreadContext";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 
 type PlatformUser = {
   id: string;
@@ -439,6 +440,9 @@ export default function Home() {
           </Link>
         </div>
       </header>
+
+      {/* Onboarding checklist for new users */}
+      <OnboardingChecklist />
 
       <section className="space-y-4">
         <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur">
@@ -894,3 +898,5 @@ export default function Home() {
     </div>
   );
 }
+
+
