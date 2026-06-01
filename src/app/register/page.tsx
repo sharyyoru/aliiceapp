@@ -43,6 +43,11 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      // Determine the redirect URL based on environment
+      const baseUrl = typeof window !== "undefined" 
+        ? window.location.origin 
+        : process.env.NEXT_PUBLIC_APP_URL || "https://aliiceapp.vercel.app";
+      
       // Create user account
       const { data, error: signUpError } = await supabaseClient.auth.signUp({
         email: email.trim(),
@@ -51,6 +56,9 @@ export default function RegisterPage() {
           data: {
             full_name: fullName.trim(),
           },
+          emailRedirectTo: inviteToken 
+            ? `${baseUrl}/invite/${inviteToken}` 
+            : `${baseUrl}/dashboard`,
         },
       });
 
