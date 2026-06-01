@@ -340,59 +340,58 @@ export default function LandingPageClient() {
       </section>
 
       {/* CMS & Booking Page Section */}
-      <section className="py-20 sm:py-28 bg-gradient-to-br from-violet-600 via-purple-600 to-sky-600 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+      <section className="py-20 sm:py-28 bg-slate-100 relative overflow-hidden">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left - Content */}
-            <div className="text-white">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur border border-white/20 px-4 py-1.5 mb-6">
-                <Sparkles className="h-4 w-4 text-amber-300" />
-                <span className="text-sm font-medium">Grow Your Business</span>
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-slate-200 px-4 py-1.5 mb-6">
+                <Sparkles className="h-4 w-4 text-slate-600" />
+                <span className="text-sm font-medium text-slate-700">Grow Your Business</span>
               </div>
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-6">
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl mb-6">
                 Custom Booking Pages That Convert
               </h2>
-              <p className="text-lg text-white/80 mb-8">
+              <p className="text-lg text-slate-600 mb-8">
                 Build beautiful, branded booking pages that turn visitors into patients. 
                 No coding required — just drag, drop, and publish.
               </p>
               
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <Globe className="h-5 w-5 text-white" />
+                  <div className="h-10 w-10 rounded-xl bg-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Globe className="h-5 w-5 text-slate-700" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-white">Custom Domains</h4>
-                    <p className="text-sm text-white/70">Use your own domain for a fully branded experience</p>
+                    <h4 className="font-semibold text-slate-900">Custom Domains</h4>
+                    <p className="text-sm text-slate-500">Use your own domain for a fully branded experience</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <Layout className="h-5 w-5 text-white" />
+                  <div className="h-10 w-10 rounded-xl bg-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Layout className="h-5 w-5 text-slate-700" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-white">Drag & Drop CMS</h4>
-                    <p className="text-sm text-white/70">Build pages visually with our intuitive editor</p>
+                    <h4 className="font-semibold text-slate-900">Drag & Drop CMS</h4>
+                    <p className="text-sm text-slate-500">Build pages visually with our intuitive editor</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <Palette className="h-5 w-5 text-white" />
+                  <div className="h-10 w-10 rounded-xl bg-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Palette className="h-5 w-5 text-slate-700" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-white">Full Customization</h4>
-                    <p className="text-sm text-white/70">Match your brand colors, fonts, and style</p>
+                    <h4 className="font-semibold text-slate-900">Full Customization</h4>
+                    <p className="text-sm text-slate-500">Match your brand colors, fonts, and style</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <Smartphone className="h-5 w-5 text-white" />
+                  <div className="h-10 w-10 rounded-xl bg-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Smartphone className="h-5 w-5 text-slate-700" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-white">Mobile Optimized</h4>
-                    <p className="text-sm text-white/70">Perfect experience on any device</p>
+                    <h4 className="font-semibold text-slate-900">Mobile Optimized</h4>
+                    <p className="text-sm text-slate-500">Perfect experience on any device</p>
                   </div>
                 </div>
               </div>
@@ -400,7 +399,7 @@ export default function LandingPageClient() {
               <div className="mt-10">
                 <Link
                   href="/register"
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-base font-semibold text-violet-600 shadow-lg hover:bg-violet-50 transition-all"
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-base font-semibold text-white hover:bg-slate-800 transition-all"
                 >
                   Build Your Booking Page
                   <ArrowRight className="h-5 w-5" />
@@ -495,20 +494,20 @@ export default function LandingPageClient() {
             </p>
             
             <div className="mt-12 grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
-              <div className="bg-white/10 backdrop-blur rounded-2xl p-6 text-left border border-white/10">
-                <div className="text-emerald-400 text-sm font-medium mb-2">Starter</div>
-                <div className="text-3xl font-bold text-white">$1,490<span className="text-lg text-slate-400">/mo</span></div>
+              <div className="bg-slate-800 rounded-2xl p-6 text-left border border-slate-700">
+                <div className="text-slate-400 text-sm font-medium mb-2">Starter</div>
+                <div className="text-3xl font-bold text-white">$1,490<span className="text-lg text-slate-500">/mo</span></div>
                 <div className="text-sm text-slate-400 mt-1">Essential CRM & Booking</div>
               </div>
-              <div className="bg-gradient-to-br from-sky-600 to-violet-600 rounded-2xl p-6 text-left scale-105 shadow-xl">
-                <div className="text-sky-200 text-sm font-medium mb-2">Professional</div>
-                <div className="text-3xl font-bold text-white">$2,240<span className="text-lg text-sky-200">/mo</span></div>
-                <div className="text-sm text-sky-100 mt-1">Full CRM + ERP + Booking</div>
-                <div className="mt-3 text-xs bg-white/20 rounded-full px-3 py-1 inline-block">Most Popular</div>
+              <div className="bg-white rounded-2xl p-6 text-left scale-105 shadow-xl">
+                <div className="text-slate-500 text-sm font-medium mb-2">Professional</div>
+                <div className="text-3xl font-bold text-slate-900">$2,240<span className="text-lg text-slate-400">/mo</span></div>
+                <div className="text-sm text-slate-600 mt-1">Full CRM + ERP + Booking</div>
+                <div className="mt-3 text-xs bg-slate-900 text-white rounded-full px-3 py-1 inline-block">Most Popular</div>
               </div>
-              <div className="bg-white/10 backdrop-blur rounded-2xl p-6 text-left border border-white/10">
-                <div className="text-amber-400 text-sm font-medium mb-2">Enterprise</div>
-                <div className="text-3xl font-bold text-white">$3,200<span className="text-lg text-slate-400">/mo</span></div>
+              <div className="bg-slate-800 rounded-2xl p-6 text-left border border-slate-700">
+                <div className="text-slate-400 text-sm font-medium mb-2">Enterprise</div>
+                <div className="text-3xl font-bold text-white">$3,200<span className="text-lg text-slate-500">/mo</span></div>
                 <div className="text-sm text-slate-400 mt-1">Everything + AI & Custom</div>
               </div>
             </div>
