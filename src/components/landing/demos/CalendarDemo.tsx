@@ -7,7 +7,6 @@ const appointments = [
   { id: 1, time: "09:00", patient: "Emma T.", type: "Consultation", color: "sky" },
   { id: 2, time: "10:30", patient: "Michael C.", type: "Follow-up", color: "emerald" },
   { id: 3, time: "14:00", patient: "Sarah J.", type: "Treatment", color: "violet" },
-  { id: 4, time: "15:30", patient: "John D.", type: "Consultation", color: "amber" },
 ];
 
 type CalendarDemoProps = {

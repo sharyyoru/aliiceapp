@@ -237,11 +237,11 @@ export default function LandingPageClient() {
               </p>
               
               <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl leading-[1.1]">
-                The all-in-one medical CRM for aesthetics clinics.{" "}
-                <span className="text-slate-400">
-                  Replacing CRM, ERP, and booking with one unified platform.
-                </span>
+                The all-in-one medical CRM for aesthetics clinics.
               </h1>
+              <p className="mt-4 text-lg sm:text-xl text-sky-600 font-normal">
+                Replacing CRM, ERP, and booking with one unified platform.
+              </p>
 
               {/* Stats */}
               <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
