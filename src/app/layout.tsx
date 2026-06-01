@@ -9,6 +9,7 @@ import { EmailNotificationsProvider } from "@/components/EmailNotificationsConte
 import { PatientTabsProvider } from "@/components/PatientTabsContext";
 import { AuthProvider } from "@/components/AuthContext";
 import GlobalLoader from "@/components/GlobalLoader";
+import TalkToAliice from "@/components/TalkToAliice";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -45,6 +46,7 @@ export default async function RootLayout({
                   <EmailNotificationsProvider>
                     <PatientTabsProvider>
                       {children}
+                      <TalkToAliice />
                     </PatientTabsProvider>
                   </EmailNotificationsProvider>
                 </TasksNotificationsProvider>
