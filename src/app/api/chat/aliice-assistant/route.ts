@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
-});
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // System prompt for Aliice - the AI assistant
 const SYSTEM_PROMPT = `You are Aliice, the friendly and knowledgeable AI assistant for the ALiice Medical CRM platform. Your role is to help clinic owners and staff set up their system, answer questions, and guide them through features.
@@ -102,42 +98,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
       // Fallback response when no API key
       return NextResponse.json({
         response: getFallbackResponse(message, onboardingStatus)
       });
     }
 
-    // Build messages array
-    const messages: OpenAI.ChatCompletionMessageParam[] = [
-      { 
-        role: "system", 
-        content: SYSTEM_PROMPT + buildContextMessage(onboardingStatus)
-      }
-    ];
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    // Build conversation history for Gemini
+    const historyParts: { role: "user" | "model"; parts: { text: string }[] }[] = [];
 
     // Add conversation history
     if (conversationHistory && Array.isArray(conversationHistory)) {
       conversationHistory.forEach((msg: ConversationMessage) => {
-        messages.push({
-          role: msg.role,
-          content: msg.content
+        historyParts.push({
+          role: msg.role === "assistant" ? "model" : "user",
+          parts: [{ text: msg.content }]
         });
       });
     }
 
-    // Add current message
-    messages.push({ role: "user", content: message });
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      max_tokens: 500,
-      temperature: 0.7,
+    // Create chat with system prompt and history
+    const chat = model.startChat({
+      history: historyParts,
+      generationConfig: {
+        maxOutputTokens: 500,
+        temperature: 0.7,
+      },
     });
 
-    const response = completion.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again.";
+    // Send message with system context
+    const fullPrompt = `${SYSTEM_PROMPT}${buildContextMessage(onboardingStatus)}\n\nUser message: ${message}`;
+    const result = await chat.sendMessage(fullPrompt);
+    const response = result.response.text() || "I apologize, but I couldn't generate a response. Please try again.";
 
     return NextResponse.json({ response });
 
