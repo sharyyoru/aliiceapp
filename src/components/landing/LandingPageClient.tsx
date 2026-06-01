@@ -152,6 +152,9 @@ export default function LandingPageClient() {
             <Link href="/pricing" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
               Pricing
             </Link>
+            <Link href="/blog" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+              Blog
+            </Link>
             <Link href="/contact" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
               Contact
             </Link>
@@ -187,6 +190,7 @@ export default function LandingPageClient() {
             <Link href="#features" className="block py-2 text-slate-600">Features</Link>
             <Link href="#demo" className="block py-2 text-slate-600">Demo</Link>
             <Link href="/pricing" className="block py-2 text-slate-600">Pricing</Link>
+            <Link href="/blog" className="block py-2 text-slate-600">Blog</Link>
             <Link href="/contact" className="block py-2 text-slate-600">Contact</Link>
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <Link href="/login" className="block py-2 text-slate-600">Login</Link>
@@ -562,6 +566,7 @@ export default function LandingPageClient() {
               <ul className="space-y-2 text-sm text-slate-600">
                 <li><Link href="#features" className="hover:text-slate-900">Features</Link></li>
                 <li><Link href="/pricing" className="hover:text-slate-900">Pricing</Link></li>
+                <li><Link href="/blog" className="hover:text-slate-900">Blog</Link></li>
                 <li><Link href="#demo" className="hover:text-slate-900">Demo</Link></li>
               </ul>
             </div>

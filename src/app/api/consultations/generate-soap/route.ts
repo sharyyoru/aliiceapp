@@ -78,14 +78,15 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) {
-      // Return empty SOAP notes if no API key
+    if (!apiKey || apiKey === "your-gemini-api-key") {
+      console.log("No valid Gemini API key, returning placeholder SOAP notes");
+      // Return placeholder SOAP notes if no API key
       return NextResponse.json({
         soapNotes: {
-          subjective: "Transcript recorded - AI processing unavailable",
-          objective: "Not documented",
-          assessment: "Review transcript for clinical assessment",
-          plan: "Review transcript for treatment plan",
+          subjective: "Transcript recorded. AI processing unavailable - please configure GEMINI_API_KEY.",
+          objective: "Review transcript for clinical observations.",
+          assessment: "Review transcript for clinical assessment.",
+          plan: "Review transcript for treatment plan.",
           icd10Codes: [],
           medications: [],
           followUp: "",
@@ -93,8 +94,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    console.log("Generating SOAP notes with Gemini API...");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    
+    // Try gemini-1.5-flash first (more stable), fallback to gemini-pro
+    let model;
+    try {
+      model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    } catch {
+      model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    }
 
     const prompt = `${SOAP_SYSTEM_PROMPT}
 
@@ -108,6 +117,7 @@ Analyze this consultation transcript and generate SOAP notes. Return ONLY valid 
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
+    console.log("Gemini response received, length:", responseText.length);
 
     // Parse the JSON response
     let soapNotes: SOAPNotes;
@@ -150,10 +160,20 @@ Analyze this consultation transcript and generate SOAP notes. Return ONLY valid 
 
   } catch (error) {
     console.error("Error generating SOAP notes:", error);
-    return NextResponse.json(
-      { error: "Failed to generate SOAP notes" },
-      { status: 500 }
-    );
+    
+    // Return fallback SOAP notes instead of error so the UI can still proceed
+    return NextResponse.json({
+      soapNotes: {
+        subjective: "AI processing encountered an error. Please review the transcript manually.",
+        objective: "Not documented - please add clinical observations.",
+        assessment: "Not documented - please add assessment.",
+        plan: "Not documented - please add treatment plan.",
+        icd10Codes: [],
+        medications: [],
+        followUp: "",
+      },
+      warning: "AI processing failed, placeholder notes provided",
+    });
   }
 }
 
