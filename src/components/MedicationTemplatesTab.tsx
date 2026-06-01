@@ -112,8 +112,8 @@ export default function MedicationTemplatesTab() {
     try {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
       );
       const [{ data: categoryData }, { data: serviceData }] = await Promise.all([
         supabase.from("service_categories").select("id, name").order("name", { ascending: true }),

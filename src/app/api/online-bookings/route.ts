@@ -4,8 +4,8 @@ import { brandedEmail, infoRow, infoTable, LOGO_URL } from "@/utils/emailTemplat
 import { sendEmail as sendEmailViaResend, isEmailConfigured } from "@/lib/email";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key"
 );
 
 async function sendEmail(to: string, subject: string, html: string) {
