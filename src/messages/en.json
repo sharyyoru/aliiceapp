@@ -1323,10 +1323,13 @@
     "password": "Password",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
+    "forgotPassword": "Forgot password?",
     "signIn": "Sign in",
     "signingIn": "Signing in...",
     "errorRequired": "Email and password are required.",
-    "errorInvalid": "Invalid email or password."
+    "errorInvalid": "Invalid email or password.",
+    "noAccount": "Don't have an account?",
+    "signUp": "Sign up"
   },
   "settingsPage": {
     "title": "Settings",

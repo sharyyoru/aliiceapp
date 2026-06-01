@@ -24,9 +24,8 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const baseUrl = typeof window !== "undefined" 
-        ? window.location.origin 
-        : process.env.NEXT_PUBLIC_APP_URL || "https://aliiceapp.vercel.app";
+      // Use production URL for redirect
+      const baseUrl = "https://aliiceapp.vercel.app";
 
       const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(
         email.trim(),
@@ -36,7 +35,17 @@ export default function ForgotPasswordPage() {
       );
 
       if (resetError) {
-        setError(resetError.message);
+        console.error("Supabase reset error:", resetError);
+        // Provide user-friendly error messages
+        if (resetError.message.includes("rate limit")) {
+          setError("Too many requests. Please wait a few minutes and try again.");
+        } else if (resetError.message.includes("not found") || resetError.message.includes("invalid")) {
+          setError("If this email exists in our system, you will receive a reset link.");
+          setSuccess(true); // Don't reveal if email exists
+          return;
+        } else {
+          setError("Unable to send reset email. Please try again later or contact support.");
+        }
         setLoading(false);
         return;
       }
@@ -44,7 +53,7 @@ export default function ForgotPasswordPage() {
       setSuccess(true);
     } catch (err) {
       console.error("Password reset error:", err);
-      setError("An unexpected error occurred. Please try again.");
+      setError("An unexpected error occurred. Please try again later.");
     } finally {
       setLoading(false);
     }

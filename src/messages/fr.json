@@ -1323,10 +1323,13 @@
     "password": "Mot de passe",
     "showPassword": "Afficher le mot de passe",
     "hidePassword": "Masquer le mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
     "signIn": "Se connecter",
     "signingIn": "Connexion...",
     "errorRequired": "L'e-mail et le mot de passe sont requis.",
-    "errorInvalid": "E-mail ou mot de passe invalide."
+    "errorInvalid": "E-mail ou mot de passe invalide.",
+    "noAccount": "Vous n'avez pas de compte ?",
+    "signUp": "S'inscrire"
   },
   "settingsPage": {
     "title": "Paramètres",
