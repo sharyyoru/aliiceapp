@@ -272,31 +272,6 @@ export default function LandingPageClient() {
                   {activeDemo === "analytics" && <AnalyticsDemo />}
                 </div>
               </div>
-
-              {/* Floating Elements - Hidden on mobile, positioned outside on desktop */}
-              <div className="hidden xl:block absolute top-4 -right-16 bg-white rounded-2xl shadow-xl p-3 animate-float z-10">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <CheckCircle className="h-4 w-4 text-emerald-600" />
-                  </div>
-                  <div className="text-sm">
-                    <div className="font-medium text-slate-900">Consultation Saved</div>
-                    <div className="text-xs text-slate-500">Just now</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="hidden xl:block absolute bottom-8 -left-16 bg-white rounded-2xl shadow-xl p-3 animate-float-delayed z-10">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-sky-100 flex items-center justify-center">
-                    <Calendar className="h-4 w-4 text-sky-600" />
-                  </div>
-                  <div className="text-sm">
-                    <div className="font-medium text-slate-900">New Appointment</div>
-                    <div className="text-xs text-slate-500">Tomorrow at 10:00</div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
