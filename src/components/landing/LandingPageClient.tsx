@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -89,11 +89,28 @@ export default function LandingPageClient() {
   const [activeDemo, setActiveDemo] = useState<"patient" | "calendar" | "ai" | "analytics">("patient");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Mouse tracking for spotlight effect
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (heroRef.current) {
+        const rect = heroRef.current.getBoundingClientRect();
+        setMousePosition({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        });
+      }
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
   // Auto-rotate demos
@@ -108,7 +125,7 @@ export default function LandingPageClient() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white" ref={heroRef}>
       {/* Navigation */}
       <nav className={`fixed top-0 z-50 w-full transition-all duration-300 ${
         scrolled ? "bg-white/95 backdrop-blur-lg shadow-sm" : "bg-white/80 backdrop-blur-lg border-b border-slate-100"
@@ -183,33 +200,48 @@ export default function LandingPageClient() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-28 pb-20 sm:pt-36 sm:pb-28">
-        {/* Animated Background */}
+        {/* Dot Grid Background with Mouse Spotlight */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-br from-sky-50 via-white to-violet-50" />
-          <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-sky-200/30 to-violet-200/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-          <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-emerald-200/20 to-sky-200/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
+          {/* Base background */}
+          <div className="absolute inset-0 bg-[#fafafa]" />
+          
+          {/* Dot grid pattern */}
+          <div 
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `radial-gradient(circle, #d1d5db 1px, transparent 1px)`,
+              backgroundSize: '24px 24px',
+            }}
+          />
+          
+          {/* Mouse spotlight effect */}
+          <div 
+            className="absolute pointer-events-none transition-opacity duration-300"
+            style={{
+              left: mousePosition.x - 300,
+              top: mousePosition.y - 300,
+              width: 600,
+              height: 600,
+              background: `radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0.05) 40%, transparent 70%)`,
+              borderRadius: '50%',
+            }}
+          />
         </div>
         
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left - Text Content */}
             <div className="text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-50 to-violet-50 border border-sky-100 px-4 py-1.5 mb-6">
-                <Sparkles className="h-4 w-4 text-violet-600" />
-                <span className="text-sm font-medium text-slate-700">AI-Powered Clinic Management</span>
-              </div>
+              <p className="text-sm text-slate-500 mb-8">
+                Manage patients • Schedule appointments • Bill clients
+              </p>
               
-              <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                The All-in-One{" "}
-                <span className="bg-gradient-to-r from-sky-600 via-violet-600 to-emerald-600 bg-clip-text text-transparent animate-gradient">
-                  Medical CRM
+              <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl leading-[1.1]">
+                The all-in-one medical CRM for aesthetics clinics.{" "}
+                <span className="text-slate-400">
+                  Replacing CRM, ERP, and booking with one unified platform.
                 </span>
               </h1>
-              
-              <p className="mt-6 text-lg leading-8 text-slate-600 max-w-xl mx-auto lg:mx-0">
-                Replace 3 expensive tools with one unified platform. Patient management, 
-                scheduling, billing, and AI-powered documentation — all in one place.
-              </p>
 
               {/* Stats */}
               <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
