@@ -163,7 +163,9 @@ export default function ConsultWithAliice({
       });
 
       retellClient.on("update", (update: any) => {
-        // Handle transcript updates
+        console.log("Retell update:", update);
+        
+        // Handle transcript updates - Retell sends updates in different formats
         if (update.transcript) {
           const segments = update.transcript;
           if (Array.isArray(segments)) {
@@ -173,10 +175,36 @@ export default function ConsultWithAliice({
               text: seg.content,
               timestamp: new Date(),
             }));
-            // Keep system messages and add new transcript
             setTranscript((prev) => {
               const systemMsgs = prev.filter((s) => s.speaker === "system");
               return [...systemMsgs, ...newTranscript];
+            });
+          }
+        }
+        
+        // Handle live transcription updates
+        if (update.turntaking) {
+          const role = update.turntaking.role;
+          const content = update.turntaking.content;
+          if (content) {
+            setTranscript((prev) => {
+              const lastNonSystem = [...prev].reverse().find(s => s.speaker !== "system");
+              if (lastNonSystem && lastNonSystem.speaker === (role === "agent" ? "agent" : "user")) {
+                // Update last segment
+                return prev.map(s => 
+                  s.id === lastNonSystem.id 
+                    ? { ...s, text: content } 
+                    : s
+                );
+              } else {
+                // Add new segment
+                return [...prev, {
+                  id: `live-${Date.now()}`,
+                  speaker: role === "agent" ? "agent" : "user",
+                  text: content,
+                  timestamp: new Date(),
+                }];
+              }
             });
           }
         }
@@ -203,6 +231,32 @@ export default function ConsultWithAliice({
     }
   }, [patientId, patientName]);
 
+  // Fetch final transcript from Retell API
+  const fetchFinalTranscript = async (callId: string) => {
+    try {
+      const response = await fetch(`/api/retell/get-call-transcript?callId=${callId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.transcript && Array.isArray(data.transcript)) {
+          const fetchedTranscript: TranscriptSegment[] = data.transcript.map((seg: any, idx: number) => ({
+            id: `final-${idx}`,
+            speaker: seg.role === "agent" ? "agent" : "user",
+            text: seg.content,
+            timestamp: new Date(),
+          }));
+          setTranscript((prev) => {
+            const systemMsgs = prev.filter((s) => s.speaker === "system");
+            return [...systemMsgs, ...fetchedTranscript];
+          });
+          return fetchedTranscript;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching final transcript:", err);
+    }
+    return null;
+  };
+
   // Handle call end
   const handleCallEnd = useCallback(async () => {
     setCallStatus("processing");
@@ -217,13 +271,21 @@ export default function ConsultWithAliice({
       },
     ]);
 
-    // Generate SOAP notes
-    const hasContent = transcript.filter((s) => s.speaker !== "system").length > 0;
-    if (hasContent) {
-      await generateSOAPNotes();
-    } else {
-      setCallStatus("complete");
+    // Try to fetch final transcript from Retell API
+    if (callIdRef.current) {
+      await fetchFinalTranscript(callIdRef.current);
     }
+
+    // Generate SOAP notes
+    // Use timeout to ensure state is updated
+    setTimeout(async () => {
+      const hasContent = transcript.filter((s) => s.speaker !== "system").length > 0;
+      if (hasContent) {
+        await generateSOAPNotes();
+      } else {
+        setCallStatus("complete");
+      }
+    }, 500);
   }, [duration, transcript]);
 
   // Stop consultation
