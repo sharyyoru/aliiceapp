@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { supabaseClient } from "@/lib/supabaseClient";
 import {
   Mic,
   MicOff,
@@ -65,6 +66,8 @@ export default function ConsultWithAliice({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [savedConsultationId, setSavedConsultationId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"transcript" | "soap">("transcript");
   
   const transcriptEndRef = useRef<HTMLDivElement>(null);
@@ -313,6 +316,84 @@ export default function ConsultWithAliice({
     }
   }, [isMuted]);
 
+  // Auto-save consultation to database
+  const autoSaveConsultation = async (fullTranscript: string, notes: SOAPNotes) => {
+    setAutoSaving(true);
+    try {
+      // Get current user
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get user's organization
+      const { data: userData } = await supabaseClient
+        .from("users")
+        .select("current_organization_id")
+        .eq("id", user.id)
+        .single();
+
+      const organizationId = userData?.current_organization_id;
+
+      // Format content with SOAP notes
+      const content = `## SOAP Notes
+
+### Subjective
+${notes.subjective}
+
+### Objective
+${notes.objective}
+
+### Assessment
+${notes.assessment}
+${notes.icd10Codes.length > 0 ? `\n**ICD-10 Codes:** ${notes.icd10Codes.join(", ")}` : ""}
+
+### Plan
+${notes.plan}
+${notes.medications.length > 0 ? `\n**Medications:** ${notes.medications.join(", ")}` : ""}
+${notes.followUp ? `\n**Follow-up:** ${notes.followUp}` : ""}
+
+---
+
+## Full Transcript
+${fullTranscript}`;
+
+      // Create consultation record
+      const { data: consultation, error: insertError } = await supabaseClient
+        .from("consultations")
+        .insert({
+          patient_id: patientId,
+          organization_id: organizationId,
+          title: `AI Scribe - ${new Date().toLocaleDateString()}`,
+          content: content,
+          record_type: "notes",
+          ref_icd10: notes.icd10Codes[0] || null,
+          duration_seconds: duration,
+          created_by_user_id: user.id,
+          created_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (insertError) {
+        console.error("Error saving consultation:", insertError);
+        throw insertError;
+      }
+
+      setSavedConsultationId(consultation?.id || null);
+      setSaved(true);
+
+      // Notify parent component
+      if (onTranscriptSave) {
+        onTranscriptSave(fullTranscript, notes);
+      }
+
+    } catch (err) {
+      console.error("Auto-save failed:", err);
+      setError("Auto-save failed. Click 'Save to Notes' to save manually.");
+    } finally {
+      setAutoSaving(false);
+    }
+  };
+
   // Generate SOAP notes using AI
   const generateSOAPNotes = async () => {
     setIsGeneratingSoap(true);
@@ -344,6 +425,10 @@ export default function ConsultWithAliice({
       const data = await response.json();
       setSoapNotes(data.soapNotes);
       setActiveTab("soap");
+      
+      // Auto-save consultation to database
+      await autoSaveConsultation(fullTranscript, data.soapNotes);
+      
       setCallStatus("complete");
 
     } catch (err) {
@@ -395,6 +480,11 @@ export default function ConsultWithAliice({
     }
     setIsOpen(false);
     onClose();
+    
+    // Reload page to show new consultation if saved
+    if (savedConsultationId) {
+      window.location.reload();
+    }
   };
 
   if (!isOpen) return null;
@@ -634,6 +724,20 @@ export default function ConsultWithAliice({
 
               {(callStatus === "complete" || callStatus === "error") && (
                 <>
+                  {/* Autosave status */}
+                  {autoSaving && (
+                    <div className="flex items-center justify-center gap-2 w-full py-2 text-violet-600 text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving consultation...
+                    </div>
+                  )}
+                  {saved && savedConsultationId && (
+                    <div className="flex items-center justify-center gap-2 w-full py-2 bg-emerald-50 text-emerald-700 text-sm rounded-lg border border-emerald-200">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Consultation saved!
+                    </div>
+                  )}
+                  
                   <button
                     onClick={copyTranscript}
                     className="flex items-center justify-center gap-2 w-full py-3 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition-all"
@@ -641,12 +745,14 @@ export default function ConsultWithAliice({
                     {copied ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Copy className="h-5 w-5" />}
                     {copied ? "Copied!" : "Copy Transcript"}
                   </button>
+                  
+                  {/* Show close button after autosave */}
                   <button
-                    onClick={saveToConsultation}
-                    className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-all"
+                    onClick={handleClose}
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-all"
                   >
-                    {saved ? <CheckCircle2 className="h-5 w-5" /> : <Save className="h-5 w-5" />}
-                    {saved ? "Saved!" : "Save to Notes"}
+                    <X className="h-5 w-5" />
+                    {saved ? "Close & View" : "Close"}
                   </button>
                 </>
               )}
