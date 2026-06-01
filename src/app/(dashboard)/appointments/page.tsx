@@ -1334,13 +1334,49 @@ export default function CalendarPage() {
         setProvidersLoading(true);
         setProvidersError(null);
 
-        // Load from providers table - filter by role and organization
+        // First, load doctors from doctor_scheduling_settings (these are the configured doctors)
+        const schedulingRes = await fetch("/api/settings/doctor-scheduling");
+        let configuredDoctors: { id: string; name: string | null }[] = [];
+        
+        if (schedulingRes.ok) {
+          const schedulingData = await schedulingRes.json();
+          const settings = schedulingData.settings || [];
+          
+          // Extract provider info from settings (includes provider name via join)
+          configuredDoctors = settings.map((s: any) => ({
+            id: s.provider_id,
+            name: s.providers?.name || s.provider_name || null,
+          })).filter((d: any) => d.id);
+        }
+
+        // If we have configured doctors from scheduling settings, use those
+        if (configuredDoctors.length > 0) {
+          // For doctors without names, fetch from users list
+          const doctorsNeedingNames = configuredDoctors.filter(d => !d.name);
+          if (doctorsNeedingNames.length > 0) {
+            const usersRes = await fetch("/api/users/list");
+            if (usersRes.ok) {
+              const users = await usersRes.json();
+              const userMap = new Map<string, string>(users.map((u: any) => [u.id, u.full_name || u.email || "Unknown"]));
+              configuredDoctors = configuredDoctors.map(d => ({
+                id: d.id,
+                name: d.name || userMap.get(d.id) || "Unknown Doctor",
+              } as { id: string; name: string | null }));
+            }
+          }
+          
+          if (!isMounted) return;
+          setProviders(configuredDoctors);
+          setProvidersLoading(false);
+          return;
+        }
+
+        // Fallback: Load from providers table if no scheduling settings
         let query = supabaseClient
           .from("providers")
           .select("id, name, email, role")
           .in("role", ["doctor", "nurse", "technician"]);
         
-        // Filter by organization if available
         if (organization?.id) {
           query = query.eq("organization_id", organization.id);
         }
@@ -1349,52 +1385,41 @@ export default function CalendarPage() {
 
         if (!isMounted) return;
 
-        if (error || !data) {
-          console.error("[Calendar] Error loading providers:", error?.message);
-          setProviders([]);
-          setProvidersError(error?.message ?? "Failed to load providers.");
+        if (error || !data || data.length === 0) {
+          // Final fallback: try to get users from organization
+          const usersRes = await fetch(
+            organization?.id 
+              ? `/api/users/list?organization_id=${organization.id}` 
+              : "/api/users/list"
+          );
+          if (usersRes.ok) {
+            const users = await usersRes.json();
+            const userProviders = (users as any[])
+              .filter((u: any) => u.role === "doctor" || u.designation === "doctor" || !u.role)
+              .map((u: any) => ({
+                id: u.id,
+                name: u.full_name || u.email || "Unknown",
+              }));
+            setProviders(userProviders);
+          } else {
+            setProviders([]);
+            setProvidersError("No doctors configured. Add doctors in Settings → Doctor Scheduling.");
+          }
         } else {
-          // Deduplicate by keeping only one entry per doctor (prefer "Dr." prefix version)
-          const seenDoctors = new Set<string>();
-          const uniqueDoctors = (data as any[]).filter((row) => {
-            const providerName = (row.name as string | null) ?? "";
-            if (!providerName.trim()) return false;
-            
-            const normalized = providerName.toLowerCase().trim();
-            
-            // Create a key based on the core name (without prefix)
-            let key = normalized
-              .replace(/^dr\.?\s*/i, "")
-              .split(" ")
-              .sort()
-              .join("-");
-            
-            if (seenDoctors.has(key)) {
-              return false;
-            }
-            seenDoctors.add(key);
-            return true;
-          });
-          
           setProviders(
-            uniqueDoctors.map((row) => {
-              const providerName = (row.name as string | null) ?? null;
-              const email = (row.email as string | null) ?? null;
-              const rawName = providerName && providerName.trim().length > 0 ? providerName : email;
-              const name = rawName && rawName.trim().length > 0 ? rawName : null;
-              return {
-                id: row.id as string,
-                name,
-              };
-            }),
+            (data as any[]).map((row) => ({
+              id: row.id as string,
+              name: (row.name as string | null) ?? row.email ?? null,
+            })),
           );
         }
 
         setProvidersLoading(false);
-      } catch {
+      } catch (err) {
         if (!isMounted) return;
+        console.error("[Calendar] Error loading providers:", err);
         setProviders([]);
-        setProvidersError("Failed to load providers.");
+        setProvidersError("Failed to load doctors.");
         setProvidersLoading(false);
       }
     }

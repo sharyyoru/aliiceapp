@@ -3,7 +3,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET() {
   try {
-    const { data, error } = await supabaseAdmin
+    // Fetch settings
+    const { data: settings, error } = await supabaseAdmin
       .from("doctor_scheduling_settings")
       .select("*")
       .order("created_at", { ascending: true });
@@ -12,7 +13,35 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ settings: data || [] });
+    // Get provider names from users table
+    if (settings && settings.length > 0) {
+      const providerIds = settings.map((s) => s.provider_id);
+      const { data: users } = await supabaseAdmin
+        .from("users")
+        .select("id, first_name, last_name, email")
+        .in("id", providerIds);
+
+      const userMap = new Map(
+        (users || []).map((u) => [
+          u.id,
+          {
+            name: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email || "Unknown",
+            email: u.email,
+          },
+        ])
+      );
+
+      // Attach user info to settings
+      const enrichedSettings = settings.map((s) => ({
+        ...s,
+        provider_name: userMap.get(s.provider_id)?.name || "Unknown Doctor",
+        provider_email: userMap.get(s.provider_id)?.email || null,
+      }));
+
+      return NextResponse.json({ settings: enrichedSettings });
+    }
+
+    return NextResponse.json({ settings: settings || [] });
   } catch (err) {
     console.error("GET doctor-scheduling error:", err);
     return NextResponse.json({ error: "Failed to fetch doctor scheduling settings" }, { status: 500 });
