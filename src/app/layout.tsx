@@ -22,7 +22,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ALiice - Medical CRM for Aesthetics Clinics",
+  title: {
+    default: "Aliice App",
+    template: "Aliice App - %s",
+  },
   description: "Multi-tenant medical CRM and ERP for aesthetics clinics",
 };
 
