@@ -217,20 +217,6 @@ export default function PricingPage() {
               </div>
             ))}
           </div>
-
-          {/* Additional Storage */}
-          <div className="mt-12 bg-slate-50 rounded-2xl p-6 flex items-center justify-between max-w-2xl mx-auto">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-violet-100 flex items-center justify-center">
-                <HardDrive className="h-6 w-6 text-violet-600" />
-              </div>
-              <div>
-                <div className="font-semibold text-slate-900">Additional Storage</div>
-                <div className="text-sm text-slate-600">For every additional 1 TB of storage</div>
-              </div>
-            </div>
-            <div className="text-2xl font-bold text-slate-900">$50<span className="text-base text-slate-500">/month</span></div>
-          </div>
         </div>
       </section>
 
@@ -284,6 +270,118 @@ export default function PricingPage() {
             <div className="bg-emerald-50 rounded-xl p-4 text-center border border-emerald-100">
               <div className="text-sm text-emerald-600">Monthly Savings</div>
               <div className="text-2xl font-bold text-emerald-700">${aliiceSavings.toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Feature Breakdown */}
+      <section className="py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-slate-900">Feature Breakdown</h2>
+            <p className="mt-2 text-slate-600">What&apos;s included in each tier</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden max-w-5xl mx-auto overflow-x-auto">
+            <table className="w-full min-w-[600px]">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="text-left p-4 text-sm font-semibold text-slate-900">Feature</th>
+                  <th className="text-center p-4 text-sm font-semibold text-slate-900">
+                    <div>Starter</div>
+                    <div className="text-sky-600 font-bold">$1,490/mo</div>
+                  </th>
+                  <th className="text-center p-4 text-sm font-semibold text-slate-900 bg-sky-50">
+                    <div>Professional</div>
+                    <div className="text-sky-600 font-bold">$2,240/mo</div>
+                  </th>
+                  <th className="text-center p-4 text-sm font-semibold text-slate-900">
+                    <div>Enterprise</div>
+                    <div className="text-sky-600 font-bold">$3,200/mo</div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { feature: "Patient Management", starter: true, pro: true, enterprise: true },
+                  { feature: "Appointment Scheduling", starter: true, pro: true, enterprise: true },
+                  { feature: "Calendar Management", starter: true, pro: true, enterprise: true },
+                  { feature: "Email Support", starter: true, pro: true, enterprise: true },
+                  { feature: "1 TB Storage Included", starter: true, pro: true, enterprise: true },
+                  { feature: "Basic Reporting", starter: true, pro: true, enterprise: true },
+                  { feature: "Billing & Invoicing", starter: false, pro: true, enterprise: true },
+                  { feature: "AI Medical Scribe", starter: false, pro: true, enterprise: true },
+                  { feature: "WhatsApp Integration", starter: false, pro: true, enterprise: true },
+                  { feature: "Document Generation", starter: false, pro: true, enterprise: true },
+                  { feature: "Advanced Analytics", starter: false, pro: true, enterprise: true },
+                  { feature: "Priority Support", starter: false, pro: true, enterprise: true },
+                  { feature: "Custom Workflows", starter: false, pro: false, enterprise: true },
+                  { feature: "API Access", starter: false, pro: false, enterprise: true },
+                  { feature: "Custom Integrations", starter: false, pro: false, enterprise: true },
+                  { feature: "24/7 Dedicated Support", starter: false, pro: false, enterprise: true },
+                  { feature: "White-label Options", starter: false, pro: false, enterprise: true },
+                  { feature: "Custom Booking Pages", starter: false, pro: false, enterprise: true },
+                ].map((row, idx) => (
+                  <tr key={row.feature} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
+                    <td className="p-4 text-sm font-medium text-slate-700">{row.feature}</td>
+                    <td className="p-4 text-center">
+                      {row.starter ? (
+                        <Check className="h-5 w-5 text-emerald-500 mx-auto" />
+                      ) : (
+                        <X className="h-5 w-5 text-slate-300 mx-auto" />
+                      )}
+                    </td>
+                    <td className="p-4 text-center bg-sky-50/50">
+                      {row.pro ? (
+                        <Check className="h-5 w-5 text-emerald-500 mx-auto" />
+                      ) : (
+                        <X className="h-5 w-5 text-slate-300 mx-auto" />
+                      )}
+                    </td>
+                    <td className="p-4 text-center">
+                      {row.enterprise ? (
+                        <Check className="h-5 w-5 text-emerald-500 mx-auto" />
+                      ) : (
+                        <X className="h-5 w-5 text-slate-300 mx-auto" />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Storage Pricing */}
+      <section className="py-16 bg-slate-50">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-slate-900">Storage</h2>
+            <p className="mt-2 text-slate-600">For files and contacts</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 text-center">
+              <div className="h-14 w-14 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                <HardDrive className="h-7 w-7 text-emerald-600" />
+              </div>
+              <div className="text-3xl font-bold text-slate-900">1 TB</div>
+              <div className="text-slate-600 mt-1">Included with all plans</div>
+              <div className="mt-4 inline-block bg-emerald-100 text-emerald-700 text-sm font-medium px-3 py-1 rounded-full">
+                Free
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 text-center">
+              <div className="h-14 w-14 rounded-2xl bg-violet-100 flex items-center justify-center mx-auto mb-4">
+                <HardDrive className="h-7 w-7 text-violet-600" />
+              </div>
+              <div className="text-3xl font-bold text-slate-900">+1 TB</div>
+              <div className="text-slate-600 mt-1">Additional storage</div>
+              <div className="mt-4 inline-block bg-slate-100 text-slate-700 text-sm font-medium px-3 py-1 rounded-full">
+                $50/month
+              </div>
             </div>
           </div>
         </div>
