@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useState, useRef, useCallback } from
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { stripEmailSignature } from "@/utils/emailCleaner";
 import { useTranslations } from "next-intl";
 import AppointmentModal, { type AppointmentData } from "@/components/AppointmentModal";
@@ -208,6 +209,7 @@ export default function PatientActivityCard({
   hideTabNavigation?: boolean;
 }) {
   const [internalTab, setInternalTab] = useState<ActivityTab>(defaultTab ?? "activity");
+  const { organization } = useOrganization();
   
   // Use controlled tab if provided, otherwise use internal state
   const t = useTranslations("patient.activityCard");
@@ -556,10 +558,17 @@ export default function PatientActivityCard({
         setDealsLoading(true);
         setDealsError(null);
 
-        const { data: stagesData, error: stagesError } = await supabaseClient
+        // Build stages query with organization filter
+        let stagesQuery = supabaseClient
           .from("deal_stages")
           .select("id, name, type, sort_order, is_default")
           .order("sort_order", { ascending: true });
+        
+        if (organization?.id) {
+          stagesQuery = stagesQuery.eq("organization_id", organization.id);
+        }
+
+        const { data: stagesData, error: stagesError } = await stagesQuery;
 
         if (!isMounted) return;
 
@@ -623,7 +632,7 @@ export default function PatientActivityCard({
     return () => {
       isMounted = false;
     };
-  }, [patientId]);
+  }, [patientId, organization?.id]);
 
   // Load all deals assigned to the current user for navigation
   useEffect(() => {
@@ -4357,6 +4366,14 @@ export default function PatientActivityCard({
                           </option>
                         ))}
                     </select>
+                    {dealStages.length === 0 && (
+                      <p className="mt-1 text-[10px] text-amber-600">
+                        No stages configured.{" "}
+                        <a href="/settings" className="text-sky-600 hover:underline">
+                          Configure stages →
+                        </a>
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="block text-[11px] font-medium text-slate-700">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import AppointmentModal, { type AppointmentData } from "@/components/AppointmentModal";
 import { formatSwissShortDate, formatSwissTime } from "@/lib/swissTimezone";
 
@@ -70,6 +71,7 @@ type DealsView = "list" | "board";
 export default function DealsPage() {
   const t = useTranslations("dealsPage");
   const router = useRouter();
+  const { organization } = useOrganization();
   const [view, setView] = useState<DealsView>("list");
   const [deals, setDeals] = useState<DealRow[]>([]);
   const [dealStages, setDealStages] = useState<DealStage[]>([]);
@@ -111,7 +113,10 @@ export default function DealsPage() {
 
     async function loadUsers() {
       try {
-        const response = await fetch("/api/users/list");
+        const url = organization?.id 
+          ? `/api/users/list?organization_id=${organization.id}`
+          : "/api/users/list";
+        const response = await fetch(url);
         if (!response.ok) return;
         const json = await response.json();
         if (!isMounted) return;
@@ -125,7 +130,7 @@ export default function DealsPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [organization?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -135,17 +140,28 @@ export default function DealsPage() {
         setLoading(true);
         setError(null);
 
+        // Build queries with organization filter
+        let stagesQuery = supabaseClient
+          .from("deal_stages")
+          .select("id, name, type, sort_order, is_default")
+          .order("sort_order", { ascending: true });
+        
+        let dealsQuery = supabaseClient
+          .from("deals")
+          .select(
+            "id, patient_id, stage_id, service_id, pipeline, contact_label, location, title, value, notes, owner_id, owner_name, created_at, updated_at, patient:patients(id, first_name, last_name, contact_owner_name), service:services(id, name)",
+          )
+          .order("created_at", { ascending: false });
+        
+        // Filter by organization if available
+        if (organization?.id) {
+          stagesQuery = stagesQuery.eq("organization_id", organization.id);
+          dealsQuery = dealsQuery.eq("organization_id", organization.id);
+        }
+
         const [stagesResult, dealsResult] = await Promise.all([
-          supabaseClient
-            .from("deal_stages")
-            .select("id, name, type, sort_order, is_default")
-            .order("sort_order", { ascending: true }),
-          supabaseClient
-            .from("deals")
-            .select(
-              "id, patient_id, stage_id, service_id, pipeline, contact_label, location, title, value, notes, owner_id, owner_name, created_at, updated_at, patient:patients(id, first_name, last_name, contact_owner_name), service:services(id, name)",
-            )
-            .order("created_at", { ascending: false }),
+          stagesQuery,
+          dealsQuery,
         ]);
 
         if (!isMounted) return;
@@ -231,7 +247,7 @@ export default function DealsPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [organization?.id, t]);
 
   function handleContactOwnerSearchChange(value: string) {
     setContactOwnerSearch(value);
