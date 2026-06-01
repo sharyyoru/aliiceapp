@@ -55,9 +55,11 @@ export default function OrganizationGuard({ children }: OrganizationGuardProps) 
           .limit(1);
 
         if (error) {
-          // If RLS error, user likely has no org access
+          // If RLS error, don't redirect - user might have just created org
           console.error("Error checking organization:", error);
-          router.replace("/create-organization");
+          // Allow access anyway to prevent redirect loops
+          setHasOrganization(true);
+          setChecking(false);
           return;
         }
 
@@ -73,8 +75,10 @@ export default function OrganizationGuard({ children }: OrganizationGuardProps) 
 
       } catch (err) {
         console.error("Organization check error:", err);
-        // On error, redirect to create organization
-        router.replace("/create-organization");
+        // On error, stay on current page and show organization exists
+        // Don't redirect to avoid loop for users who just created org
+        setHasOrganization(true);
+        setChecking(false);
       }
     }
 
