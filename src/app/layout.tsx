@@ -8,6 +8,7 @@ import { TasksNotificationsProvider } from "@/components/TasksNotificationsConte
 import { EmailNotificationsProvider } from "@/components/EmailNotificationsContext";
 import { PatientTabsProvider } from "@/components/PatientTabsContext";
 import { AuthProvider } from "@/components/AuthContext";
+import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import GlobalLoader from "@/components/GlobalLoader";
 import TalkToAliice from "@/components/TalkToAliice";
 
@@ -44,16 +45,18 @@ export default async function RootLayout({
           <GlobalLoader />
           <NextIntlClientProvider locale={locale} messages={messages}>
             <AuthProvider>
-              <CommentsUnreadProvider>
-                <TasksNotificationsProvider>
-                  <EmailNotificationsProvider>
-                    <PatientTabsProvider>
-                      {children}
-                      <TalkToAliice />
-                    </PatientTabsProvider>
-                  </EmailNotificationsProvider>
-                </TasksNotificationsProvider>
-              </CommentsUnreadProvider>
+              <OrganizationProvider>
+                <CommentsUnreadProvider>
+                  <TasksNotificationsProvider>
+                    <EmailNotificationsProvider>
+                      <PatientTabsProvider>
+                        {children}
+                        <TalkToAliice />
+                      </PatientTabsProvider>
+                    </EmailNotificationsProvider>
+                  </TasksNotificationsProvider>
+                </CommentsUnreadProvider>
+              </OrganizationProvider>
             </AuthProvider>
           </NextIntlClientProvider>
         </div>
