@@ -43,12 +43,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Determine the redirect URL based on environment
-      const baseUrl = typeof window !== "undefined" 
-        ? window.location.origin 
-        : process.env.NEXT_PUBLIC_APP_URL || "https://aliiceapp.vercel.app";
-      
-      // Create user account
+      // Create user account with auto-confirm (no email verification)
       const { data, error: signUpError } = await supabaseClient.auth.signUp({
         email: email.trim(),
         password: password,
@@ -56,9 +51,6 @@ export default function RegisterPage() {
           data: {
             full_name: fullName.trim(),
           },
-          emailRedirectTo: inviteToken 
-            ? `${baseUrl}/invite/${inviteToken}` 
-            : `${baseUrl}/dashboard`,
         },
       });
 
@@ -77,11 +69,23 @@ export default function RegisterPage() {
           role: "staff",
         });
 
+        // Auto sign-in after registration
+        const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+          email: email.trim(),
+          password: password,
+        });
+
+        if (signInError) {
+          // If auto sign-in fails, show success and redirect to login
+          setSuccess(true);
+          return;
+        }
+
         // If there's an invite token, redirect to accept it
         if (inviteToken) {
           router.replace(`/invite/${inviteToken}`);
         } else {
-          setSuccess(true);
+          router.replace("/dashboard");
         }
       }
     } catch (err) {

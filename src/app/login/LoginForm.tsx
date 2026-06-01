@@ -119,6 +119,14 @@ export default function LoginForm() {
           </button>
         </div>
       </div>
+      <div className="flex justify-end">
+        <a
+          href="/forgot-password"
+          className="text-xs font-medium text-sky-600 hover:text-sky-700"
+        >
+          {t("forgotPassword") || "Forgot password?"}
+        </a>
+      </div>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
       <button
         type="submit"
