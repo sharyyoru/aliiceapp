@@ -227,24 +227,17 @@ export default function LandingPageClient() {
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
                 <Link
                   href="/register"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-sky-600/25 transition-all hover:shadow-sky-600/40 hover:scale-105"
+                  className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-8 py-4 text-base font-semibold text-white transition-all duration-300 hover:bg-slate-800 hover:-translate-y-0.5 hover:shadow-xl"
                 >
                   Start 14-Day Free Trial
-                  <ArrowRight className="h-5 w-5" />
-                </Link>
-                <Link
-                  href="#demo"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border-2 border-slate-200 bg-white px-8 py-4 text-base font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50"
-                >
-                  <Play className="h-5 w-5 text-violet-600" />
-                  Watch Demo
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>
             </div>
 
             {/* Right - Interactive Demo Card */}
             <div className="relative">
-              <div className="relative bg-white rounded-3xl shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+              <div className="relative bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200/60 overflow-hidden transition-all duration-500 hover:shadow-[0_20px_50px_rgb(0,0,0,0.1)]">
                 {/* Demo Tabs */}
                 <div className="flex border-b border-slate-100">
                   {[
@@ -282,7 +275,7 @@ export default function LandingPageClient() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 sm:py-28 bg-slate-50">
+      <section id="features" className="py-20 sm:py-28 bg-slate-50/50">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -297,16 +290,15 @@ export default function LandingPageClient() {
             {features.map((feature, idx) => (
               <div
                 key={feature.title}
-                className="group relative bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:border-transparent transition-all duration-300 hover:-translate-y-1"
-                style={{ animationDelay: `${idx * 100}ms` }}
+                className="group relative bg-white rounded-2xl p-8 border border-slate-200/60 transition-all duration-500 ease-out hover:border-slate-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1"
               >
-                <div className={`mb-4 inline-flex rounded-xl p-3 bg-${feature.color}-50 text-${feature.color}-600 group-hover:scale-110 transition-transform`}>
+                <div className="mb-5 inline-flex rounded-2xl p-3 bg-slate-100 text-slate-700 transition-all duration-300 group-hover:bg-slate-900 group-hover:text-white">
                   <feature.icon className="h-6 w-6" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">
                   {feature.title}
                 </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-slate-500 leading-relaxed">
                   {feature.description}
                 </p>
               </div>
@@ -458,50 +450,7 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* Interactive Demo Section */}
-      <section id="demo" className="py-20 sm:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              See Aliice in Action
-            </h2>
-            <p className="mt-4 text-lg text-slate-600">
-              Interactive demos — click around and explore the features
-            </p>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* AI Scribe Demo */}
-            <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-3xl p-8 border border-violet-100">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-12 w-12 rounded-2xl bg-violet-600 flex items-center justify-center">
-                  <Mic className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">AI Medical Scribe</h3>
-                  <p className="text-sm text-slate-600">Voice-powered documentation</p>
-                </div>
-              </div>
-              <AIScribeDemo expanded />
-            </div>
-
-            {/* Calendar Demo */}
-            <div className="bg-gradient-to-br from-sky-50 to-cyan-50 rounded-3xl p-8 border border-sky-100">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-12 w-12 rounded-2xl bg-sky-600 flex items-center justify-center">
-                  <Calendar className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">Smart Scheduling</h3>
-                  <p className="text-sm text-slate-600">Drag & drop appointments</p>
-                </div>
-              </div>
-              <CalendarDemo expanded />
-            </div>
-          </div>
-        </div>
-      </section>
-
+      
       {/* Pricing CTA */}
       <section className="py-20 sm:py-28 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
