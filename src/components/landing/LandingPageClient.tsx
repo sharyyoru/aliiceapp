@@ -107,7 +107,7 @@ export default function LandingPageClient() {
     <div className="min-h-screen bg-white">
       {/* Navigation */}
       <nav className={`fixed top-0 z-50 w-full transition-all duration-300 ${
-        scrolled ? "bg-white/95 backdrop-blur-lg shadow-sm" : "bg-transparent"
+        scrolled ? "bg-white/95 backdrop-blur-lg shadow-sm" : "bg-white/80 backdrop-blur-lg border-b border-slate-100"
       }`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2">
@@ -273,8 +273,8 @@ export default function LandingPageClient() {
                 </div>
               </div>
 
-              {/* Floating Elements */}
-              <div className="absolute -top-4 -right-4 bg-white rounded-2xl shadow-xl p-3 animate-float">
+              {/* Floating Elements - Hidden on mobile, positioned outside on desktop */}
+              <div className="hidden xl:block absolute top-4 -right-16 bg-white rounded-2xl shadow-xl p-3 animate-float z-10">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
                     <CheckCircle className="h-4 w-4 text-emerald-600" />
@@ -286,7 +286,7 @@ export default function LandingPageClient() {
                 </div>
               </div>
 
-              <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-xl p-3 animate-float-delayed">
+              <div className="hidden xl:block absolute bottom-8 -left-16 bg-white rounded-2xl shadow-xl p-3 animate-float-delayed z-10">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full bg-sky-100 flex items-center justify-center">
                     <Calendar className="h-4 w-4 text-sky-600" />
