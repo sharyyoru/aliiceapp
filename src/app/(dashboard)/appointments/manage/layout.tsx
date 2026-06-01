@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 
 export const metadata: Metadata = {
-  title: "Manage Appointment | Maison Tóā",
-  description: "Reschedule or cancel your appointment at Maison Tóā",
+  title: "Manage Appointment | ALiice",
+  description: "Reschedule or cancel your appointment",
 };
 
 export default function ManageLayout({ children }: { children: React.ReactNode }) {

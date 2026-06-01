@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Consultation Form | Maison Toa",
-  description: "Patient consultation form for Maison Toa",
+  title: "Consultation Form | ALiice",
+  description: "Patient consultation form",
 };
 
 export default function ConsultationsLayout({
@@ -10,7 +10,5 @@ export default function ConsultationsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // This layout bypasses the main app layout's sidebar/header
-  // by rendering children directly without the shell components
   return <>{children}</>;
 }
