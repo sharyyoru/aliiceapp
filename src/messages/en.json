@@ -966,9 +966,10 @@
     "noColor": "No color"
   },
   "patients": {
-    "title": "Contacts",
+    "title": "Patients",
     "subtitle": "Patient contacts for all pipelines. Use filters to narrow down the list.",
     "totalRecords": "Total Records: {n}",
+    "newPatient": "Add Patient",
     "filterOwner": "Filter by Owner...",
     "filterCreateDate": "Filter by Create Date...",
     "filterLastActivity": "Filter by Last Activity Date...",
