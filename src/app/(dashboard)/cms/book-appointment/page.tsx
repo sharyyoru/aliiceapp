@@ -8,8 +8,7 @@ import {
   DEFAULT_BOOKING_PAGES,
   BOOKING_PAGE_LIST 
 } from "@/components/PageBuilder/types";
-import { 
-  Paintbrush, 
+import { Copy, ExternalLink, Paintbrush, 
   Code, 
   ArrowLeft, 
   ChevronDown,
@@ -268,6 +267,15 @@ const PAGE_ICONS: Record<string, React.ReactNode> = {
 
 export default function BookAppointmentCMSPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  
+  const bookingUrl = typeof window !== "undefined" ? `${window.location.origin}/book-appointment` : "/book-appointment";
+  
+  function copyBookingLink() {
+    navigator.clipboard.writeText(bookingUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
   const [editorMode, setEditorMode] = useState<EditorMode>("visual");
 
   // ── Page Builder state ───────────────────────────────────────────────────
@@ -491,6 +499,29 @@ export default function BookAppointmentCMSPage() {
                 Text Editor
               </button>
             </div>
+            
+            {/* Booking Link Actions */}
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-xs text-slate-600">
+                <span className="max-w-[200px] truncate">{bookingUrl}</span>
+              </div>
+              <button
+                onClick={copyBookingLink}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 text-white rounded-lg text-xs font-medium hover:bg-sky-600 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {linkCopied ? "Copied!" : "Copy Link"}
+              </button>
+              <a
+                href="/book-appointment"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open Page
+              </a>
+            </div>
           </div>
         </div>
 
@@ -558,6 +589,29 @@ export default function BookAppointmentCMSPage() {
                 <Code className="w-4 h-4" />
                 Text Editor
               </button>
+            </div>
+            
+            {/* Booking Link Actions */}
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-xs text-slate-600">
+                <span className="max-w-[200px] truncate">{bookingUrl}</span>
+              </div>
+              <button
+                onClick={copyBookingLink}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 text-white rounded-lg text-xs font-medium hover:bg-sky-600 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {linkCopied ? "Copied!" : "Copy Link"}
+              </button>
+              <a
+                href="/book-appointment"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open Page
+              </a>
             </div>
           </div>
         </div>
@@ -738,6 +792,15 @@ type PreviewStep = (typeof PREVIEW_STEPS)[number];
 
 function BookingFlowPreview({ d }: { d: Record<string, string> }) {
   const [step, setStep] = useState<PreviewStep>("Landing");
+  const [linkCopied, setLinkCopied] = useState(false);
+  
+  const bookingUrl = typeof window !== "undefined" ? `${window.location.origin}/book-appointment` : "/book-appointment";
+  
+  function copyBookingLink() {
+    navigator.clipboard.writeText(bookingUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
 
   const t = (key: string) => d[key] || key;
 
@@ -965,3 +1028,7 @@ function PreviewStepBar({ current }: { current: number }) {
     </div>
   );
 }
+
+
+
+

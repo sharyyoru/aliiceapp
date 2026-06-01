@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabaseClient } from "@/lib/supabaseClient";
-import { CheckCircle2, Circle, Users, Calendar, CreditCard, Settings, Stethoscope, ArrowRight, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, Users, Calendar, CreditCard, Settings, Stethoscope, ArrowRight, Sparkles, Globe } from "lucide-react";
 
 interface OnboardingStep {
   id: string;
@@ -64,6 +64,24 @@ export default function OnboardingChecklist() {
                 .from("services")
                 .select("*", { count: "exact", head: true });
               return (count || 0) > 0;
+            },
+          },
+          {
+            id: "setup_booking_page",
+            title: "Create your booking page",
+            description: "Set up your online booking page to accept appointments",
+            href: "/cms/book-appointment",
+            icon: <Globe className="h-5 w-5" />,
+            completed: false,
+            checkFn: async () => {
+              // Check if booking page has been customized
+              try {
+                const res = await fetch("/api/settings/content-translations");
+                const data = await res.json();
+                return !!data?.bookingPages || !!data?.pageConfig;
+              } catch {
+                return false;
+              }
             },
           },
           {
