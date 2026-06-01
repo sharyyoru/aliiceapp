@@ -68,7 +68,7 @@ export default function Home() {
         // Extract user's first name from metadata
         if (user) {
           const meta = (user.user_metadata || {}) as Record<string, unknown>;
-          const firstName = (meta["first_name"] as string) || null;
+          const firstName = (meta["first_name"] as string) || ((meta["full_name"] as string)?.split(" ")[0]) || null;
           setUserFirstName(firstName);
         }
 
@@ -898,5 +898,6 @@ export default function Home() {
     </div>
   );
 }
+
 
 
