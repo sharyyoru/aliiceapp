@@ -271,6 +271,15 @@ export default function PatientsPage() {
             {t("totalRecords", { n: totalCount.toLocaleString() })}
           </p>
         </div>
+        <Link
+          href="/add-patients"
+          className="inline-flex items-center gap-1.5 rounded-full border border-sky-200/80 bg-sky-600 px-4 py-2 text-xs font-medium text-white shadow-[0_10px_25px_rgba(15,23,42,0.22)] backdrop-blur hover:bg-sky-700"
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          {t("newPatient")}
+        </Link>
       </div>
 
       {/* Top filters row */}

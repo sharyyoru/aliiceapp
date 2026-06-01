@@ -83,6 +83,7 @@ export default function NewPatientForm() {
 
     let createdByUserId: string | null = null;
     let createdBy: string | null = null;
+    let organizationId: string | null = null;
 
     if (authUser) {
       const meta = (authUser.user_metadata || {}) as Record<string, unknown>;
@@ -93,6 +94,36 @@ export default function NewPatientForm() {
 
       createdByUserId = authUser.id;
       createdBy = fullName;
+
+      // Get user's current organization
+      const { data: userData } = await supabaseClient
+        .from("users")
+        .select("current_organization_id")
+        .eq("id", authUser.id)
+        .single();
+
+      if (userData?.current_organization_id) {
+        organizationId = userData.current_organization_id;
+      } else {
+        // Fallback: get first organization membership
+        const { data: membership } = await supabaseClient
+          .from("organization_members")
+          .select("organization_id")
+          .eq("user_id", authUser.id)
+          .eq("is_active", true)
+          .limit(1)
+          .single();
+
+        if (membership?.organization_id) {
+          organizationId = membership.organization_id;
+        }
+      }
+    }
+
+    if (!organizationId) {
+      setError("No organization found. Please create or join an organization first.");
+      setLoading(false);
+      return;
     }
 
     const patientPayload: Record<string, unknown> = {
@@ -104,6 +135,7 @@ export default function NewPatientForm() {
       source,
       created_by_user_id: createdByUserId,
       created_by: createdBy,
+      organization_id: organizationId,
     };
     if (dob) patientPayload.dob = dob;
     if (streetAddress) patientPayload.street_address = streetAddress;
@@ -128,6 +160,7 @@ export default function NewPatientForm() {
         provider_name: insuranceProvider,
         card_number: insuranceCardNumber || "",
         insurance_type: insuranceType || "basic",
+        organization_id: organizationId,
       };
       await supabaseClient.from("patient_insurances").insert(insurancePayload);
     }
