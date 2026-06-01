@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Mic, MicOff, Loader2, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Mic, Loader2, CheckCircle2 } from "lucide-react";
 
 type AIScribeDemoProps = {
   expanded?: boolean;
@@ -15,10 +15,10 @@ const soapNotes = {
 };
 
 const transcriptLines = [
-  { speaker: "Doctor", text: "How are you feeling today?", delay: 0 },
-  { speaker: "Patient", text: "I've had some back pain for a couple weeks.", delay: 1500 },
-  { speaker: "Doctor", text: "Can you describe the pain?", delay: 3000 },
-  { speaker: "Patient", text: "It's a dull ache, worse when I sit.", delay: 4500 },
+  { speaker: "Doctor", text: "How are you feeling today?", delay: 800 },
+  { speaker: "Patient", text: "I've had some back pain for a couple weeks.", delay: 1200 },
+  { speaker: "Doctor", text: "Can you describe the pain?", delay: 1200 },
+  { speaker: "Patient", text: "It's a dull ache, worse when I sit.", delay: 1200 },
 ];
 
 export default function AIScribeDemo({ expanded = false }: AIScribeDemoProps) {
@@ -26,12 +26,25 @@ export default function AIScribeDemo({ expanded = false }: AIScribeDemoProps) {
   const [currentLine, setCurrentLine] = useState(0);
   const [showSoap, setShowSoap] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const hasStarted = useRef(false);
 
+  // Auto-start the demo animation on mount
+  useEffect(() => {
+    if (!hasStarted.current) {
+      hasStarted.current = true;
+      const startTimer = setTimeout(() => {
+        setIsRecording(true);
+      }, 500);
+      return () => clearTimeout(startTimer);
+    }
+  }, []);
+
+  // Progress through transcript lines
   useEffect(() => {
     if (isRecording && currentLine < transcriptLines.length) {
       const timer = setTimeout(() => {
         setCurrentLine((prev) => prev + 1);
-      }, transcriptLines[currentLine].delay + 1500);
+      }, transcriptLines[currentLine].delay);
       return () => clearTimeout(timer);
     } else if (isRecording && currentLine >= transcriptLines.length) {
       setIsRecording(false);
@@ -39,61 +52,56 @@ export default function AIScribeDemo({ expanded = false }: AIScribeDemoProps) {
       const timer = setTimeout(() => {
         setProcessing(false);
         setShowSoap(true);
-      }, 2000);
+        // Auto-restart the demo after showing SOAP notes
+        const restartTimer = setTimeout(() => {
+          setShowSoap(false);
+          setCurrentLine(0);
+          setIsRecording(true);
+        }, 4000);
+        return () => clearTimeout(restartTimer);
+      }, 1500);
       return () => clearTimeout(timer);
     }
   }, [isRecording, currentLine]);
 
-  const startRecording = () => {
-    setIsRecording(true);
-    setCurrentLine(0);
-    setShowSoap(false);
-  };
-
-  const resetDemo = () => {
-    setIsRecording(false);
-    setCurrentLine(0);
-    setShowSoap(false);
-    setProcessing(false);
-  };
-
   return (
     <div className="space-y-4">
-      {/* Recording Button */}
+      {/* Recording Status Indicator */}
       <div className="flex justify-center">
-        <button
-          onClick={isRecording ? resetDemo : startRecording}
-          disabled={processing}
+        <div
           className={`relative flex items-center gap-3 px-6 py-3 rounded-full font-medium transition-all ${
             isRecording
-              ? "bg-red-100 text-red-600 hover:bg-red-200"
+              ? "bg-red-100 text-red-600"
               : processing
               ? "bg-violet-100 text-violet-600"
-              : "bg-violet-600 text-white hover:bg-violet-700"
+              : showSoap
+              ? "bg-emerald-100 text-emerald-600"
+              : "bg-violet-100 text-violet-600"
           }`}
         >
           {processing ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              Processing...
+              <span className="text-sm">Processing with AI...</span>
             </>
           ) : isRecording ? (
             <>
               <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
-              Recording... Click to stop
+              <Mic className="h-4 w-4" />
+              <span className="text-sm">Recording consultation...</span>
             </>
           ) : showSoap ? (
             <>
               <CheckCircle2 className="h-5 w-5" />
-              Restart Demo
+              <span className="text-sm">SOAP Notes Ready</span>
             </>
           ) : (
             <>
-              <Mic className="h-5 w-5" />
-              Start Recording
+              <Mic className="h-5 w-5 animate-pulse" />
+              <span className="text-sm">Starting AI Scribe...</span>
             </>
           )}
-        </button>
+        </div>
       </div>
 
       {/* Transcript or SOAP Notes */}

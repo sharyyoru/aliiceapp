@@ -240,22 +240,22 @@ export default function LandingPageClient() {
                 Manage patients • Schedule appointments • Bill clients
               </p>
               
-              <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl leading-[1.1]">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-[1.1]">
                 The all-in-one medical CRM for aesthetics clinics.
               </h1>
-              <p className="mt-4 text-lg sm:text-xl text-sky-600 font-normal">
+              <p className="mt-4 text-base sm:text-lg md:text-xl text-sky-600 font-normal">
                 Replacing CRM, ERP, and booking with one unified platform.
               </p>
 
               {/* Stats */}
-              <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="mt-6 sm:mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                 {stats.map((stat) => (
-                  <div key={stat.label} className="text-center lg:text-left">
-                    <div className="text-2xl font-bold bg-gradient-to-r from-sky-600 to-violet-600 bg-clip-text text-transparent">
+                  <div key={stat.label} className="text-center lg:text-left p-2 sm:p-0">
+                    <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-sky-600 to-violet-600 bg-clip-text text-transparent">
                       {stat.value}
                     </div>
-                    <div className="text-sm font-medium text-slate-900">{stat.label}</div>
-                    <div className="text-xs text-slate-500">{stat.sublabel}</div>
+                    <div className="text-xs sm:text-sm font-medium text-slate-900">{stat.label}</div>
+                    <div className="text-[10px] sm:text-xs text-slate-500">{stat.sublabel}</div>
                   </div>
                 ))}
               </div>
@@ -272,7 +272,7 @@ export default function LandingPageClient() {
             </div>
 
             {/* Right - Interactive Demo Card */}
-            <div className="relative">
+            <div className="relative mt-8 lg:mt-0">
               <div className="relative bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200/60 overflow-hidden transition-all duration-500 hover:shadow-[0_20px_50px_rgb(0,0,0,0.1)]">
                 {/* Demo Tabs */}
                 <div className="flex border-b border-slate-100">
@@ -285,20 +285,20 @@ export default function LandingPageClient() {
                     <button
                       key={tab.id}
                       onClick={() => setActiveDemo(tab.id as any)}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all ${
+                      className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-all ${
                         activeDemo === tab.id
                           ? "text-sky-600 bg-sky-50 border-b-2 border-sky-600"
                           : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                       }`}
                     >
                       <tab.icon className="h-4 w-4" />
-                      <span className="hidden sm:inline">{tab.label}</span>
+                      <span className="text-[10px] sm:text-sm">{tab.label}</span>
                     </button>
                   ))}
                 </div>
 
-                {/* Demo Content - Fixed height to prevent layout shift */}
-                <div className="p-6 h-[420px] overflow-hidden">
+                {/* Demo Content - Responsive height */}
+                <div className="p-4 sm:p-6 h-[320px] sm:h-[420px] overflow-hidden">
                   {activeDemo === "patient" && <PatientCardDemo />}
                   {activeDemo === "calendar" && <CalendarDemo />}
                   {activeDemo === "ai" && <AIScribeDemo />}
