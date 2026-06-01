@@ -1,0 +1,236 @@
+{
+  "company": {
+    "name": "ALiice",
+    "description": "Medical CRM and clinic management platform for aesthetics clinics",
+    "website": "https://aliice.app",
+    "support_email": "support@aliice.app"
+  },
+  "features": [
+    {
+      "name": "Patient Management",
+      "description": "Store and manage all patient information including contact details, medical history, and treatment records",
+      "how_to_access": "Click 'Patients' in the sidebar menu",
+      "key_actions": [
+        "Add new patient: Click + Add Patient button",
+        "Search patients: Use search bar at top",
+        "View patient: Click on patient name",
+        "Import patients: Use CSV import option"
+      ]
+    },
+    {
+      "name": "Appointment Scheduling",
+      "description": "Manage clinic calendar, book appointments, and track consultations",
+      "how_to_access": "Click 'Calendar' or 'Appointments' in sidebar",
+      "key_actions": [
+        "Book appointment: Click on time slot in calendar",
+        "Reschedule: Click appointment, select Reschedule",
+        "Cancel: Click appointment, select Cancel",
+        "View details: Click on any appointment"
+      ]
+    },
+    {
+      "name": "Online Booking Page",
+      "description": "Customizable landing page where patients can book appointments directly",
+      "how_to_access": "Go to CMS > Book Appointment",
+      "key_actions": [
+        "Customize page: Use visual editor",
+        "Get booking link: Click Copy Link button",
+        "Preview: Click Open Page button",
+        "Enable services: Toggle which services appear"
+      ]
+    },
+    {
+      "name": "Services Catalog",
+      "description": "Define all treatments and services with pricing and duration",
+      "how_to_access": "Click 'Services' in sidebar",
+      "key_actions": [
+        "Add service: Click Add Service button",
+        "Set price: Enter price in service form",
+        "Set duration: Enter duration in minutes",
+        "Categorize: Assign to service category"
+      ]
+    },
+    {
+      "name": "Deals Pipeline",
+      "description": "Track patient journey from inquiry to treatment using CRM pipeline",
+      "how_to_access": "Click 'Deals' in sidebar",
+      "key_actions": [
+        "Create deal: Click Add Deal",
+        "Move stages: Drag deal card to new stage",
+        "Add notes: Click on deal to add notes",
+        "Assign owner: Select team member"
+      ]
+    },
+    {
+      "name": "Financial Management",
+      "description": "Handle invoicing, payments, and financial tracking",
+      "how_to_access": "Click 'Financials' in sidebar",
+      "key_actions": [
+        "Create invoice: Click Create Invoice",
+        "Send invoice: Click Send button",
+        "Track payments: View payment status",
+        "Reports: View financial reports"
+      ]
+    },
+    {
+      "name": "Task Management",
+      "description": "Assign and track tasks for team members",
+      "how_to_access": "Click 'Tasks' in sidebar",
+      "key_actions": [
+        "Create task: Click Add Task",
+        "Assign: Select team member",
+        "Set due date: Choose deadline",
+        "Mark complete: Check off task"
+      ]
+    },
+    {
+      "name": "Settings",
+      "description": "Configure clinic preferences and system settings",
+      "how_to_access": "Click 'Settings' in sidebar",
+      "key_actions": [
+        "Working hours: Set in Doctor Scheduling",
+        "Calendar defaults: Configure appointment durations",
+        "Blocked dates: Add holidays and time off",
+        "Team: Manage users and permissions"
+      ]
+    }
+  ],
+  "onboarding_steps": [
+    {
+      "step": 1,
+      "title": "Add Your First Patient",
+      "instructions": "Go to Patients in the sidebar, click + Add Patient, enter name, email, and phone, then click Save"
+    },
+    {
+      "step": 2,
+      "title": "Set Up Services",
+      "instructions": "Go to Services, click Add Service, enter treatment name, duration, and price, then save"
+    },
+    {
+      "step": 3,
+      "title": "Create Booking Page",
+      "instructions": "Go to CMS > Book Appointment, customize your page, then click Copy Link to get your booking URL"
+    },
+    {
+      "step": 4,
+      "title": "Schedule Appointment",
+      "instructions": "Go to Calendar, click on a time slot, select patient and service, add notes, and save"
+    },
+    {
+      "step": 5,
+      "title": "Configure Settings",
+      "instructions": "Go to Settings, set up working hours in Doctor Scheduling, configure calendar defaults"
+    }
+  ],
+  "faqs": [
+    {
+      "question": "How do I add a patient?",
+      "answer": "Go to Patients in the sidebar, click the + Add Patient button, fill in their details like name, email, and phone, then click Save."
+    },
+    {
+      "question": "How do I set up online booking?",
+      "answer": "Go to CMS in the sidebar, then click Book Appointment. Customize your booking page using the editor, then click Copy Link to get your shareable booking URL."
+    },
+    {
+      "question": "How do I schedule an appointment?",
+      "answer": "Go to Calendar, click on the time slot you want, select the patient and service, add any notes, and click Save. The patient will receive a confirmation email."
+    },
+    {
+      "question": "How do I add a service?",
+      "answer": "Go to Services in the sidebar, click Add Service, enter the service name, duration in minutes, and price, then save."
+    },
+    {
+      "question": "How do I get my booking link?",
+      "answer": "Go to CMS > Book Appointment. At the top of the page, you'll see a Copy Link button. Click it to copy your booking page URL."
+    },
+    {
+      "question": "Can patients book online?",
+      "answer": "Yes! Set up your booking page in CMS > Book Appointment, then share your booking link on your website or social media."
+    },
+    {
+      "question": "How do I create an invoice?",
+      "answer": "Go to Financials in the sidebar, click Create Invoice, select the patient, add the services, and click Send to email the invoice."
+    },
+    {
+      "question": "How do I search for a patient?",
+      "answer": "Use the search bar at the top of the Patients page. You can search by name, email, or phone number."
+    },
+    {
+      "question": "How do I set my working hours?",
+      "answer": "Go to Settings > Doctor Scheduling. Here you can set your available hours for each day of the week."
+    },
+    {
+      "question": "How do I block time off?",
+      "answer": "Go to Settings > Blocked Dates. You can add specific dates or time ranges when you're not available."
+    },
+    {
+      "question": "Can I import patients from another system?",
+      "answer": "Yes, you can import patients using a CSV file. Go to Patients and look for the Import option."
+    },
+    {
+      "question": "How do I reset my password?",
+      "answer": "On the login page, click Forgot Password. Enter your email and you'll receive a link to reset your password."
+    }
+  ],
+  "troubleshooting": [
+    {
+      "issue": "Can't log in",
+      "solutions": [
+        "Check that caps lock is off",
+        "Click Forgot Password to reset",
+        "Clear browser cache and cookies",
+        "Try incognito/private browsing mode"
+      ]
+    },
+    {
+      "issue": "Page not loading",
+      "solutions": [
+        "Refresh the page with Ctrl+Shift+R",
+        "Check internet connection",
+        "Try a different browser",
+        "Clear browser cache"
+      ]
+    },
+    {
+      "issue": "Data not saving",
+      "solutions": [
+        "Check all required fields are filled",
+        "Look for error messages on the form",
+        "Refresh and try again",
+        "Check internet connection"
+      ]
+    },
+    {
+      "issue": "Can't find a patient",
+      "solutions": [
+        "Search by email or phone number",
+        "Check for spelling errors",
+        "Check if patient was archived",
+        "Try partial name search"
+      ]
+    },
+    {
+      "issue": "Appointment not showing",
+      "solutions": [
+        "Check you're viewing the correct date",
+        "Verify the appointment was saved",
+        "Check if it's assigned to correct doctor",
+        "Refresh the calendar page"
+      ]
+    }
+  ],
+  "navigation": {
+    "sidebar_items": [
+      {"name": "Dashboard", "description": "Overview of activities, tasks, and appointments"},
+      {"name": "Patients", "description": "Patient database and records"},
+      {"name": "Calendar", "description": "Appointment scheduling"},
+      {"name": "Appointments", "description": "List of all appointments"},
+      {"name": "Deals", "description": "Sales pipeline and CRM"},
+      {"name": "Services", "description": "Treatment catalog"},
+      {"name": "Tasks", "description": "Team task management"},
+      {"name": "Financials", "description": "Invoicing and payments"},
+      {"name": "Settings", "description": "System configuration"},
+      {"name": "CMS", "description": "Content and booking page"}
+    ]
+  }
+}
