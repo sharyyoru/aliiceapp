@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { useOrganization } from "@/contexts/OrganizationContext";
 
 const TABS = [
   { id: "external-labs", label: "External Labs" },
@@ -141,6 +142,7 @@ const DEFAULT_DURATION_OPTIONS = [
 ];
 
 function CalendarDefaultsTab() {
+  const { organization } = useOrganization();
   // Each entry: { providerId: string (providers table), name: string }
   const [staffList, setStaffList] = useState<{ providerId: string; name: string }[]>([]);
   const [defaultIds, setDefaultIds] = useState<string[]>([]);
@@ -161,9 +163,14 @@ function CalendarDefaultsTab() {
         const token = session?.access_token;
         const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
+        // Build URL with organization filter
+        const usersUrl = organization?.id 
+          ? `/api/users/list?organization_id=${organization.id}`
+          : "/api/users/list";
+
         const [defaultsRes, usersRes] = await Promise.all([
           fetch("/api/settings/calendar-defaults", { headers: authHeaders }),
-          fetch("/api/users/list"),
+          fetch(usersUrl),
         ]);
 
         if (defaultsRes.ok) {
@@ -188,7 +195,7 @@ function CalendarDefaultsTab() {
       }
     }
     load();
-  }, []);
+  }, [organization?.id]);
 
   function toggleProvider(id: string) {
     setDefaultIds((prev) =>
@@ -288,6 +295,7 @@ function CalendarDefaultsTab() {
 function DoctorSchedulingTab() {
   const t = useTranslations("settingsPage.scheduling");
   const tc = useTranslations("settingsPage.common");
+  const { organization } = useOrganization();
   const [settings, setSettings] = useState<DoctorSchedulingSetting[]>([]);
   const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -303,9 +311,14 @@ function DoctorSchedulingTab() {
   useEffect(() => {
     async function load() {
       try {
+        // Build URL with organization filter
+        const usersUrl = organization?.id 
+          ? `/api/users/list?organization_id=${organization.id}`
+          : "/api/users/list";
+        
         const [settingsRes, providersRes] = await Promise.all([
           fetch("/api/settings/doctor-scheduling"),
-          fetch("/api/users/list"),
+          fetch(usersUrl),
         ]);
         if (settingsRes.ok) {
           const data = await settingsRes.json();
@@ -322,7 +335,7 @@ function DoctorSchedulingTab() {
       }
     }
     load();
-  }, []);
+  }, [organization?.id]);
 
   function handleSelect(setting: DoctorSchedulingSetting) {
     setSelectedId(setting.id);
