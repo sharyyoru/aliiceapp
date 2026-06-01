@@ -232,15 +232,21 @@ export default function ConsultWithAliice({
         },
       ]);
 
-      // Generate SOAP notes from transcript
-      await generateSOAPNotes();
+      // Generate SOAP notes from transcript if we have content
+      const hasContent = transcript.filter((s) => s.speaker !== "system").length > 0;
+      if (hasContent) {
+        await generateSOAPNotes();
+      } else {
+        // No transcript content, just mark as complete
+        setCallStatus("complete");
+      }
 
     } catch (err) {
       console.error("Error stopping consultation:", err);
       setError(err instanceof Error ? err.message : "Failed to process consultation");
-      setCallStatus("error");
+      setCallStatus("complete"); // Still allow copying transcript
     }
-  }, [duration]);
+  }, [duration, transcript]);
 
   // Generate SOAP notes using AI
   const generateSOAPNotes = async () => {
