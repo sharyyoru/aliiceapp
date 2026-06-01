@@ -356,25 +356,44 @@ ${notes.followUp ? `\n**Follow-up:** ${notes.followUp}` : ""}
 ## Full Transcript
 ${fullTranscript}`;
 
+      // Generate unique consultation ID
+      const consultationId = `SCRIBE-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      const now = new Date().toISOString();
+
+      // Build insert payload with required fields
+      const insertPayload: Record<string, unknown> = {
+        patient_id: patientId,
+        consultation_id: consultationId,
+        title: `AI Scribe - ${new Date().toLocaleDateString()}`,
+        content: content,
+        record_type: "notes",
+        duration_seconds: duration,
+        scheduled_at: now,
+        created_by_user_id: user.id,
+        created_at: now,
+      };
+      
+      // Add optional organization_id if available
+      if (organizationId) {
+        insertPayload.organization_id = organizationId;
+      }
+      
+      // Add ICD10 code if available
+      if (notes.icd10Codes && notes.icd10Codes.length > 0) {
+        insertPayload.ref_icd10 = notes.icd10Codes[0];
+      }
+
+      console.log("Saving consultation with payload:", insertPayload);
+
       // Create consultation record
       const { data: consultation, error: insertError } = await supabaseClient
         .from("consultations")
-        .insert({
-          patient_id: patientId,
-          organization_id: organizationId,
-          title: `AI Scribe - ${new Date().toLocaleDateString()}`,
-          content: content,
-          record_type: "notes",
-          ref_icd10: notes.icd10Codes[0] || null,
-          duration_seconds: duration,
-          created_by_user_id: user.id,
-          created_at: new Date().toISOString(),
-        })
+        .insert(insertPayload)
         .select("id")
         .single();
 
       if (insertError) {
-        console.error("Error saving consultation:", insertError);
+        console.error("Error saving consultation:", insertError.message, insertError.details, insertError.hint);
         throw insertError;
       }
 
