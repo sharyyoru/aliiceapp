@@ -21,6 +21,7 @@ import InsuranceBillingModal from "@/components/InsuranceBillingModal";
 import InvoiceStatusBadge from "@/components/InvoiceStatusBadge";
 import TardocAccordionTree from "@/components/TardocAccordionTree";
 import AcfAccordionTree from "@/components/AcfAccordionTree";
+import ConsultWithAliice from "@/components/ConsultWithAliice";
 import { type MediDataInvoiceStatus } from "@/lib/medidata";
 
 type TaskPriority = "low" | "medium" | "high";
@@ -579,6 +580,7 @@ export default function MedicalConsultationsCard({
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [editingInvoiceNumber, setEditingInvoiceNumber] = useState<string | null>(null);
   const [newConsultationOpen, setNewConsultationOpen] = useState(false);
+  const [consultWithAliiceOpen, setConsultWithAliiceOpen] = useState(false);
   const [consultationDate, setConsultationDate] = useState(
     formatLocalDateInputValue(new Date()),
   );
@@ -3554,6 +3556,18 @@ export default function MedicalConsultationsCard({
                 </button>
               </>
             ) : null}
+            <button
+              type="button"
+              onClick={() => setConsultWithAliiceOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 px-3 py-1.5 text-[11px] font-medium text-violet-700 shadow-sm hover:from-violet-100 hover:to-indigo-100"
+            >
+              <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 1a4 4 0 0 0-4 4v3a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z" />
+                <path d="M12 8a4 4 0 0 1-8 0" />
+                <path d="M8 12v3M5 15h6" />
+              </svg>
+              Consult with Aliice
+            </button>
             <button
               type="button"
               onClick={() => void exportConsultationsToPdf()}
@@ -9010,6 +9024,26 @@ export default function MedicalConsultationsCard({
           setInsuranceBillingTarget(null);
         }}
       />
+
+      {/* Consult with Aliice - AI Medical Scribe */}
+      {consultWithAliiceOpen && (
+        <ConsultWithAliice
+          patientId={patientId}
+          patientName={`${patientFirstName || ""} ${patientLastName || ""}`.trim() || "Patient"}
+          onTranscriptSave={(content, soapNotes) => {
+            // Create a new consultation note with the transcript
+            setConsultationRecordType("notes");
+            setConsultationContentHtml(content);
+            setConsultationTitle(`AI Scribe - ${new Date().toLocaleDateString()}`);
+            if (soapNotes?.icd10Codes?.[0]) {
+              setConsultationRefIcd10(soapNotes.icd10Codes[0]);
+            }
+            setNewConsultationOpen(true);
+            setConsultWithAliiceOpen(false);
+          }}
+          onClose={() => setConsultWithAliiceOpen(false)}
+        />
+      )}
     </>
   );
 }
