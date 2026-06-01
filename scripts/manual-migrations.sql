@@ -63,6 +63,9 @@ CREATE INDEX IF NOT EXISTS consultations_invoice_status_idx ON consultations(inv
 CREATE INDEX IF NOT EXISTS emails_read_at_idx ON emails(read_at);
 CREATE INDEX IF NOT EXISTS appointments_title_idx ON appointments(title);
 
+-- SERVICES TABLE - Add duration_minutes column
+ALTER TABLE services ADD COLUMN IF NOT EXISTS duration_minutes integer DEFAULT 30;
+
 -- Function to generate unique invoice numbers
 CREATE OR REPLACE FUNCTION generate_invoice_number()
 RETURNS text

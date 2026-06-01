@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { getAppointmentNotes, getAppointmentTitle, getAppointmentDisplayName } from "@/lib/appointmentUtils";
 import {
   formatSwissMonthYear,
@@ -784,6 +785,7 @@ export default function CalendarPage() {
   const searchParams = useSearchParams();
   const t = useTranslations("calendar");
   const tCommon = useTranslations("common");
+  const { organization } = useOrganization();
 
   // Initialize to date from ?date=YYYY-MM-DD param, or today
   // Parse URL date as Swiss timezone to avoid day shift
@@ -1332,12 +1334,18 @@ export default function CalendarPage() {
         setProvidersLoading(true);
         setProvidersError(null);
 
-        // Load from providers table - filter by role to show doctors/nurses/technicians (not billing entities)
-        const { data, error } = await supabaseClient
+        // Load from providers table - filter by role and organization
+        let query = supabaseClient
           .from("providers")
           .select("id, name, email, role")
-          .in("role", ["doctor", "nurse", "technician"])
-          .order("name", { ascending: true });
+          .in("role", ["doctor", "nurse", "technician"]);
+        
+        // Filter by organization if available
+        if (organization?.id) {
+          query = query.eq("organization_id", organization.id);
+        }
+        
+        const { data, error } = await query.order("name", { ascending: true });
 
         if (!isMounted) return;
 
@@ -1396,7 +1404,7 @@ export default function CalendarPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [organization?.id]);
 
   // Update current time every minute for the time indicator
   useEffect(() => {
@@ -1501,11 +1509,17 @@ export default function CalendarPage() {
         setServiceOptionsLoading(true);
         setServiceOptionsError(null);
 
-        const { data, error } = await supabaseClient
+        let query = supabaseClient
           .from("services")
           .select("id, name, is_active, duration_minutes, category_id, service_categories(name)")
-          .eq("is_active", true)
-          .order("name", { ascending: true });
+          .eq("is_active", true);
+        
+        // Filter by organization if available
+        if (organization?.id) {
+          query = query.eq("organization_id", organization.id);
+        }
+        
+        const { data, error } = await query.order("name", { ascending: true });
 
         if (!isMounted) return;
 
@@ -1541,7 +1555,7 @@ export default function CalendarPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [organization?.id]);
 
   // Load machines and service-machine mappings
   useEffect(() => {
@@ -5739,7 +5753,18 @@ export default function CalendarPage() {
                     {createDoctorCalendarId === "open" && (
                       <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg">
                         {doctorCalendars.length === 0 ? (
-                          <div className="px-3 py-2 text-slate-500">No doctors available</div>
+                          <div className="px-3 py-2 space-y-2">
+                            <p className="text-slate-500">No doctors available</p>
+                            <Link
+                              href="/settings?tab=providers"
+                              className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-sky-700"
+                            >
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                              Add Doctor
+                            </Link>
+                          </div>
                         ) : (
                           doctorCalendars.map((calendar) => {
                             const isSelected = selectedDoctorIds.includes(calendar.id);
@@ -6073,7 +6098,34 @@ export default function CalendarPage() {
                       <span className="ml-1.5 text-slate-900">{calculateTotalDuration(selectedServiceIds, serviceQuantities, serviceOptions)} min</span>
                     </div>
                   )}
-                  {serviceOptionsError && <p className="text-[10px] text-rose-600">{serviceOptionsError}</p>}
+                  {serviceOptionsError && (
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-rose-600">{serviceOptionsError}</p>
+                      <Link
+                        href="/services"
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-sky-600 hover:text-sky-700"
+                      >
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Service
+                      </Link>
+                    </div>
+                  )}
+                  {!serviceOptionsError && serviceOptions.length === 0 && !serviceOptionsLoading && (
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-slate-500">No services configured</p>
+                      <Link
+                        href="/services"
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-sky-600 hover:text-sky-700"
+                      >
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Service
+                      </Link>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-medium text-slate-600">{t("modal.fields.status")}</p>

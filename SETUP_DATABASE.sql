@@ -152,6 +152,7 @@ create table if not exists services (
   description text,
   is_active boolean not null default true,
   base_price numeric(12,2),
+  duration_minutes integer default 30,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
