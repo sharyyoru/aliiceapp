@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { supabaseClient } from "@/lib/supabaseClient";
 import {
   Mic,
   MicOff,
@@ -32,7 +31,7 @@ type ConsultWithAliiceProps = {
 
 type TranscriptSegment = {
   id: string;
-  speaker: "doctor" | "patient" | "system";
+  speaker: "agent" | "user" | "system";
   text: string;
   timestamp: Date;
 };
@@ -61,23 +60,22 @@ export default function ConsultWithAliice({
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
-  const [liveText, setLiveText] = useState("");
   const [soapNotes, setSoapNotes] = useState<SOAPNotes | null>(null);
   const [isGeneratingSoap, setIsGeneratingSoap] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState<"transcript" | "soap">("transcript");
   
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const retellClientRef = useRef<any>(null);
+  const callIdRef = useRef<string | null>(null);
 
   // Auto-scroll transcript
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript, liveText]);
+  }, [transcript]);
 
   // Duration timer
   useEffect(() => {
@@ -103,150 +101,155 @@ export default function ConsultWithAliice({
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Start consultation recording
+  // Start consultation with Retell AI
   const startConsultation = useCallback(async () => {
     try {
       setCallStatus("connecting");
       setError(null);
-
-      // Check for browser support
-      if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-        throw new Error("Speech recognition not supported in this browser. Please use Chrome.");
-      }
-
-      // Request microphone permission
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      // Set up MediaRecorder for audio backup
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.start(1000); // Collect in 1-second chunks
-
-      // Set up Speech Recognition
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let interimTranscript = "";
-        let finalTranscript = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        setLiveText(interimTranscript);
-
-        if (finalTranscript) {
-          setTranscript((prev) => [
-            ...prev,
-            {
-              id: `seg-${Date.now()}`,
-              speaker: "doctor", // Default to doctor, AI will classify later
-              text: finalTranscript.trim(),
-              timestamp: new Date(),
-            },
-          ]);
-          setLiveText("");
-        }
-      };
-
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error("Speech recognition error:", event.error);
-        if (event.error === "no-speech") {
-          // Restart recognition if no speech detected
-          recognition.stop();
-          setTimeout(() => recognition.start(), 100);
-        }
-      };
-
-      recognition.onend = () => {
-        // Restart if still active
-        if (callStatus === "active" && recognitionRef.current) {
-          recognitionRef.current.start();
-        }
-      };
-
-      recognition.start();
-      setCallStatus("active");
 
       // Add system message
       setTranscript([
         {
           id: "start",
           speaker: "system",
-          text: `Consultation started with ${patientName}. Aliice is listening and transcribing...`,
+          text: `Connecting to Aliice AI Medical Scribe for ${patientName}...`,
           timestamp: new Date(),
         },
       ]);
+
+      // Create consultation call via our API
+      const response = await fetch("/api/retell/create-consultation-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId, patientName }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create consultation call");
+      }
+
+      const { access_token, call_id } = await response.json();
+      callIdRef.current = call_id;
+
+      // Dynamically import Retell Web SDK
+      const { RetellWebClient } = await import("retell-client-js-sdk");
+      const retellClient = new RetellWebClient();
+      retellClientRef.current = retellClient;
+
+      // Set up event listeners
+      retellClient.on("call_started", () => {
+        setCallStatus("active");
+        setTranscript((prev) => [
+          ...prev,
+          {
+            id: `system-${Date.now()}`,
+            speaker: "system",
+            text: `Consultation started. Aliice is ready to assist with ${patientName}'s consultation.`,
+            timestamp: new Date(),
+          },
+        ]);
+      });
+
+      retellClient.on("call_ended", () => {
+        handleCallEnd();
+      });
+
+      retellClient.on("agent_start_talking", () => {
+        // Agent started speaking
+      });
+
+      retellClient.on("agent_stop_talking", () => {
+        // Agent stopped speaking
+      });
+
+      retellClient.on("update", (update: any) => {
+        // Handle transcript updates
+        if (update.transcript) {
+          const segments = update.transcript;
+          if (Array.isArray(segments)) {
+            const newTranscript: TranscriptSegment[] = segments.map((seg: any, idx: number) => ({
+              id: `seg-${idx}`,
+              speaker: seg.role === "agent" ? "agent" : "user",
+              text: seg.content,
+              timestamp: new Date(),
+            }));
+            // Keep system messages and add new transcript
+            setTranscript((prev) => {
+              const systemMsgs = prev.filter((s) => s.speaker === "system");
+              return [...systemMsgs, ...newTranscript];
+            });
+          }
+        }
+      });
+
+      retellClient.on("error", (error: any) => {
+        console.error("Retell error:", error);
+        setError("Connection error. Please try again.");
+        setCallStatus("error");
+      });
+
+      // Start the call
+      await retellClient.startCall({
+        accessToken: access_token,
+        sampleRate: 24000,
+        captureDeviceId: "default",
+        playbackDeviceId: "default",
+      });
 
     } catch (err) {
       console.error("Error starting consultation:", err);
       setError(err instanceof Error ? err.message : "Failed to start consultation");
       setCallStatus("error");
     }
-  }, [patientName, callStatus]);
+  }, [patientId, patientName]);
 
-  // Stop consultation and process
-  const stopConsultation = useCallback(async () => {
-    try {
-      // Stop recording
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
+  // Handle call end
+  const handleCallEnd = useCallback(async () => {
+    setCallStatus("processing");
 
-      if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
-        mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
-        mediaRecorderRef.current = null;
-      }
+    setTranscript((prev) => [
+      ...prev,
+      {
+        id: "end",
+        speaker: "system",
+        text: `Consultation ended. Duration: ${formatDuration(duration)}. Processing transcript...`,
+        timestamp: new Date(),
+      },
+    ]);
 
-      setCallStatus("processing");
-
-      // Add end message
-      setTranscript((prev) => [
-        ...prev,
-        {
-          id: "end",
-          speaker: "system",
-          text: `Consultation ended. Duration: ${formatDuration(duration)}. Processing transcript...`,
-          timestamp: new Date(),
-        },
-      ]);
-
-      // Generate SOAP notes from transcript if we have content
-      const hasContent = transcript.filter((s) => s.speaker !== "system").length > 0;
-      if (hasContent) {
-        await generateSOAPNotes();
-      } else {
-        // No transcript content, just mark as complete
-        setCallStatus("complete");
-      }
-
-    } catch (err) {
-      console.error("Error stopping consultation:", err);
-      setError(err instanceof Error ? err.message : "Failed to process consultation");
-      setCallStatus("complete"); // Still allow copying transcript
+    // Generate SOAP notes
+    const hasContent = transcript.filter((s) => s.speaker !== "system").length > 0;
+    if (hasContent) {
+      await generateSOAPNotes();
+    } else {
+      setCallStatus("complete");
     }
   }, [duration, transcript]);
+
+  // Stop consultation
+  const stopConsultation = useCallback(async () => {
+    try {
+      if (retellClientRef.current) {
+        retellClientRef.current.stopCall();
+        retellClientRef.current = null;
+      }
+    } catch (err) {
+      console.error("Error stopping consultation:", err);
+    }
+    handleCallEnd();
+  }, [handleCallEnd]);
+
+  // Toggle mute
+  const toggleMute = useCallback(() => {
+    if (retellClientRef.current) {
+      if (isMuted) {
+        retellClientRef.current.unmute();
+      } else {
+        retellClientRef.current.mute();
+      }
+      setIsMuted(!isMuted);
+    }
+  }, [isMuted]);
 
   // Generate SOAP notes using AI
   const generateSOAPNotes = async () => {
@@ -254,8 +257,8 @@ export default function ConsultWithAliice({
     try {
       const fullTranscript = transcript
         .filter((s) => s.speaker !== "system")
-        .map((s) => s.text)
-        .join(" ");
+        .map((s) => `[${s.speaker.toUpperCase()}]: ${s.text}`)
+        .join("\n");
 
       if (!fullTranscript.trim()) {
         setCallStatus("complete");
@@ -278,6 +281,7 @@ export default function ConsultWithAliice({
 
       const data = await response.json();
       setSoapNotes(data.soapNotes);
+      setActiveTab("soap");
       setCallStatus("complete");
 
     } catch (err) {
@@ -307,77 +311,49 @@ export default function ConsultWithAliice({
         .map((s) => `[${s.speaker.toUpperCase()}] ${s.text}`)
         .join("\n\n");
 
-      let content = `## Consultation Transcript\n\n${fullTranscript}`;
-
-      if (soapNotes) {
-        content += `\n\n---\n\n## SOAP Notes\n\n`;
-        content += `### Subjective\n${soapNotes.subjective}\n\n`;
-        content += `### Objective\n${soapNotes.objective}\n\n`;
-        content += `### Assessment\n${soapNotes.assessment}\n\n`;
-        content += `### Plan\n${soapNotes.plan}\n\n`;
-        
-        if (soapNotes.icd10Codes.length > 0) {
-          content += `### ICD-10 Codes\n${soapNotes.icd10Codes.join(", ")}\n\n`;
-        }
-        if (soapNotes.medications.length > 0) {
-          content += `### Medications\n${soapNotes.medications.join("\n")}\n\n`;
-        }
-        if (soapNotes.followUp) {
-          content += `### Follow-up\n${soapNotes.followUp}\n`;
-        }
-      }
-
       if (onTranscriptSave) {
-        onTranscriptSave(content, soapNotes);
+        onTranscriptSave(fullTranscript, soapNotes);
       }
 
       setSaved(true);
-      setTimeout(() => {
-        onClose();
-      }, 1500);
-
+      setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       console.error("Error saving consultation:", err);
-      setError("Failed to save. Please copy the transcript manually.");
+      setError("Failed to save consultation");
     }
   };
 
-  // Toggle mute
-  const toggleMute = () => {
-    if (mediaRecorderRef.current) {
-      const tracks = mediaRecorderRef.current.stream.getAudioTracks();
-      tracks.forEach((track) => {
-        track.enabled = isMuted;
-      });
+  // Handle close
+  const handleClose = () => {
+    if (retellClientRef.current) {
+      retellClientRef.current.stopCall();
     }
-    setIsMuted(!isMuted);
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+    }
+    setIsOpen(false);
+    onClose();
   };
 
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-4xl max-h-[90vh] mx-4 flex flex-col rounded-2xl border border-slate-200/80 bg-white shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-4xl mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur">
-              <Stethoscope className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">Consult with Aliice</h2>
-              <p className="text-sm text-white/80">AI Medical Scribe for {patientName}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {callStatus === "active" && (
-              <div className="flex items-center gap-2 rounded-full bg-white/20 px-3 py-1.5">
-                <div className="h-2 w-2 rounded-full bg-red-400 animate-pulse" />
-                <span className="text-sm font-medium text-white">{formatDuration(duration)}</span>
+        <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur">
+                <Stethoscope className="h-6 w-6 text-white" />
               </div>
-            )}
+              <div>
+                <h2 className="text-lg font-semibold text-white">Consult with Aliice</h2>
+                <p className="text-sm text-white/80">AI Medical Scribe for {patientName}</p>
+              </div>
+            </div>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
             >
               <X className="h-5 w-5" />
@@ -386,273 +362,246 @@ export default function ConsultWithAliice({
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Transcript Panel */}
+        <div className="flex h-[500px]">
+          {/* Left Panel - Transcript */}
           <div className="flex-1 flex flex-col border-r border-slate-200">
-            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-              <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                <ClipboardList className="h-4 w-4 text-violet-600" />
-                Live Transcript
-              </h3>
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 bg-slate-50">
+              <button
+                onClick={() => setActiveTab("transcript")}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === "transcript"
+                    ? "text-violet-600 border-b-2 border-violet-600 bg-white"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Live Transcript
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab("soap")}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === "soap"
+                    ? "text-violet-600 border-b-2 border-violet-600 bg-white"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  SOAP Notes
+                </div>
+              </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-              {transcript.map((segment) => (
-                <div
-                  key={segment.id}
-                  className={`rounded-lg px-3 py-2 text-sm ${
-                    segment.speaker === "system"
-                      ? "bg-violet-100 text-violet-800 italic"
-                      : segment.speaker === "doctor"
-                      ? "bg-blue-100 text-blue-900"
-                      : "bg-emerald-100 text-emerald-900"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-semibold uppercase opacity-70">
-                      {segment.speaker === "system" ? "System" : segment.speaker === "doctor" ? "Doctor" : "Patient"}
-                    </span>
-                    <span className="text-[10px] opacity-50">
-                      {segment.timestamp.toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <p>{segment.text}</p>
-                </div>
-              ))}
-              {liveText && (
-                <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 animate-pulse">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-semibold uppercase opacity-70">Speaking...</span>
-                  </div>
-                  <p>{liveText}</p>
-                </div>
-              )}
-              {callStatus === "processing" && (
-                <div className="flex items-center justify-center gap-2 py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-violet-600" />
-                  <span className="text-sm text-slate-600">Processing transcript...</span>
-                </div>
-              )}
-              <div ref={transcriptEndRef} />
-            </div>
-          </div>
 
-          {/* SOAP Notes Panel */}
-          <div className="w-80 flex flex-col bg-white">
-            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-              <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                <FileText className="h-4 w-4 text-violet-600" />
-                SOAP Notes
-                {isGeneratingSoap && <Loader2 className="h-3 w-3 animate-spin text-violet-600" />}
-              </h3>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {soapNotes ? (
-                <>
-                  <div>
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">Subjective</h4>
-                    <p className="text-sm text-slate-700">{soapNotes.subjective || "—"}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">Objective</h4>
-                    <p className="text-sm text-slate-700">{soapNotes.objective || "—"}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">Assessment</h4>
-                    <p className="text-sm text-slate-700">{soapNotes.assessment || "—"}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">Plan</h4>
-                    <p className="text-sm text-slate-700">{soapNotes.plan || "—"}</p>
-                  </div>
-                  {soapNotes.icd10Codes.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">ICD-10 Codes</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {soapNotes.icd10Codes.map((code) => (
-                          <span key={code} className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs rounded-full">
-                            {code}
-                          </span>
-                        ))}
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {activeTab === "transcript" ? (
+                <div className="space-y-3">
+                  {transcript.map((segment) => (
+                    <div
+                      key={segment.id}
+                      className={`rounded-lg p-3 ${
+                        segment.speaker === "system"
+                          ? "bg-violet-50 border border-violet-100"
+                          : segment.speaker === "agent"
+                          ? "bg-emerald-50 border border-emerald-100"
+                          : "bg-slate-100 border border-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className={`text-xs font-semibold uppercase ${
+                            segment.speaker === "system"
+                              ? "text-violet-600"
+                              : segment.speaker === "agent"
+                              ? "text-emerald-600"
+                              : "text-slate-600"
+                          }`}
+                        >
+                          {segment.speaker === "agent" ? "Aliice" : segment.speaker === "user" ? "Doctor" : "System"}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {segment.timestamp.toLocaleTimeString()}
+                        </span>
                       </div>
+                      <p className="text-sm text-slate-700">{segment.text}</p>
+                    </div>
+                  ))}
+                  {isGeneratingSoap && (
+                    <div className="flex items-center gap-2 text-sm text-violet-600">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating SOAP notes...
                     </div>
                   )}
-                  {soapNotes.medications.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">Medications</h4>
-                      <ul className="text-sm text-slate-700 space-y-1">
-                        {soapNotes.medications.map((med, i) => (
-                          <li key={i} className="flex items-start gap-1">
-                            <span className="text-violet-500">•</span>
-                            {med}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {soapNotes.followUp && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">Follow-up</h4>
-                      <p className="text-sm text-slate-700">{soapNotes.followUp}</p>
-                    </div>
-                  )}
-                </>
-              ) : callStatus === "idle" ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-8">
-                  <Sparkles className="h-10 w-10 text-violet-300 mb-3" />
-                  <p className="text-sm text-slate-500">
-                    Start the consultation to see AI-generated SOAP notes appear here in real-time.
-                  </p>
+                  <div ref={transcriptEndRef} />
                 </div>
-              ) : callStatus === "active" ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-8">
-                  <Loader2 className="h-8 w-8 text-violet-400 animate-spin mb-3" />
-                  <p className="text-sm text-slate-500">
-                    Listening... SOAP notes will be generated when you end the consultation.
-                  </p>
+              ) : (
+                <div className="space-y-4">
+                  {soapNotes ? (
+                    <>
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-1">Subjective</h4>
+                        <p className="text-sm text-slate-600">{soapNotes.subjective}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-1">Objective</h4>
+                        <p className="text-sm text-slate-600">{soapNotes.objective}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-1">Assessment</h4>
+                        <p className="text-sm text-slate-600">{soapNotes.assessment}</p>
+                        {soapNotes.icd10Codes.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {soapNotes.icd10Codes.map((code, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
+                                {code}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-1">Plan</h4>
+                        <p className="text-sm text-slate-600">{soapNotes.plan}</p>
+                        {soapNotes.medications.length > 0 && (
+                          <div className="mt-2">
+                            <span className="text-xs font-medium text-slate-500">Medications:</span>
+                            <ul className="mt-1 text-sm text-slate-600">
+                              {soapNotes.medications.map((med, idx) => (
+                                <li key={idx}>• {med}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {soapNotes.followUp && (
+                          <p className="mt-2 text-sm text-slate-600">
+                            <span className="font-medium">Follow-up:</span> {soapNotes.followUp}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                      <ClipboardList className="h-12 w-12 mb-2" />
+                      <p className="text-sm">SOAP notes will appear after the consultation</p>
+                    </div>
+                  )}
                 </div>
-              ) : null}
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Footer Controls */}
-        <div className="border-t border-slate-200 bg-white px-6 py-4">
-          {error && (
-            <div className="mb-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-              <AlertCircle className="h-4 w-4" />
-              {error}
+          {/* Right Panel - Controls */}
+          <div className="w-64 bg-slate-50 p-4 flex flex-col">
+            {/* Duration */}
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center gap-2 text-slate-500 mb-1">
+                <Clock className="h-4 w-4" />
+                <span className="text-xs font-medium">Duration</span>
+              </div>
+              <p className="text-3xl font-mono font-bold text-slate-900">
+                {formatDuration(duration)}
+              </p>
             </div>
-          )}
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+
+            {/* Status */}
+            <div className="text-center mb-6">
+              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+                callStatus === "idle" ? "bg-slate-200 text-slate-600" :
+                callStatus === "connecting" ? "bg-amber-100 text-amber-700" :
+                callStatus === "active" ? "bg-emerald-100 text-emerald-700" :
+                callStatus === "processing" ? "bg-violet-100 text-violet-700" :
+                callStatus === "complete" ? "bg-blue-100 text-blue-700" :
+                "bg-red-100 text-red-700"
+              }`}>
+                {callStatus === "connecting" && <Loader2 className="h-3 w-3 animate-spin" />}
+                {callStatus === "active" && <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
+                {callStatus === "complete" && <CheckCircle2 className="h-3 w-3" />}
+                {callStatus === "error" && <AlertCircle className="h-3 w-3" />}
+                {callStatus === "idle" ? "Ready" :
+                 callStatus === "connecting" ? "Connecting..." :
+                 callStatus === "active" ? "Recording" :
+                 callStatus === "processing" ? "Processing..." :
+                 callStatus === "complete" ? "Complete" : "Error"}
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">
+                {error}
+              </div>
+            )}
+
+            {/* Call Controls */}
+            <div className="flex-1 flex flex-col justify-center gap-3">
               {callStatus === "idle" && (
                 <button
                   onClick={startConsultation}
-                  className="flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-3 text-sm font-medium text-white shadow-lg hover:shadow-xl transition-all"
+                  className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium hover:from-violet-700 hover:to-purple-700 transition-all shadow-lg"
                 >
-                  <Phone className="h-4 w-4" />
+                  <Phone className="h-5 w-5" />
                   Start Consultation
                 </button>
               )}
-              
-              {callStatus === "connecting" && (
-                <button
-                  disabled
-                  className="flex items-center gap-2 rounded-full bg-violet-400 px-6 py-3 text-sm font-medium text-white"
-                >
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Connecting...
-                </button>
-              )}
-              
+
               {callStatus === "active" && (
                 <>
                   <button
                     onClick={toggleMute}
-                    className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
+                    className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl font-medium transition-all ${
                       isMuted
                         ? "bg-red-100 text-red-600 hover:bg-red-200"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        : "bg-slate-200 text-slate-700 hover:bg-slate-300"
                     }`}
                   >
                     {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                    {isMuted ? "Unmute" : "Mute"}
                   </button>
                   <button
                     onClick={stopConsultation}
-                    className="flex items-center gap-2 rounded-full bg-red-600 px-6 py-3 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-all"
                   >
-                    <PhoneOff className="h-4 w-4" />
+                    <PhoneOff className="h-5 w-5" />
                     End Consultation
                   </button>
                 </>
               )}
-              
-              {callStatus === "processing" && (
-                <button
-                  disabled
-                  className="flex items-center gap-2 rounded-full bg-violet-400 px-6 py-3 text-sm font-medium text-white"
-                >
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating Notes...
-                </button>
+
+              {(callStatus === "complete" || callStatus === "error") && (
+                <>
+                  <button
+                    onClick={copyTranscript}
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition-all"
+                  >
+                    {copied ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Copy className="h-5 w-5" />}
+                    {copied ? "Copied!" : "Copy Transcript"}
+                  </button>
+                  <button
+                    onClick={saveToConsultation}
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-all"
+                  >
+                    {saved ? <CheckCircle2 className="h-5 w-5" /> : <Save className="h-5 w-5" />}
+                    {saved ? "Saved!" : "Save to Notes"}
+                  </button>
+                </>
               )}
             </div>
 
-            {(callStatus === "complete" || transcript.length > 1) && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={copyTranscript}
-                  className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  {copied ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4" />
-                      Copy Transcript
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={saveToConsultation}
-                  disabled={saved}
-                  className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                >
-                  {saved ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Saved!
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      Save to Notes
-                    </>
-                  )}
-                </button>
+            {/* Patient Info */}
+            <div className="mt-4 p-3 bg-white rounded-lg border border-slate-200">
+              <div className="flex items-center gap-2 text-slate-500 mb-1">
+                <User className="h-4 w-4" />
+                <span className="text-xs font-medium">Patient</span>
               </div>
-            )}
+              <p className="text-sm font-medium text-slate-900">{patientName}</p>
+            </div>
           </div>
         </div>
       </div>
     </div>,
     document.body
   );
-}
-
-// Web Speech API TypeScript declarations
-interface SpeechRecognitionEvent extends Event {
-  resultIndex: number;
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-  message: string;
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-}
-
-interface SpeechRecognitionConstructor {
-  new (): SpeechRecognition;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition: SpeechRecognitionConstructor;
-    webkitSpeechRecognition: SpeechRecognitionConstructor;
-  }
 }
