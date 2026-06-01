@@ -91,24 +91,44 @@ function buildContextMessage(onboardingStatus: OnboardingStatus | null): string 
 }
 
 export async function POST(request: NextRequest) {
+  // Parse request body first so we can use it in error handling
+  let message = "";
+  let onboardingStatus: OnboardingStatus | null = null;
+  let conversationHistory: ConversationMessage[] = [];
+  
   try {
-    const { message, onboardingStatus, conversationHistory } = await request.json();
+    const body = await request.json();
+    message = body.message || "";
+    onboardingStatus = body.onboardingStatus || null;
+    conversationHistory = body.conversationHistory || [];
+  } catch (parseError) {
+    console.error("Failed to parse request body:", parseError);
+    return NextResponse.json({
+      response: "I'm here to help! What would you like to know about ALiice?"
+    });
+  }
 
-    if (!message) {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
-    }
+  if (!message) {
+    return NextResponse.json({ 
+      response: "I didn't catch that. Could you please rephrase your question?" 
+    });
+  }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) {
-      // Fallback response when no API key
-      return NextResponse.json({
-        response: getFallbackResponse(message, onboardingStatus)
-      });
-    }
+  // If no API key or invalid, use fallback responses
+  if (!apiKey || apiKey === "your-gemini-api-key") {
+    console.log("No valid Gemini API key, using fallback response");
+    return NextResponse.json({
+      response: getFallbackResponse(message, onboardingStatus)
+    });
+  }
 
+  try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    
+    // Use stable model
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     // Build conversation history for Gemini
     const historyParts: { role: "user" | "model"; parts: { text: string }[] }[] = [];
@@ -135,16 +155,17 @@ export async function POST(request: NextRequest) {
     // Send message with system context
     const fullPrompt = `${SYSTEM_PROMPT}${buildContextMessage(onboardingStatus)}\n\nUser message: ${message}`;
     const result = await chat.sendMessage(fullPrompt);
-    const response = result.response.text() || "I apologize, but I couldn't generate a response. Please try again.";
+    const response = result.response.text() || getFallbackResponse(message, onboardingStatus);
 
     return NextResponse.json({ response });
 
   } catch (error) {
     console.error("Aliice Assistant Error:", error);
-    return NextResponse.json(
-      { error: "Failed to process request" },
-      { status: 500 }
-    );
+    // Return a fallback response instead of an error to keep the chat working
+    return NextResponse.json({
+      response: getFallbackResponse(message, onboardingStatus),
+      warning: "AI processing encountered an issue, showing fallback response"
+    });
   }
 }
 
