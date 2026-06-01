@@ -5754,15 +5754,15 @@ export default function CalendarPage() {
                       <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg">
                         {doctorCalendars.length === 0 ? (
                           <div className="px-3 py-2 space-y-2">
-                            <p className="text-slate-500">No doctors available</p>
+                            <p className="text-slate-500">No doctors available for your organization</p>
                             <Link
-                              href="/settings?tab=providers"
+                              href="/settings?tab=doctor-scheduling"
                               className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-sky-700"
                             >
                               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                               </svg>
-                              Add Doctor
+                              Configure Doctors
                             </Link>
                           </div>
                         ) : (

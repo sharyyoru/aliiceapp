@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { supabaseClient } from "@/lib/supabaseClient";
@@ -39,7 +40,21 @@ const EMPTY_LAB: Omit<ExternalLab, "id"> = {
 
 export default function SettingsPage() {
   const t = useTranslations("settingsPage");
-  const [activeTab, setActiveTab] = useState<TabId>("external-labs");
+  const searchParams = useSearchParams();
+  
+  // Read initial tab from URL query param
+  const initialTab = (searchParams.get("tab") as TabId) || "external-labs";
+  const [activeTab, setActiveTab] = useState<TabId>(
+    TABS.some(tab => tab.id === initialTab) ? initialTab : "external-labs"
+  );
+  
+  // Update tab when URL changes
+  useEffect(() => {
+    const tabParam = searchParams.get("tab") as TabId;
+    if (tabParam && TABS.some(tab => tab.id === tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const tabLabels: Record<TabId, string> = {
     "external-labs": t("tabs.externalLabs"),
