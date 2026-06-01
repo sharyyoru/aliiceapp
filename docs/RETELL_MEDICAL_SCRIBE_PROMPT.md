@@ -80,7 +80,7 @@ Ready to transcribe. Say 'Alice' if you need me.
 - **End Call On Goodbye:** OFF (let the user control when to end)
 
 ## Environment Variable
-After creating the agent, add to your `.env`:
+Add to your `.env` or Vercel:
 ```
-RETELL_MEDICAL_AGENT_ID=agent_YOUR_NEW_AGENT_ID
+RETELL_MEDICAL_AGENT_ID=agent_aa8ff42dafb2185cd9364ffd78
 ```

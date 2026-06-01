@@ -5,8 +5,8 @@ export async function POST(request: NextRequest) {
     const { patientId, patientName } = await request.json();
     
     const apiKey = process.env.RETELL_API_KEY;
-    // Use a dedicated medical consultation agent or fall back to main agent
-    const agentId = process.env.RETELL_MEDICAL_AGENT_ID || process.env.RETELL_AGENT_ID;
+    // Use dedicated medical scribe agent (silent listener mode)
+    const agentId = process.env.RETELL_MEDICAL_AGENT_ID || "agent_aa8ff42dafb2185cd9364ffd78";
 
     if (!apiKey || !agentId) {
       return NextResponse.json(
