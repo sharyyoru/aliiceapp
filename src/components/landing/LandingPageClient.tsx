@@ -241,7 +241,7 @@ export default function LandingPageClient() {
               </p>
               
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-[1.1]">
-                The all-in-one medical CRM for aesthetics clinics.
+                The All-in-one Digital Medical Assistant
               </h1>
               <p className="mt-4 text-base sm:text-lg md:text-xl text-sky-600 font-normal">
                 Replacing CRM, ERP, and booking with one unified platform.
