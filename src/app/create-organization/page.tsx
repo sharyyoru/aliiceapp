@@ -107,6 +107,18 @@ export default function CreateOrganizationPage() {
           },
         });
 
+      // Create default deal stages for the organization
+      await supabaseClient
+        .from("deal_stages")
+        .insert([
+          { organization_id: org.id, name: "New Lead", type: "lead", sort_order: 1, is_default: true },
+          { organization_id: org.id, name: "Contacted", type: "lead", sort_order: 2, is_default: false },
+          { organization_id: org.id, name: "Appointment Set", type: "consultation", sort_order: 3, is_default: false },
+          { organization_id: org.id, name: "Consultation Done", type: "consultation", sort_order: 4, is_default: false },
+          { organization_id: org.id, name: "Won", type: "follow_up", sort_order: 5, is_default: false },
+          { organization_id: org.id, name: "Lost", type: "other", sort_order: 6, is_default: false },
+        ]);
+
       setStep("complete");
       
       // Redirect to dashboard after a brief delay
