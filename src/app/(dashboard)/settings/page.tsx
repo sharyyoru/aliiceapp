@@ -14,6 +14,7 @@ const TABS = [
   { id: "blocked-dates", label: "Blocked Dates" },
   { id: "medidata", label: "MediData Connection" },
   { id: "booking-categories", label: "Booking Categories" },
+  { id: "deal-stages", label: "Deal Stages" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -64,6 +65,7 @@ export default function SettingsPage() {
     "blocked-dates": t("tabs.blockedDates"),
     "medidata": t("tabs.medidata"),
     "booking-categories": t("tabs.bookingCategories"),
+    "deal-stages": "Deal Stages",
   };
 
   return (
@@ -101,6 +103,7 @@ export default function SettingsPage() {
         {activeTab === "blocked-dates" && <BlockedDatesTab />}
         {activeTab === "medidata" && <MediDataConnectionTab />}
         {activeTab === "booking-categories" && <BookingCategoriesTab />}
+        {activeTab === "deal-stages" && <DealStagesTab />}
       </div>
     </div>
   );
@@ -2563,6 +2566,393 @@ function BlockedDatesTab() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type DealStageType = "lead" | "consultation" | "surgery" | "post_op" | "follow_up" | "other";
+
+interface DealStage {
+  id: string;
+  name: string;
+  type: DealStageType;
+  sort_order: number;
+  is_default: boolean;
+}
+
+const STAGE_TYPES: { value: DealStageType; label: string }[] = [
+  { value: "lead", label: "Lead" },
+  { value: "consultation", label: "Consultation" },
+  { value: "surgery", label: "Surgery" },
+  { value: "post_op", label: "Post-Op" },
+  { value: "follow_up", label: "Follow Up" },
+  { value: "other", label: "Other" },
+];
+
+function DealStagesTab() {
+  const { organization } = useOrganization();
+  const [stages, setStages] = useState<DealStage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [formName, setFormName] = useState("");
+  const [formType, setFormType] = useState<DealStageType>("lead");
+  const [formSortOrder, setFormSortOrder] = useState(1);
+  const [formIsDefault, setFormIsDefault] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const selectedStage = stages.find((s) => s.id === selectedId) ?? null;
+
+  useEffect(() => {
+    async function load() {
+      if (!organization?.id) return;
+      try {
+        const { data, error } = await supabaseClient
+          .from("deal_stages")
+          .select("id, name, type, sort_order, is_default")
+          .eq("organization_id", organization.id)
+          .order("sort_order", { ascending: true });
+
+        if (!error && data) {
+          setStages(data as DealStage[]);
+        }
+      } catch (err) {
+        console.error("Failed to load deal stages:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [organization?.id]);
+
+  function handleSelect(stage: DealStage) {
+    setSelectedId(stage.id);
+    setFormName(stage.name);
+    setFormType(stage.type);
+    setFormSortOrder(stage.sort_order);
+    setFormIsDefault(stage.is_default);
+    setFormError(null);
+  }
+
+  function handleAddNew() {
+    setSelectedId("__new__");
+    setFormName("");
+    setFormType("lead");
+    setFormSortOrder(stages.length + 1);
+    setFormIsDefault(stages.length === 0);
+    setFormError(null);
+  }
+
+  function handleCancel() {
+    setSelectedId(null);
+    setFormName("");
+    setFormType("lead");
+    setFormSortOrder(1);
+    setFormIsDefault(false);
+    setFormError(null);
+  }
+
+  async function handleSave() {
+    if (!organization?.id) return;
+    if (!formName.trim()) {
+      setFormError("Stage name is required.");
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
+
+    try {
+      if (selectedId === "__new__") {
+        if (formIsDefault) {
+          await supabaseClient
+            .from("deal_stages")
+            .update({ is_default: false })
+            .eq("organization_id", organization.id);
+        }
+
+        const { data, error } = await supabaseClient
+          .from("deal_stages")
+          .insert({
+            organization_id: organization.id,
+            name: formName.trim(),
+            type: formType,
+            sort_order: formSortOrder,
+            is_default: formIsDefault,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          setFormError(error.message);
+        } else if (data) {
+          if (formIsDefault) {
+            setStages((prev) => [
+              ...prev.map((s) => ({ ...s, is_default: false })),
+              data as DealStage,
+            ]);
+          } else {
+            setStages((prev) => [...prev, data as DealStage]);
+          }
+          handleCancel();
+        }
+      } else if (selectedId) {
+        if (formIsDefault) {
+          await supabaseClient
+            .from("deal_stages")
+            .update({ is_default: false })
+            .eq("organization_id", organization.id)
+            .neq("id", selectedId);
+        }
+
+        const { data, error } = await supabaseClient
+          .from("deal_stages")
+          .update({
+            name: formName.trim(),
+            type: formType,
+            sort_order: formSortOrder,
+            is_default: formIsDefault,
+          })
+          .eq("id", selectedId)
+          .select()
+          .single();
+
+        if (error) {
+          setFormError(error.message);
+        } else if (data) {
+          setStages((prev) =>
+            prev.map((s) => {
+              if (s.id === selectedId) return data as DealStage;
+              if (formIsDefault) return { ...s, is_default: false };
+              return s;
+            })
+          );
+          handleCancel();
+        }
+      }
+    } catch {
+      setFormError("Failed to save stage.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedId || selectedId === "__new__") return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabaseClient
+        .from("deal_stages")
+        .delete()
+        .eq("id", selectedId);
+
+      if (error) {
+        setFormError(error.message);
+      } else {
+        setStages((prev) => prev.filter((s) => s.id !== selectedId));
+        handleCancel();
+      }
+    } catch {
+      setFormError("Failed to delete stage.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAddDefaults() {
+    if (!organization?.id) return;
+    setSaving(true);
+    try {
+      const defaultStages = [
+        { name: "New Lead", type: "lead", sort_order: 1, is_default: true },
+        { name: "Contacted", type: "lead", sort_order: 2, is_default: false },
+        { name: "Appointment Set", type: "consultation", sort_order: 3, is_default: false },
+        { name: "Consultation Done", type: "consultation", sort_order: 4, is_default: false },
+        { name: "Won", type: "follow_up", sort_order: 5, is_default: false },
+        { name: "Lost", type: "other", sort_order: 6, is_default: false },
+      ];
+
+      const { data, error } = await supabaseClient
+        .from("deal_stages")
+        .insert(defaultStages.map((s) => ({ ...s, organization_id: organization.id })))
+        .select();
+
+      if (!error && data) {
+        setStages(data as DealStage[]);
+      }
+    } catch (err) {
+      console.error("Failed to add default stages:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-slate-100 bg-white/80 p-8 shadow-sm">
+        <p className="text-sm text-slate-500">Loading...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="rounded-2xl border border-slate-100 bg-white/80 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="text-sm font-semibold text-slate-800">Deal Stages</h2>
+          <button
+            onClick={handleAddNew}
+            className="flex items-center gap-1 rounded-full bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700"
+          >
+            <span className="text-base leading-none">+</span> Add Stage
+          </button>
+        </div>
+
+        {stages.length === 0 ? (
+          <div className="px-5 py-8 text-center">
+            <p className="text-xs text-slate-400 mb-4">No deal stages configured.</p>
+            <button
+              onClick={handleAddDefaults}
+              disabled={saving}
+              className="px-4 py-2 text-xs font-medium text-sky-600 border border-sky-200 rounded-lg hover:bg-sky-50 disabled:opacity-50"
+            >
+              {saving ? "Adding..." : "Add Default Stages"}
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {stages
+              .slice()
+              .sort((a, b) => a.sort_order - b.sort_order)
+              .map((stage) => (
+                <button
+                  key={stage.id}
+                  onClick={() => handleSelect(stage)}
+                  className={`w-full px-5 py-3 text-left hover:bg-slate-50 ${
+                    selectedId === stage.id ? "bg-sky-50" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-slate-800">{stage.name}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {STAGE_TYPES.find((t) => t.value === stage.type)?.label || stage.type}
+                        {stage.is_default && (
+                          <span className="ml-2 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px]">
+                            Default
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-400">#{stage.sort_order}</span>
+                  </div>
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white/80 shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="text-sm font-semibold text-slate-800">
+            {selectedId === "__new__"
+              ? "Add Deal Stage"
+              : selectedStage
+              ? "Edit Deal Stage"
+              : "Deal Stage Details"}
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Configure deal pipeline stages for tracking patient journeys.
+          </p>
+        </div>
+
+        {selectedId ? (
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Stage Name</label>
+              <input
+                type="text"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="e.g., New Lead"
+                className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Stage Type</label>
+              <select
+                value={formType}
+                onChange={(e) => setFormType(e.target.value as DealStageType)}
+                className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              >
+                {STAGE_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Sort Order</label>
+              <input
+                type="number"
+                value={formSortOrder}
+                onChange={(e) => setFormSortOrder(parseInt(e.target.value) || 1)}
+                min={1}
+                className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isDefault"
+                checked={formIsDefault}
+                onChange={(e) => setFormIsDefault(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+              />
+              <label htmlFor="isDefault" className="text-xs text-slate-700">
+                Set as default stage for new deals
+              </label>
+            </div>
+
+            {formError && <p className="text-xs text-red-600">{formError}</p>}
+
+            <div className="flex items-center justify-between pt-2">
+              {selectedId !== "__new__" && (
+                <button
+                  onClick={handleDelete}
+                  disabled={saving}
+                  className="px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                >
+                  Delete
+                </button>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-4 py-2 text-xs font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="px-5 py-8 text-center text-xs text-slate-400">
+            Select a stage to edit or click &quot;Add Stage&quot; to create a new one.
           </div>
         )}
       </div>
