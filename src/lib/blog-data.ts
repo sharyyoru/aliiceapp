@@ -11,12 +11,14 @@ export interface BlogPost {
   relatedSlugs: string[];
   content: string;
   featured?: boolean;
+  image?: string;
 }
 
 export const blogPosts: BlogPost[] = [
   {
     slug: "how-ai-medical-scribe-saves-doctors-2-hours-daily",
     title: "How AI Medical Scribe Technology Saves Doctors 2+ Hours Daily",
+    image: "/blog-img/busy-tablet-and-doctors-walking-in-hospital-for-m-2026-03-25-02-46-42-utc.jpg",
     excerpt: "Discover how AI-powered medical scribes are revolutionizing clinical documentation, reducing physician burnout, and improving patient care in aesthetics clinics.",
     category: "AI & Technology",
     author: "Dr. Sarah Mitchell",
@@ -86,6 +88,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "complete-guide-aesthetic-clinic-crm",
     title: "The Complete Guide to Choosing a CRM for Your Aesthetic Clinic",
+    image: "/blog-img/female-doctor-at-the-hospital-leading-a-group-of-m-2026-04-14-00-02-00-utc.jpg",
     excerpt: "Everything you need to know about selecting the right CRM software for your aesthetics practice, from patient management to billing integration.",
     category: "Guides",
     author: "Wilson Chen",
@@ -145,6 +148,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "patient-retention-strategies-medical-spas",
     title: "10 Proven Patient Retention Strategies for Medical Spas in 2026",
+    image: "/blog-img/smiling-medical-professionals-in-a-hospital-settin-2026-01-09-09-40-42-utc.jpg",
     excerpt: "Learn how top medical spas maintain 90%+ patient retention rates using automated follow-ups, loyalty programs, and personalized communication.",
     category: "Marketing",
     author: "Emma Thompson",
@@ -194,6 +198,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "hipaa-compliance-aesthetic-clinics",
     title: "HIPAA Compliance for Aesthetic Clinics: A 2026 Checklist",
+    image: "/blog-img/closeup-shot-of-a-stethoscope-in-a-hospital-with-m-2026-03-25-05-44-08-utc.jpg",
     excerpt: "Essential HIPAA compliance requirements every aesthetic clinic must follow, including patient data protection, secure communication, and staff training.",
     category: "Compliance",
     author: "Dr. Michael Ross",
@@ -256,6 +261,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "online-booking-increase-appointments",
     title: "How Online Booking Can Increase Your Clinic Appointments by 40%",
+    image: "/blog-img/collaboration-healthcare-and-huddle-with-hospital-2026-01-09-09-23-57-utc.jpg",
     excerpt: "Case study showing how clinics implementing 24/7 online booking see significant increases in appointment rates and patient satisfaction.",
     category: "Growth",
     author: "Wilson Chen",
@@ -306,6 +312,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "botox-filler-inventory-management",
     title: "Best Practices for Botox and Filler Inventory Management",
+    image: "/blog-img/female-scientist-smiling-in-laboratory-setting-2026-01-09-11-34-04-utc.jpg",
     excerpt: "Optimize your injectable inventory with expiration tracking, automatic reordering, and waste reduction strategies that save thousands annually.",
     category: "Operations",
     author: "Dr. Sarah Mitchell",
@@ -365,6 +372,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "whatsapp-business-patient-communication",
     title: "Using WhatsApp Business for Patient Communication: Complete Guide",
+    image: "/blog-img/medical-professionals-collaborating-in-a-bright-wo-2026-01-11-10-00-02-utc.jpg",
     excerpt: "How to leverage WhatsApp Business API for appointment reminders, follow-ups, and patient engagement while maintaining HIPAA compliance.",
     category: "Communication",
     author: "Emma Thompson",
@@ -429,6 +437,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "medical-spa-revenue-metrics",
     title: "7 Revenue Metrics Every Medical Spa Owner Should Track",
+    image: "/blog-img/shot-of-a-group-of-medical-practitioners-having-a-2026-01-09-09-13-44-utc.jpg",
     excerpt: "Key performance indicators that successful medical spas monitor daily, from revenue per patient to treatment conversion rates.",
     category: "Analytics",
     author: "Wilson Chen",

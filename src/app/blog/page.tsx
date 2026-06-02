@@ -117,8 +117,19 @@ export default function BlogPage() {
                   href={`/blog/${post.slug}`}
                   className="group bg-slate-50 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300"
                 >
-                  <div className="aspect-video bg-gradient-to-br from-sky-100 to-violet-100 flex items-center justify-center">
-                    <div className="text-6xl opacity-50">📝</div>
+                  <div className="aspect-video bg-gradient-to-br from-sky-100 to-violet-100 relative overflow-hidden">
+                    {post.image ? (
+                      <Image
+                        src={post.image}
+                        alt={post.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-6xl opacity-50">📝</div>
+                      </div>
+                    )}
                   </div>
                   <div className="p-6">
                     <div className="flex items-center gap-3 text-sm text-slate-500 mb-3">
@@ -170,8 +181,19 @@ export default function BlogPage() {
                   href={`/blog/${post.slug}`}
                   className="group bg-white rounded-xl overflow-hidden border border-slate-100 hover:shadow-lg hover:border-slate-200 transition-all duration-300"
                 >
-                  <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center">
-                    <div className="text-4xl opacity-30">📄</div>
+                  <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-50 relative overflow-hidden">
+                    {post.image ? (
+                      <Image
+                        src={post.image}
+                        alt={post.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-4xl opacity-30">📄</div>
+                      </div>
+                    )}
                   </div>
                   <div className="p-5">
                     <div className="flex items-center gap-3 text-xs text-slate-500 mb-2">

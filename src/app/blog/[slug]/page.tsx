@@ -73,6 +73,18 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               {new Date(post.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             </div>
           </div>
+
+          {post.image && (
+            <div className="mt-8 aspect-video relative rounded-2xl overflow-hidden">
+              <Image
+                src={post.image}
+                alt={post.title}
+                fill
+                className="object-cover"
+                priority
+              />
+            </div>
+          )}
         </div>
       </header>
 
