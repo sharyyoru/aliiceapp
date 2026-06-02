@@ -91,9 +91,21 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <article className="py-12">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div 
-            className="prose prose-slate prose-lg max-w-none prose-headings:font-bold prose-headings:text-slate-900 prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4 prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3 prose-p:text-slate-600 prose-p:leading-relaxed prose-a:text-sky-600 prose-strong:text-slate-900 prose-ul:text-slate-600 prose-li:my-1" 
+            className="prose prose-slate prose-lg max-w-none prose-headings:font-bold prose-headings:text-slate-900 prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-6 prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-4 prose-p:text-slate-600 prose-p:leading-relaxed prose-p:mb-6 prose-a:text-sky-600 prose-strong:text-slate-900 prose-ul:text-slate-600 prose-ul:my-6 prose-li:my-2" 
             dangerouslySetInnerHTML={{ __html: post.content }} 
           />
+
+          {/* CTA Button */}
+          <div className="mt-12 p-8 bg-gradient-to-r from-sky-50 to-violet-50 rounded-2xl text-center">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Ready to get started?</h3>
+            <p className="text-slate-600 mb-6">Join thousands of clinics using Aliice to streamline their practice.</p>
+            <Link 
+              href="/register" 
+              className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-8 py-3 text-base font-semibold text-white hover:bg-sky-700 transition-colors shadow-lg shadow-sky-600/25"
+            >
+              Start Your Free Trial Today <ArrowRight className="h-5 w-5" />
+            </Link>
+          </div>
 
           <div className="mt-12 pt-8 border-t border-slate-100">
             <div className="flex flex-wrap gap-2">
