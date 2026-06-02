@@ -7,7 +7,6 @@ import {
   Check,
   X,
   ArrowRight,
-  Sparkles,
   Building2,
   Users,
   Calendar,
@@ -83,15 +82,6 @@ const tiers = [
   },
 ];
 
-const competitors = [
-  { name: "Hubspot", type: "CRM", monthly: 3000, yearly: 36000 },
-  { name: "Axenita", type: "ERP", monthly: 1200, yearly: 14400 },
-  { name: "OneDoc", type: "Booking", monthly: 227, yearly: 2724 },
-];
-
-const competitorTotal = competitors.reduce((sum, c) => sum + c.monthly, 0);
-const aliiceSavings = competitorTotal - 2240;
-
 export default function PricingPage() {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
 
@@ -115,10 +105,6 @@ export default function PricingPage() {
       {/* Hero */}
       <section className="pt-32 pb-16 bg-gradient-to-b from-slate-50 to-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-100 px-4 py-1.5 mb-6">
-            <Sparkles className="h-4 w-4 text-emerald-600" />
-            <span className="text-sm font-medium text-emerald-700">Save 49% vs Competitors</span>
-          </div>
           <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
             Simple, Transparent Pricing
           </h1>
@@ -127,14 +113,10 @@ export default function PricingPage() {
           </p>
 
           {/* Stats */}
-          <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">
+          <div className="mt-12 grid grid-cols-3 gap-6 max-w-3xl mx-auto">
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-              <div className="text-3xl font-bold text-sky-600">$2,240</div>
-              <div className="text-sm text-slate-600">Monthly Subscription</div>
-            </div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-              <div className="text-3xl font-bold text-emerald-600">49%</div>
-              <div className="text-sm text-slate-600">Cheaper Than Competitors</div>
+              <div className="text-3xl font-bold text-sky-600">100%</div>
+              <div className="text-sm text-slate-600">Automated</div>
             </div>
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
               <div className="text-3xl font-bold text-violet-600">3-in-1</div>
@@ -216,61 +198,6 @@ export default function PricingPage() {
                 </Link>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Competitor Comparison */}
-      <section className="py-16 bg-slate-50">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-slate-900">Price Comparison</h2>
-            <p className="mt-2 text-slate-600">How Aliice stacks up against alternatives</p>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden max-w-4xl mx-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left p-4 text-sm font-semibold text-slate-900">Product</th>
-                  <th className="text-left p-4 text-sm font-semibold text-slate-900">Type</th>
-                  <th className="text-right p-4 text-sm font-semibold text-slate-900">Monthly</th>
-                  <th className="text-right p-4 text-sm font-semibold text-slate-900">Yearly</th>
-                </tr>
-              </thead>
-              <tbody>
-                {competitors.map((c) => (
-                  <tr key={c.name} className="border-b border-slate-50">
-                    <td className="p-4 font-medium text-slate-700">{c.name}</td>
-                    <td className="p-4 text-slate-500">{c.type}</td>
-                    <td className="p-4 text-right text-slate-700">${c.monthly.toLocaleString()}</td>
-                    <td className="p-4 text-right text-slate-700">${c.yearly.toLocaleString()}</td>
-                  </tr>
-                ))}
-                <tr className="bg-gradient-to-r from-sky-50 to-violet-50">
-                  <td className="p-4 font-bold text-slate-900">Aliice</td>
-                  <td className="p-4 text-sky-600 font-medium">CRM + ERP + Booking</td>
-                  <td className="p-4 text-right font-bold text-sky-600">$2,240</td>
-                  <td className="p-4 text-right font-bold text-sky-600">$26,880</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Savings Summary */}
-          <div className="mt-8 grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
-            <div className="bg-white rounded-xl p-4 text-center border border-slate-100">
-              <div className="text-sm text-slate-500">Competitors Combined</div>
-              <div className="text-2xl font-bold text-slate-900">${competitorTotal.toLocaleString()}/mo</div>
-            </div>
-            <div className="bg-gradient-to-r from-sky-600 to-violet-600 rounded-xl p-4 text-center">
-              <div className="text-sm text-sky-200">Aliice Professional</div>
-              <div className="text-2xl font-bold text-white">$2,240/mo</div>
-            </div>
-            <div className="bg-emerald-50 rounded-xl p-4 text-center border border-emerald-100">
-              <div className="text-sm text-emerald-600">Monthly Savings</div>
-              <div className="text-2xl font-bold text-emerald-700">${aliiceSavings.toLocaleString()}</div>
-            </div>
           </div>
         </div>
       </section>
