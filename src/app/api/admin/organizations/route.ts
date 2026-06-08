@@ -4,12 +4,12 @@ import { cookies } from "next/headers";
 
 // Sales funnel stages for tracking clients
 const FUNNEL_STAGES = [
-  { id: "new_signup", label: "New Signup", color: "slate" },
-  { id: "contacted", label: "Contacted", color: "blue" },
-  { id: "demo_scheduled", label: "Demo Scheduled", color: "purple" },
-  { id: "onboarding", label: "Onboarding", color: "amber" },
-  { id: "active", label: "Active Client", color: "emerald" },
-  { id: "churned", label: "Churned", color: "red" },
+  { id: "new_signup", label: "New Signup", color: "slate", weight: 0.1 },
+  { id: "contacted", label: "Contacted", color: "blue", weight: 0.2 },
+  { id: "demo_scheduled", label: "Demo Scheduled", color: "purple", weight: 0.4 },
+  { id: "onboarding", label: "Onboarding", color: "amber", weight: 0.7 },
+  { id: "active", label: "Active Client", color: "emerald", weight: 1.0 },
+  { id: "churned", label: "Churned", color: "red", weight: 0 },
 ];
 
 async function verifyAdmin() {
@@ -72,6 +72,50 @@ export async function GET() {
     return NextResponse.json({ organizations: organizations || [], stages: FUNNEL_STAGES });
   } catch (err) {
     console.error("Server error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    if (!(await verifyAdmin())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { name, slug, email, phone, deal_value, subscription_tier } = body;
+
+    if (!name || !slug) {
+      return NextResponse.json({ error: "Name and slug are required" }, { status: 400 });
+    }
+
+    const supabase = getSupabaseAdmin();
+
+    const { data, error } = await supabase
+      .from("organizations")
+      .insert({
+        name,
+        slug: slug.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
+        email: email || null,
+        phone: phone || null,
+        deal_value: deal_value || 0,
+        subscription_tier: subscription_tier || "free",
+        subscription_status: "trialing",
+        sales_funnel_stage: "new_signup",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes("duplicate") || error.message.includes("unique")) {
+        return NextResponse.json({ error: "Organization slug already exists" }, { status: 400 });
+      }
+      console.error("Database error:", error);
+      return NextResponse.json({ error: "Failed to create organization" }, { status: 500 });
+    }
+
+    return NextResponse.json({ organization: data });
+  } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
