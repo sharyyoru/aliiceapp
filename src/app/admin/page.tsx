@@ -25,6 +25,7 @@ import {
   DollarSign,
   Target,
   Wallet,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -290,6 +291,13 @@ export default function AdminDashboard() {
             >
               <Shield className="w-4 h-4" />
               Team
+            </Link>
+            <Link
+              href="/admin/offer-letters"
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+            >
+              <FileText className="w-4 h-4" />
+              Offer Letters
             </Link>
             <button
               onClick={() => setShowCreateOrgModal(true)}
