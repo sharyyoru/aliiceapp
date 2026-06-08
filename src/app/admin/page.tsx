@@ -225,7 +225,11 @@ export default function AdminDashboard() {
   }).length;
 
   // Financial Stats
-  const potentialDealValue = organizations.reduce((sum, o) => sum + (o.deal_value || 0), 0);
+  // Potential value = stages up to onboarding (new_signup, contacted, demo_scheduled, onboarding)
+  const potentialStages = ["new_signup", "contacted", "demo_scheduled", "onboarding"];
+  const potentialDealValue = organizations
+    .filter((o) => potentialStages.includes(o.sales_funnel_stage || "new_signup"))
+    .reduce((sum, o) => sum + (o.deal_value || 0), 0);
   const activeClientValue = organizations
     .filter((o) => o.sales_funnel_stage === "active")
     .reduce((sum, o) => sum + (o.deal_value || 0), 0);
