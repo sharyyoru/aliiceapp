@@ -95,6 +95,27 @@ export default function OfferLettersPage() {
     });
   };
 
+  const loadImageAsBase64 = async (url: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = document.createElement("img");
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        } else {
+          reject(new Error("Could not get canvas context"));
+        }
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  };
+
   const generatePDF = async () => {
     if (!formData.developerName || !formData.directManager || !formData.monthlySalary || !formData.startDate) {
       alert("Please fill in all required fields");
@@ -104,6 +125,14 @@ export default function OfferLettersPage() {
     setIsGenerating(true);
 
     try {
+      // Load logo
+      let logoBase64: string | null = null;
+      try {
+        logoBase64 = await loadImageAsBase64("/logos/aliice-logo.png");
+      } catch (e) {
+        console.warn("Could not load logo:", e);
+      }
+
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -118,20 +147,21 @@ export default function OfferLettersPage() {
 
       // Header with company info
       doc.setFillColor(0, 133, 194); // Sky blue
-      doc.rect(0, 0, pageWidth, 35, "F");
+      doc.rect(0, 0, pageWidth, 40, "F");
 
-      // Company name
+      // Add logo if loaded
+      if (logoBase64) {
+        doc.addImage(logoBase64, "PNG", margin, 8, 35, 10);
+      }
+
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text("ALIICE", margin, 18);
-
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.text(COMPANY_DETAILS.name, margin, 25);
       doc.text(COMPANY_DETAILS.address, margin, 30);
+      doc.text(COMPANY_DETAILS.city, margin, 35);
 
-      yPos = 50;
+      yPos = 55;
 
       // Date
       doc.setTextColor(100, 100, 100);
