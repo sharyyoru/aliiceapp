@@ -22,6 +22,9 @@ import {
   X,
   Loader2,
   Shield,
+  DollarSign,
+  Target,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -34,6 +37,7 @@ interface Organization {
   subscription_tier: string | null;
   subscription_status: string | null;
   sales_funnel_stage: string | null;
+  deal_value: number | null;
   created_at: string;
   owner?: {
     id: string;
@@ -219,6 +223,21 @@ export default function AdminDashboard() {
     return created > weekAgo;
   }).length;
 
+  // Financial Stats
+  const potentialDealValue = organizations.reduce((sum, o) => sum + (o.deal_value || 0), 0);
+  const activeClientValue = organizations
+    .filter((o) => o.sales_funnel_stage === "active")
+    .reduce((sum, o) => sum + (o.deal_value || 0), 0);
+  
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-CH", {
+      style: "currency",
+      currency: "CHF",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="bg-white shadow-sm border-b sticky top-0 z-40">
@@ -305,7 +324,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-6 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 border shadow-sm">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-sky-100 rounded-lg">
@@ -324,7 +343,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900">{activeOrgs}</p>
-                <p className="text-sm text-slate-500">Active Subscriptions</p>
+                <p className="text-sm text-slate-500">Active Clients</p>
               </div>
             </div>
           </div>
@@ -347,6 +366,28 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-2xl font-bold text-slate-900">{thisWeekOrgs}</p>
                 <p className="text-sm text-slate-500">New This Week</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <Target className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">{formatCurrency(potentialDealValue)}</p>
+                <p className="text-sm text-slate-500">Potential Value</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Wallet className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">{formatCurrency(activeClientValue)}</p>
+                <p className="text-sm text-slate-500">Active Revenue</p>
               </div>
             </div>
           </div>
@@ -723,6 +764,12 @@ function OrgCard({
             <div className="flex items-center gap-2 text-slate-500">
               <Phone className="w-3.5 h-3.5" />
               <span>{org.phone}</span>
+            </div>
+          )}
+          {org.deal_value !== null && org.deal_value > 0 && (
+            <div className="flex items-center gap-2 text-emerald-600 font-medium">
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>CHF {org.deal_value.toLocaleString()}</span>
             </div>
           )}
         </div>
