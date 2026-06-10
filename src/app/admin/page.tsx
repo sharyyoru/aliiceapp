@@ -35,6 +35,15 @@ interface Organization {
   slug: string;
   email: string | null;
   phone: string | null;
+  website: string | null;
+  street_address: string | null;
+  city: string | null;
+  country: string | null;
+  google_maps_link: string | null;
+  specialties: string[] | null;
+  languages: string[] | null;
+  notes: string | null;
+  multiple_centers: boolean | null;
   subscription_tier: string | null;
   subscription_status: string | null;
   sales_funnel_stage: string | null;
@@ -46,6 +55,29 @@ interface Organization {
     full_name: string;
   } | null;
 }
+
+interface OrganizationContact {
+  id: string;
+  organization_id: string;
+  title: string | null;
+  full_name: string;
+  gender: string | null;
+  email: string | null;
+  phone: string | null;
+  is_primary: boolean;
+}
+
+const SPECIALTIES_OPTIONS = [
+  "Dental", "Aesthetic", "IV Therapy", "Radiology", "Dermatology",
+  "Ophthalmology", "Cardiology", "Orthopedics", "General Medicine",
+  "Pediatrics", "Gynecology", "Neurology", "Psychiatry", "ENT",
+  "Urology", "Oncology", "Physiotherapy", "Nutrition", "Plastic Surgery"
+];
+
+const LANGUAGE_OPTIONS = [
+  "English", "Arabic", "French", "German", "Spanish", "Italian",
+  "Portuguese", "Russian", "Chinese", "Japanese", "Hindi", "Urdu", "Turkish"
+];
 
 interface User {
   id: string;
@@ -91,9 +123,38 @@ export default function AdminDashboard() {
     slug: "",
     email: "",
     phone: "",
+    website: "",
+    street_address: "",
+    city: "",
+    country: "",
+    google_maps_link: "",
+    specialties: [] as string[],
+    languages: [] as string[],
+    notes: "",
+    multiple_centers: false,
     deal_value: 0,
     subscription_tier: "free",
   });
+  const [newContacts, setNewContacts] = useState<Array<{
+    title: string;
+    full_name: string;
+    gender: string;
+    email: string;
+    phone: string;
+    is_primary: boolean;
+  }>>([]);
+  const [modalTab, setModalTab] = useState<"clinic" | "contacts">("clinic");
+
+  const resetOrgForm = () => {
+    setNewOrg({
+      name: "", slug: "", email: "", phone: "", website: "",
+      street_address: "", city: "", country: "", google_maps_link: "",
+      specialties: [], languages: [], notes: "", multiple_centers: false,
+      deal_value: 0, subscription_tier: "free",
+    });
+    setNewContacts([]);
+    setModalTab("clinic");
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -199,9 +260,19 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         const data = await response.json();
+        // Create contacts for the new organization
+        if (newContacts.length > 0) {
+          for (const contact of newContacts) {
+            await fetch("/api/admin/organizations/contacts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ organization_id: data.organization.id, ...contact }),
+            });
+          }
+        }
         setOrganizations((prev) => [data.organization, ...prev]);
         setShowCreateOrgModal(false);
-        setNewOrg({ name: "", slug: "", email: "", phone: "", deal_value: 0, subscription_tier: "free" });
+        resetOrgForm();
       } else {
         const data = await response.json();
         setError(data.error || "Failed to create organization");
@@ -429,114 +500,396 @@ export default function AdminDashboard() {
 
       {/* Create Organization Modal */}
       {showCreateOrgModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 my-auto max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">Create Organization</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Create Clinic Profile</h3>
               <button
-                onClick={() => {
-                  setShowCreateOrgModal(false);
-                  setNewOrg({ name: "", slug: "", email: "", phone: "", deal_value: 0, subscription_tier: "free" });
-                }}
+                onClick={() => { setShowCreateOrgModal(false); resetOrgForm(); }}
                 className="p-2 text-slate-400 hover:text-slate-600 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Organization Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newOrg.name}
-                  onChange={(e) => setNewOrg({ ...newOrg, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") })}
-                  placeholder="Acme Clinic"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Slug <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center">
-                  <span className="text-slate-400 text-sm mr-1">/</span>
-                  <input
-                    type="text"
-                    value={newOrg.slug}
-                    onChange={(e) => setNewOrg({ ...newOrg, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
-                    placeholder="acme-clinic"
-                    className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={newOrg.email}
-                  onChange={(e) => setNewOrg({ ...newOrg, email: e.target.value })}
-                  placeholder="contact@acme-clinic.com"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={newOrg.phone}
-                  onChange={(e) => setNewOrg({ ...newOrg, phone: e.target.value })}
-                  placeholder="+41 00 000 00 00"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Deal Value (CHF)
-                  </label>
-                  <input
-                    type="number"
-                    value={newOrg.deal_value}
-                    onChange={(e) => setNewOrg({ ...newOrg, deal_value: parseFloat(e.target.value) || 0 })}
-                    placeholder="0"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Subscription Tier
-                  </label>
-                  <select
-                    value={newOrg.subscription_tier}
-                    onChange={(e) => setNewOrg({ ...newOrg, subscription_tier: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                  >
-                    <option value="free">Free</option>
-                    <option value="starter">Starter</option>
-                    <option value="professional">Professional</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
-                </div>
-              </div>
+            {/* Tab Navigation */}
+            <div className="flex gap-2 mb-4 border-b">
+              <button
+                onClick={() => setModalTab("clinic")}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${modalTab === "clinic" ? "border-sky-500 text-sky-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+              >
+                Clinic Details
+              </button>
+              <button
+                onClick={() => setModalTab("contacts")}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${modalTab === "contacts" ? "border-sky-500 text-sky-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+              >
+                Contacts ({newContacts.length})
+              </button>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            {modalTab === "clinic" ? (
+              <div className="space-y-4">
+                {/* Basic Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Clinic Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newOrg.name}
+                      onChange={(e) => setNewOrg({ ...newOrg, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") })}
+                      placeholder="Acme Clinic"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Slug <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center">
+                      <span className="text-slate-400 text-sm mr-1">/</span>
+                      <input
+                        type="text"
+                        value={newOrg.slug}
+                        onChange={(e) => setNewOrg({ ...newOrg, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
+                        placeholder="acme-clinic"
+                        className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Location Section */}
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-3">Location</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                      <input
+                        type="text"
+                        value={newOrg.street_address}
+                        onChange={(e) => setNewOrg({ ...newOrg, street_address: e.target.value })}
+                        placeholder="123 Medical Street"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
+                        <input
+                          type="text"
+                          value={newOrg.city}
+                          onChange={(e) => setNewOrg({ ...newOrg, city: e.target.value })}
+                          placeholder="Dubai"
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Country</label>
+                        <input
+                          type="text"
+                          value={newOrg.country}
+                          onChange={(e) => setNewOrg({ ...newOrg, country: e.target.value })}
+                          placeholder="UAE"
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Google Maps Link</label>
+                      <input
+                        type="url"
+                        value={newOrg.google_maps_link}
+                        onChange={(e) => setNewOrg({ ...newOrg, google_maps_link: e.target.value })}
+                        placeholder="https://maps.google.com/..."
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="multiple_centers"
+                        checked={newOrg.multiple_centers}
+                        onChange={(e) => setNewOrg({ ...newOrg, multiple_centers: e.target.checked })}
+                        className="rounded border-slate-300"
+                      />
+                      <label htmlFor="multiple_centers" className="text-sm text-slate-700">Multiple centers/locations</label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Specialties */}
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-3">Specialties</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {SPECIALTIES_OPTIONS.map((spec) => (
+                      <button
+                        key={spec}
+                        type="button"
+                        onClick={() => {
+                          const isSelected = newOrg.specialties.includes(spec);
+                          setNewOrg({
+                            ...newOrg,
+                            specialties: isSelected
+                              ? newOrg.specialties.filter((s) => s !== spec)
+                              : [...newOrg.specialties, spec],
+                          });
+                        }}
+                        className={`px-3 py-1 text-xs rounded-full border transition ${
+                          newOrg.specialties.includes(spec)
+                            ? "bg-sky-100 border-sky-300 text-sky-700"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {spec}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Languages */}
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-3">Languages Spoken</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {LANGUAGE_OPTIONS.map((lang) => (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() => {
+                          const isSelected = newOrg.languages.includes(lang);
+                          setNewOrg({
+                            ...newOrg,
+                            languages: isSelected
+                              ? newOrg.languages.filter((l) => l !== lang)
+                              : [...newOrg.languages, lang],
+                          });
+                        }}
+                        className={`px-3 py-1 text-xs rounded-full border transition ${
+                          newOrg.languages.includes(lang)
+                            ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {lang}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Contact & Business Info */}
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-3">Contact & Business</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={newOrg.email}
+                        onChange={(e) => setNewOrg({ ...newOrg, email: e.target.value })}
+                        placeholder="contact@clinic.com"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                      <input
+                        type="tel"
+                        value={newOrg.phone}
+                        onChange={(e) => setNewOrg({ ...newOrg, phone: e.target.value })}
+                        placeholder="+971 00 000 0000"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Website</label>
+                      <input
+                        type="url"
+                        value={newOrg.website}
+                        onChange={(e) => setNewOrg({ ...newOrg, website: e.target.value })}
+                        placeholder="https://www.clinic.com"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Deal Value (CHF)</label>
+                      <input
+                        type="number"
+                        value={newOrg.deal_value}
+                        onChange={(e) => setNewOrg({ ...newOrg, deal_value: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Subscription Tier</label>
+                      <select
+                        value={newOrg.subscription_tier}
+                        onChange={(e) => setNewOrg({ ...newOrg, subscription_tier: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      >
+                        <option value="free">Free</option>
+                        <option value="starter">Starter</option>
+                        <option value="professional">Professional</option>
+                        <option value="enterprise">Enterprise</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="border-t pt-4">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Notes (Track progress/steps)</label>
+                  <textarea
+                    value={newOrg.notes}
+                    onChange={(e) => setNewOrg({ ...newOrg, notes: e.target.value })}
+                    rows={3}
+                    placeholder="Add notes about this clinic..."
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            ) : (
+              /* Contacts Tab */
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-slate-500">Add contacts for this clinic (Dr, Nurse, Manager, etc.)</p>
+                  <button
+                    onClick={() => setNewContacts([...newContacts, { title: "", full_name: "", gender: "", email: "", phone: "", is_primary: newContacts.length === 0 }])}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-sky-100 text-sky-700 rounded-lg hover:bg-sky-200"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Contact
+                  </button>
+                </div>
+
+                {newContacts.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400">
+                    <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>No contacts added yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {newContacts.map((contact, idx) => (
+                      <div key={idx} className="border rounded-lg p-4 bg-slate-50">
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-sm font-medium text-slate-700">Contact {idx + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-1 text-xs text-slate-500">
+                              <input
+                                type="checkbox"
+                                checked={contact.is_primary}
+                                onChange={(e) => {
+                                  const updated = newContacts.map((c, i) => ({
+                                    ...c,
+                                    is_primary: i === idx ? e.target.checked : false,
+                                  }));
+                                  setNewContacts(updated);
+                                }}
+                                className="rounded"
+                              />
+                              Primary
+                            </label>
+                            <button
+                              onClick={() => setNewContacts(newContacts.filter((_, i) => i !== idx))}
+                              className="p-1 text-red-500 hover:bg-red-50 rounded"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Title</label>
+                            <select
+                              value={contact.title}
+                              onChange={(e) => {
+                                const updated = [...newContacts];
+                                updated[idx].title = e.target.value;
+                                setNewContacts(updated);
+                              }}
+                              className="w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                            >
+                              <option value="">Select...</option>
+                              <option value="Dr">Dr</option>
+                              <option value="Nurse">Nurse</option>
+                              <option value="Manager">Manager</option>
+                              <option value="Receptionist">Receptionist</option>
+                              <option value="Owner">Owner</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Full Name <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              value={contact.full_name}
+                              onChange={(e) => {
+                                const updated = [...newContacts];
+                                updated[idx].full_name = e.target.value;
+                                setNewContacts(updated);
+                              }}
+                              placeholder="John Smith"
+                              className="w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Gender</label>
+                            <select
+                              value={contact.gender}
+                              onChange={(e) => {
+                                const updated = [...newContacts];
+                                updated[idx].gender = e.target.value;
+                                setNewContacts(updated);
+                              }}
+                              className="w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                            >
+                              <option value="">Select...</option>
+                              <option value="male">Male</option>
+                              <option value="female">Female</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Email</label>
+                            <input
+                              type="email"
+                              value={contact.email}
+                              onChange={(e) => {
+                                const updated = [...newContacts];
+                                updated[idx].email = e.target.value;
+                                setNewContacts(updated);
+                              }}
+                              placeholder="contact@email.com"
+                              className="w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-slate-500 mb-1">Phone</label>
+                            <input
+                              type="tel"
+                              value={contact.phone}
+                              onChange={(e) => {
+                                const updated = [...newContacts];
+                                updated[idx].phone = e.target.value;
+                                setNewContacts(updated);
+                              }}
+                              placeholder="+971 00 000 0000"
+                              className="w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6 pt-4 border-t">
               <button
-                onClick={() => {
-                  setShowCreateOrgModal(false);
-                  setNewOrg({ name: "", slug: "", email: "", phone: "", deal_value: 0, subscription_tier: "free" });
-                }}
+                onClick={() => { setShowCreateOrgModal(false); resetOrgForm(); }}
                 className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
               >
                 Cancel
@@ -554,7 +907,7 @@ export default function AdminDashboard() {
                 ) : (
                   <>
                     <Plus className="w-4 h-4" />
-                    Create
+                    Create Clinic
                   </>
                 )}
               </button>
