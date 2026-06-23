@@ -195,10 +195,10 @@ export default function LandingPageClient() {
           <div className="absolute inset-0 bg-[#fafafa]" />
 
           {/* Animated dot-matrix (canvas) */}
-          <DotMatrix className="absolute inset-0 h-full w-full" gap={24} />
+          <DotMatrix className="absolute inset-0 h-full w-full" gap={26} />
 
-          {/* Soft fade so content stays readable */}
-          <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-[#fafafa]" />
+          {/* Very soft bottom fade so the section blends into the next */}
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[#fafafa]" />
         </div>
         
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

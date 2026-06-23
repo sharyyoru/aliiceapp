@@ -21,8 +21,8 @@ type DotMatrixProps = {
  * an indigo/sky highlight.
  */
 export default function DotMatrix({
-  gap = 24,
-  dotRadius = 1.2,
+  gap = 26,
+  dotRadius = 1.8,
   speed = 1,
   className = "",
 }: DotMatrixProps) {
@@ -62,9 +62,9 @@ export default function DotMatrix({
     if (canvas.parentElement) ro.observe(canvas.parentElement);
     resize();
 
-    // Highlight color components (indigo -> sky blend)
-    const baseColor = { r: 209, g: 213, b: 219 }; // slate-300
-    const hiColor = { r: 79, g: 70, b: 229 }; // indigo-600
+    // Highlight color components (slate base -> vivid sky/indigo)
+    const baseColor = { r: 148, g: 163, b: 184 }; // slate-400
+    const hiColor = { r: 37, g: 99, b: 235 }; // blue-600
 
     const start = performance.now();
 
@@ -88,7 +88,7 @@ export default function DotMatrix({
           const phase = (i + j) * k - t * 1.6;
           let intensity = (Math.sin(phase) + 1) / 2;
           // Sharpen the wave crest so highlights feel like ripples
-          intensity = Math.pow(intensity, 2.4);
+          intensity = Math.pow(intensity, 1.7);
 
           // Pointer proximity boost (soft radial highlight)
           if (pointer.current.active) {
@@ -107,8 +107,8 @@ export default function DotMatrix({
           const r = Math.round(baseColor.r + (hiColor.r - baseColor.r) * intensity);
           const g = Math.round(baseColor.g + (hiColor.g - baseColor.g) * intensity);
           const b = Math.round(baseColor.b + (hiColor.b - baseColor.b) * intensity);
-          const alpha = 0.35 + intensity * 0.55;
-          const radius = dotRadius + intensity * 1.3;
+          const alpha = 0.5 + intensity * 0.5;
+          const radius = dotRadius + intensity * 1.6;
 
           ctx.beginPath();
           ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
