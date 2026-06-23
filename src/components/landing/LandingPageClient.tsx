@@ -38,6 +38,7 @@ import PatientCardDemo from "./demos/PatientCardDemo";
 import CalendarDemo from "./demos/CalendarDemo";
 import AIScribeDemo from "./demos/AIScribeDemo";
 import AnalyticsDemo from "./demos/AnalyticsDemo";
+import DotMatrix from "./DotMatrix";
 
 const features = [
   {
@@ -89,28 +90,12 @@ export default function LandingPageClient() {
   const [activeDemo, setActiveDemo] = useState<"patient" | "calendar" | "ai" | "analytics">("patient");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // Mouse tracking for spotlight effect
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (heroRef.current) {
-        const rect = heroRef.current.getBoundingClientRect();
-        setMousePosition({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        });
-      }
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
   // Auto-rotate demos
@@ -204,32 +189,16 @@ export default function LandingPageClient() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-28 pb-20 sm:pt-36 sm:pb-28">
-        {/* Dot Grid Background with Mouse Spotlight */}
+        {/* Animated Dot-Matrix Shader Background */}
         <div className="absolute inset-0 -z-10">
           {/* Base background */}
           <div className="absolute inset-0 bg-[#fafafa]" />
-          
-          {/* Dot grid pattern */}
-          <div 
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `radial-gradient(circle, #d1d5db 1px, transparent 1px)`,
-              backgroundSize: '24px 24px',
-            }}
-          />
-          
-          {/* Mouse spotlight effect */}
-          <div 
-            className="absolute pointer-events-none transition-opacity duration-300"
-            style={{
-              left: mousePosition.x - 300,
-              top: mousePosition.y - 300,
-              width: 600,
-              height: 600,
-              background: `radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0.05) 40%, transparent 70%)`,
-              borderRadius: '50%',
-            }}
-          />
+
+          {/* Animated dot-matrix (canvas) */}
+          <DotMatrix className="absolute inset-0 h-full w-full" gap={24} />
+
+          {/* Soft fade so content stays readable */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-[#fafafa]" />
         </div>
         
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
