@@ -71,6 +71,23 @@ export default function RegisterPage() {
           role: "staff",
         });
 
+        // Add as a new lead in the admin pipeline (skip invited users joining an existing org)
+        if (!inviteToken) {
+          try {
+            await fetch("/api/public/register-lead", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                full_name: fullName.trim(),
+                email: email.trim(),
+                user_id: data.user.id,
+              }),
+            });
+          } catch (leadErr) {
+            console.error("Failed to create admin lead:", leadErr);
+          }
+        }
+
         // Auto sign-in after registration
         const { error: signInError } = await supabaseClient.auth.signInWithPassword({
           email: email.trim(),
