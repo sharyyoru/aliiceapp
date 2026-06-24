@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { formatSwissDateWithWeekday, formatSwissTimeAmPm } from "@/lib/swissTimezone";
 import { brandedEmail, infoRow, infoTable, LOGO_URL } from "@/utils/emailTemplate";
 import { sendEmail as sendEmailViaResend, isEmailConfigured } from "@/lib/email";
+import { resolveProviderId, checkStartTimeBookable } from "@/lib/bookingAvailability";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
@@ -262,51 +263,9 @@ export async function POST(request: Request) {
     // So we just parse it directly - no need for additional timezone conversion
     const appointmentDateObj = new Date(appointmentDate);
 
-    // Look up the provider ID for this doctor to filter appointments correctly
-    let providerId: string | null = null;
-    const doctorNameClean = doctorName.replace(/^Dr\.\s*/i, "").trim();
-    const doctorNameParts = doctorNameClean.split(" ");
-    const doctorFirstName = doctorNameParts[0] || "";
-    const doctorLastName = doctorNameParts.slice(1).join(" ") || "";
-    
-    // Try multiple name formats: "FirstName LastName", "LastName FirstName", or partial matches
-    const { data: provider } = await supabase
-      .from("providers")
-      .select("id, name")
-      .or(`name.ilike.%${doctorNameClean}%,name.ilike.%${doctorLastName} ${doctorFirstName}%,name.ilike.%${doctorFirstName}%`)
-      .limit(1)
-      .single();
-    
-    if (provider) {
-      providerId = provider.id;
-      console.log(`[Booking] Found provider: ${provider.name} (${provider.id}) for doctor: ${doctorName}`);
-    } else {
-      console.log(`[Booking] Provider not found for: ${doctorName}, trying alternate lookup...`);
-      
-      // Try searching by individual name parts
-      const { data: altProvider } = await supabase
-        .from("providers")
-        .select("id, name")
-        .or(`name.ilike.%${doctorFirstName}%,name.ilike.%${doctorLastName}%`)
-        .limit(10);
-      
-      if (altProvider && altProvider.length > 0) {
-        // Find the best match - one that contains both first and last name
-        const bestMatch = altProvider.find(p => {
-          const pName = (p.name || "").toLowerCase();
-          return pName.includes(doctorFirstName.toLowerCase()) && pName.includes(doctorLastName.toLowerCase());
-        });
-        
-        if (bestMatch) {
-          providerId = bestMatch.id;
-          console.log(`[Booking] Found provider via alternate lookup: ${bestMatch.name} (${bestMatch.id})`);
-        }
-      }
-    }
-
-    // Doctor-specific capacity: XT and CR can have 3 concurrent, others have 1
-    const MULTI_CAPACITY_DOCTORS = ["xavier-tenorio", "cesar-rodriguez"];
-    const maxCapacity = MULTI_CAPACITY_DOCTORS.includes(doctorSlug) ? 3 : 1;
+    // Resolve the provider ID using the SAME logic as the availability endpoint
+    // so the booking guard and the displayed slots never disagree.
+    let providerId: string | null = await resolveProviderId(supabase, doctorName);
 
     // Look up treatment duration; fall back to 60 min if not found
     let durationMinutes = 60;
@@ -321,61 +280,39 @@ export async function POST(request: Request) {
       }
     }
 
-    // Check if time slot has capacity for this doctor using full overlap detection.
     const apptStart = appointmentDateObj;
     const apptEnd = new Date(appointmentDateObj.getTime() + durationMinutes * 60 * 1000);
 
     console.log(`[Booking] Checking availability for ${doctorName} (${doctorSlug}) at ${apptStart.toISOString()}`);
-    console.log(`[Booking] Max capacity for this doctor: ${maxCapacity}`);
     console.log(`[Booking] Provider ID found: ${providerId}`);
 
-    const { data: existingAppointments, error: fetchError } = await supabase
-      .from("appointments")
-      .select("id, no_patient, provider_id, reason, start_time, end_time")
-      .lt("start_time", apptEnd.toISOString())
-      .gt("end_time", apptStart.toISOString())
-      .neq("status", "cancelled");
-
-    if (fetchError) {
-      console.error("[Booking] Error fetching appointments:", fetchError);
-    }
-
-    console.log(`[Booking] Found ${existingAppointments?.length || 0} total appointments in time range`);
-
-    // Filter to only this doctor's appointments (excluding placeholder/blocking ones)
-    const doctorAppointments = (existingAppointments || []).filter((apt) => {
-      // Skip placeholder appointments
-      if (apt.no_patient === true) return false;
-      
-      // Check by provider_id first (most reliable)
-      if (providerId && apt.provider_id === providerId) {
-        return true;
-      }
-      
-      // Fallback: check the reason field for [Doctor: Name] pattern
-      if (apt.reason) {
-        const match = apt.reason.match(/\[Doctor:\s*(.+?)\s*\]/i);
-        if (match && match[1].toLowerCase().includes(doctorNameClean.toLowerCase())) {
-          return true;
-        }
-      }
-      
-      return false;
+    // Authoritative availability check — identical provider resolution, doctor
+    // matching and per-30-min-slot capacity model as /api/appointments/check-availability.
+    const availability = await checkStartTimeBookable(supabase, {
+      doctorName,
+      doctorSlug,
+      startIso: apptStart.toISOString(),
+      durationMinutes,
+      providerId,
     });
 
-    console.log(`[Booking] Found ${doctorAppointments.length} overlapping appointments for ${doctorName}`);
-    console.log(`[Booking] Appointments:`, doctorAppointments.map(a => ({ id: a.id, provider_id: a.provider_id, reason: a.reason?.substring(0, 50) })));
+    console.log(
+      `[Booking] Availability: ok=${availability.ok} concurrent=${availability.count}/${availability.capacity} blocked=${availability.blocked}`
+    );
 
-    // Only block if provider has reached maximum capacity
-    if (doctorAppointments.length >= maxCapacity) {
-      console.log(`[Booking] REJECTED: ${doctorAppointments.length} >= ${maxCapacity}`);
+    if (!availability.ok) {
+      console.log(`[Booking] REJECTED: ${availability.count}/${availability.capacity} blocked=${availability.blocked}`);
       return NextResponse.json(
-        { error: `This time slot is fully booked (${doctorAppointments.length}/${maxCapacity}). Please choose another time.` },
+        {
+          error: availability.blocked
+            ? "This time slot is unavailable. Please choose another time."
+            : `This time slot is fully booked (${availability.count}/${availability.capacity}). Please choose another time.`,
+        },
         { status: 409 }
       );
     }
 
-    console.log(`[Booking] ALLOWED: ${doctorAppointments.length} < ${maxCapacity}`);
+    console.log(`[Booking] ALLOWED: ${availability.count} < ${availability.capacity}`);
 
     // ── Machine availability check ──
     // Look up if the treatment requires a machine:

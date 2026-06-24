@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getMaxCapacity, resolveProviderId, makeDoctorMatcher } from "@/lib/bookingAvailability";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
-
-// Doctor-specific capacity: XT and CR can have 3 concurrent, others have 1
-const MULTI_CAPACITY_DOCTORS = ["xavier-tenorio", "cesar-rodriguez"];
-
-function getMaxCapacity(doctorSlug: string | null): number {
-  if (!doctorSlug) return 1;
-  return MULTI_CAPACITY_DOCTORS.includes(doctorSlug) ? 3 : 1;
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -30,23 +23,9 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // If doctor name is provided, first look up the provider ID
-    let providerId: string | null = null;
-    if (doctorName) {
-      const doctorNameClean = doctorName.replace(/^Dr\.\s*/i, "").trim();
-      
-      // Try to find provider by name
-      const { data: provider } = await supabase
-        .from("providers")
-        .select("id")
-        .or(`name.ilike.*${doctorNameClean}*,name.ilike.*${doctorNameClean.split(" ")[0]}*`)
-        .limit(1)
-        .single();
-      
-      if (provider) {
-        providerId = provider.id;
-      }
-    }
+    // Resolve provider id with the shared helper so the displayed availability
+    // and the booking guard always use the same provider / appointment set.
+    const providerId: string | null = await resolveProviderId(supabase, doctorName);
 
     // Fetch appointments that OVERLAP the date range (not just those starting within it).
     // This correctly catches multi-day blocking events (VACANCES, STOP) that started
@@ -73,17 +52,7 @@ export async function GET(request: NextRequest) {
     // overlap detection. Regular patient appointments count toward the doctor's capacity.
     const allAppointments = appointments || [];
 
-    const doctorNameLower = doctorName ? doctorName.toLowerCase().replace(/^dr\.\s*/i, "") : "";
-
-    const matchesDoctor = (apt: { provider_id: string | null; reason: string | null }) => {
-      if (!doctorName) return true;
-      if (providerId && apt.provider_id === providerId) return true;
-      if (apt.reason) {
-        const match = apt.reason.match(/\[Doctor:\s*(.+?)\s*\]/i);
-        if (match && match[1].toLowerCase().includes(doctorNameLower)) return true;
-      }
-      return false;
-    };
+    const matchesDoctor = makeDoctorMatcher(providerId, doctorName);
 
     const patientAppointments = allAppointments.filter(
       (apt) => apt.no_patient !== true && matchesDoctor(apt)
