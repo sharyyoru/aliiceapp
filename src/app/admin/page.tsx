@@ -26,6 +26,8 @@ import {
   Target,
   Wallet,
   FileText,
+  Receipt,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -367,13 +369,30 @@ export default function AdminDashboard() {
               <Shield className="w-4 h-4" />
               Team
             </Link>
-            <Link
-              href="/admin/offer-letters"
-              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
-            >
-              <FileText className="w-4 h-4" />
-              Offer Letters
-            </Link>
+            {/* Documents dropdown: Offer Letters + Invoices */}
+            <div className="relative group">
+              <button className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                <FileText className="w-4 h-4" />
+                Documents
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+              </button>
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50">
+                <Link
+                  href="/admin/offer-letters"
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
+                >
+                  <FileText className="w-4 h-4 text-slate-400" />
+                  Offer Letters
+                </Link>
+                <Link
+                  href="/admin/invoices"
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
+                >
+                  <Receipt className="w-4 h-4 text-slate-400" />
+                  Invoices
+                </Link>
+              </div>
+            </div>
             <button
               onClick={() => setShowCreateOrgModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition"

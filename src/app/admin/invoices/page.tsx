@@ -1,0 +1,836 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Download,
+  Loader2,
+  FileText,
+  User,
+  Building2,
+  CreditCard,
+  Receipt,
+} from "lucide-react";
+import jsPDF from "jspdf";
+
+// ─── Types ─────────────────────────────────────────────────────────────────
+
+interface LineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+interface InvoiceData {
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
+  // Recipient
+  clientName: string;
+  clientEmail: string;
+  clientAddress: string;
+  clientCity: string;
+  // Sender / From
+  fromName: string;
+  fromAddress: string;
+  fromCity: string;
+  // Bank transfer
+  bankName: string;
+  accountHolder: string;
+  iban: string;
+  swift: string;
+  currency: string;
+  // Notes
+  notes: string;
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function generateInvoiceNumber() {
+  const d = new Date();
+  return `INV-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${Math.floor(Math.random() * 900 + 100)}`;
+}
+
+function today() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function dueDateDefault() {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().split("T")[0];
+}
+
+function formatDate(iso: string) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function formatCurrency(amount: number, currency: string) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency || "USD",
+    minimumFractionDigits: 2,
+  }).format(amount);
+}
+
+async function loadImageAsBase64(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = document.createElement("img");
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } else {
+        reject(new Error("Canvas context unavailable"));
+      }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
+
+export default function InvoicesPage() {
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const [invoice, setInvoice] = useState<InvoiceData>({
+    invoiceNumber: generateInvoiceNumber(),
+    issueDate: today(),
+    dueDate: dueDateDefault(),
+    clientName: "",
+    clientEmail: "",
+    clientAddress: "",
+    clientCity: "",
+    fromName: "Aliice Computer Software Trading",
+    fromAddress: "Arabian Sky Business Center, Um Hurrair Second, Plot 38-0 Office OF09-263",
+    fromCity: "Dubai, United Arab Emirates",
+    bankName: "",
+    accountHolder: "Aliice Computer Software Trading",
+    iban: "",
+    swift: "",
+    currency: "USD",
+    notes: "",
+  });
+
+  const [items, setItems] = useState<LineItem[]>([
+    { id: crypto.randomUUID(), description: "", quantity: 1, unitPrice: 0 },
+  ]);
+
+  const updateInvoice = useCallback((field: keyof InvoiceData, value: string) => {
+    setInvoice((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const addItem = () => {
+    setItems((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), description: "", quantity: 1, unitPrice: 0 },
+    ]);
+  };
+
+  const removeItem = (id: string) => {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const updateItem = (id: string, field: keyof Omit<LineItem, "id">, value: string | number) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, [field]: value } : i))
+    );
+  };
+
+  const subtotal = items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+  const tax = 0; // VAT optional — kept at 0 by default
+  const total = subtotal + tax;
+
+  // ── PDF Generation ──────────────────────────────────────────────────────
+
+  const generatePDF = async () => {
+    if (!invoice.clientName) {
+      alert("Please enter the client name.");
+      return;
+    }
+    if (items.every((i) => !i.description)) {
+      alert("Please add at least one line item.");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      // Load the Aliice logo — try public path first, then the Next image URL
+      let logoBase64: string | null = null;
+      let logoNaturalW = 0;
+      let logoNaturalH = 0;
+
+      const tryLoad = async (src: string) => {
+        return new Promise<{ b64: string; w: number; h: number }>((res, rej) => {
+          const img = document.createElement("img");
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const w = img.naturalWidth || img.width;
+            const h = img.naturalHeight || img.height;
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d")!;
+            ctx.drawImage(img, 0, 0);
+            res({ b64: canvas.toDataURL("image/png"), w, h });
+          };
+          img.onerror = rej;
+          img.src = src;
+        });
+      };
+
+      try {
+        const result = await tryLoad("/logos/aliice-logo.png");
+        logoBase64 = result.b64;
+        logoNaturalW = result.w;
+        logoNaturalH = result.h;
+      } catch {
+        try {
+          const result = await tryLoad(
+            "https://www.aliice.app/_next/image?url=%2Flogos%2Faliice-logo.png&w=128&q=75"
+          );
+          logoBase64 = result.b64;
+          logoNaturalW = result.w;
+          logoNaturalH = result.h;
+        } catch {
+          console.warn("Logo could not be loaded");
+        }
+      }
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();   // 210
+      const pageH = doc.internal.pageSize.getHeight();  // 297
+      const margin = 18;
+      const col2 = pageW / 2 + 5;
+      let y = margin;
+
+      // ── Header bar ──────────────────────────────────────────────────────
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, pageW, 36, "F");
+
+      // Logo — preserve natural aspect ratio, max height 14mm in header
+      if (logoBase64 && logoNaturalW && logoNaturalH) {
+        const maxH = 14;
+        const aspect = logoNaturalW / logoNaturalH;
+        const logoW = maxH * aspect;
+        const logoH = maxH;
+        // Center vertically in header
+        doc.addImage(logoBase64, "PNG", margin, (36 - logoH) / 2, logoW, logoH);
+      }
+
+      // "INVOICE" label on right side of header
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("INVOICE", pageW - margin, 22, { align: "right" });
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text(invoice.invoiceNumber, pageW - margin, 30, { align: "right" });
+
+      y = 46;
+
+      // ── From / To columns ───────────────────────────────────────────────
+      // FROM (left)
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.text("FROM", margin, y);
+
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(invoice.fromName, margin, y + 5);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      const fromAddrLines = doc.splitTextToSize(invoice.fromAddress, 80);
+      doc.text(fromAddrLines, margin, y + 11);
+      doc.text(invoice.fromCity, margin, y + 11 + fromAddrLines.length * 4.5);
+
+      // TO (right)
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(100, 116, 139);
+      doc.text("BILL TO", col2, y);
+
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(invoice.clientName || "—", col2, y + 5);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      if (invoice.clientEmail) doc.text(invoice.clientEmail, col2, y + 11);
+      const clientAddrLines = doc.splitTextToSize(invoice.clientAddress, 80);
+      doc.text(clientAddrLines, col2, y + 16);
+      if (invoice.clientCity)
+        doc.text(invoice.clientCity, col2, y + 16 + clientAddrLines.length * 4.5);
+
+      y += 38;
+
+      // ── Invoice meta bar ─────────────────────────────────────────────────
+      doc.setFillColor(241, 245, 249); // slate-100
+      doc.roundedRect(margin, y, pageW - 2 * margin, 18, 2, 2, "F");
+
+      const metaItems = [
+        { label: "Invoice No.", value: invoice.invoiceNumber },
+        { label: "Issue Date", value: formatDate(invoice.issueDate) },
+        { label: "Due Date", value: formatDate(invoice.dueDate) },
+        { label: "Currency", value: invoice.currency },
+      ];
+      const metaColW = (pageW - 2 * margin) / metaItems.length;
+
+      metaItems.forEach((m, idx) => {
+        const mx = margin + idx * metaColW + 6;
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(100, 116, 139);
+        doc.text(m.label.toUpperCase(), mx, y + 6);
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(15, 23, 42);
+        doc.text(m.value, mx, y + 13);
+      });
+
+      y += 26;
+
+      // ── Line items table ─────────────────────────────────────────────────
+      const tableLeft = margin;
+      const colWidths = {
+        desc: pageW - 2 * margin - 28 - 28 - 30,
+        qty: 28,
+        price: 28,
+        total: 30,
+      };
+
+      // Table header
+      doc.setFillColor(15, 23, 42);
+      doc.rect(tableLeft, y, pageW - 2 * margin, 8, "F");
+
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+
+      let cx = tableLeft + 4;
+      doc.text("DESCRIPTION", cx, y + 5.5);
+      cx += colWidths.desc;
+      doc.text("QTY", cx, y + 5.5, { align: "center" });
+      cx += colWidths.qty;
+      doc.text("UNIT PRICE", cx + colWidths.price / 2, y + 5.5, { align: "center" });
+      cx += colWidths.price;
+      doc.text("AMOUNT", cx + colWidths.total / 2, y + 5.5, { align: "center" });
+
+      y += 8;
+
+      // Rows
+      const filteredItems = items.filter((i) => i.description.trim());
+      filteredItems.forEach((item, idx) => {
+        const rowH = 9;
+        if (idx % 2 === 1) {
+          doc.setFillColor(248, 250, 252); // slate-50
+          doc.rect(tableLeft, y, pageW - 2 * margin, rowH, "F");
+        }
+
+        const lineTotal = item.quantity * item.unitPrice;
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(30, 41, 59);
+
+        let rx = tableLeft + 4;
+        const descLines = doc.splitTextToSize(item.description, colWidths.desc - 4);
+        doc.text(descLines[0], rx, y + 6);
+        rx += colWidths.desc;
+        doc.text(String(item.quantity), rx + colWidths.qty / 2, y + 6, { align: "center" });
+        rx += colWidths.qty;
+        doc.text(
+          formatCurrency(item.unitPrice, invoice.currency),
+          rx + colWidths.price / 2,
+          y + 6,
+          { align: "center" }
+        );
+        rx += colWidths.price;
+        doc.setFont("helvetica", "bold");
+        doc.text(
+          formatCurrency(lineTotal, invoice.currency),
+          rx + colWidths.total / 2,
+          y + 6,
+          { align: "center" }
+        );
+
+        y += rowH;
+      });
+
+      // Table bottom border
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.line(tableLeft, y, tableLeft + pageW - 2 * margin, y);
+      y += 6;
+
+      // ── Totals ───────────────────────────────────────────────────────────
+      const totalsX = pageW - margin - 70;
+      const totalsValueX = pageW - margin;
+
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(71, 85, 105);
+      doc.text("Subtotal", totalsX, y);
+      doc.text(formatCurrency(subtotal, invoice.currency), totalsValueX, y, { align: "right" });
+      y += 6;
+
+      // Total box
+      doc.setFillColor(15, 23, 42);
+      doc.roundedRect(totalsX - 4, y - 1, 76, 11, 2, 2, "F");
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text("TOTAL DUE", totalsX, y + 7);
+      doc.text(formatCurrency(total, invoice.currency), totalsValueX, y + 7, { align: "right" });
+      y += 18;
+
+      // ── Bank Transfer Details ────────────────────────────────────────────
+      if (invoice.bankName || invoice.iban || invoice.swift) {
+        doc.setFillColor(239, 246, 255); // blue-50
+        doc.setDrawColor(147, 197, 253); // blue-300
+        doc.setLineWidth(0.4);
+        const bankBoxH = 36;
+        doc.roundedRect(margin, y, pageW - 2 * margin, bankBoxH, 3, 3, "FD");
+
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(29, 78, 216); // blue-700
+        doc.text("BANK TRANSFER DETAILS", margin + 5, y + 7);
+
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(30, 41, 59);
+
+        const bankLeft = margin + 5;
+        const bankRight = pageW / 2 + 5;
+        let by = y + 13;
+
+        const bankFields: [string, string][] = [
+          ["Bank Name", invoice.bankName],
+          ["Account Holder", invoice.accountHolder],
+        ];
+        const bankFields2: [string, string][] = [
+          ["IBAN / Account No.", invoice.iban],
+          ["SWIFT / BIC", invoice.swift],
+        ];
+
+        bankFields.forEach(([label, val]) => {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(100, 116, 139);
+          doc.text(label + ":", bankLeft, by);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(30, 41, 59);
+          doc.text(val || "—", bankLeft + 36, by);
+          by += 6;
+        });
+
+        by = y + 13;
+        bankFields2.forEach(([label, val]) => {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(100, 116, 139);
+          doc.text(label + ":", bankRight, by);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(30, 41, 59);
+          doc.text(val || "—", bankRight + 40, by);
+          by += 6;
+        });
+
+        y += bankBoxH + 8;
+      }
+
+      // ── Notes ────────────────────────────────────────────────────────────
+      if (invoice.notes.trim()) {
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(100, 116, 139);
+        doc.text("NOTES", margin, y);
+        y += 5;
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(71, 85, 105);
+        const noteLines = doc.splitTextToSize(invoice.notes, pageW - 2 * margin);
+        doc.text(noteLines, margin, y);
+        y += noteLines.length * 4.5 + 8;
+      }
+
+      // ── Footer ───────────────────────────────────────────────────────────
+      doc.setFillColor(241, 245, 249);
+      doc.rect(0, pageH - 14, pageW, 14, "F");
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(148, 163, 184);
+      doc.text(
+        `${invoice.fromName} · ${invoice.fromCity} · Generated by Aliice`,
+        pageW / 2,
+        pageH - 5,
+        { align: "center" }
+      );
+
+      doc.save(`${invoice.invoiceNumber}.pdf`);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // ─── UI ─────────────────────────────────────────────────────────────────
+
+  const inputCls =
+    "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 outline-none transition-all placeholder:text-slate-400 bg-white";
+
+  const labelCls = "block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide";
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Top bar */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/admin"
+            className="flex items-center gap-2 text-slate-500 hover:text-slate-800 text-sm transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Admin
+          </Link>
+          <div className="w-px h-5 bg-slate-200" />
+          <div className="flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-sky-600" />
+            <h1 className="font-semibold text-slate-900 text-lg">Invoice Generator</h1>
+          </div>
+        </div>
+        <button
+          onClick={generatePDF}
+          disabled={isGenerating}
+          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition disabled:opacity-50"
+        >
+          {isGenerating ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4" />
+          )}
+          {isGenerating ? "Generating…" : "Export PDF"}
+        </button>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+        {/* ── Left column ── */}
+        <div className="space-y-6">
+
+          {/* Invoice meta */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="w-4 h-4 text-sky-600" />
+              <h2 className="font-semibold text-slate-800 text-sm">Invoice Details</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Invoice No.</label>
+                <input
+                  className={inputCls}
+                  value={invoice.invoiceNumber}
+                  onChange={(e) => updateInvoice("invoiceNumber", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Currency</label>
+                <select
+                  className={inputCls}
+                  value={invoice.currency}
+                  onChange={(e) => updateInvoice("currency", e.target.value)}
+                >
+                  {["USD", "EUR", "AED", "GBP", "CHF", "SAR"].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Issue Date</label>
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={invoice.issueDate}
+                  onChange={(e) => updateInvoice("issueDate", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Due Date</label>
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={invoice.dueDate}
+                  onChange={(e) => updateInvoice("dueDate", e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* From */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 className="w-4 h-4 text-sky-600" />
+              <h2 className="font-semibold text-slate-800 text-sm">From (Sender)</h2>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Company / Name</label>
+                <input
+                  className={inputCls}
+                  value={invoice.fromName}
+                  onChange={(e) => updateInvoice("fromName", e.target.value)}
+                  placeholder="Your company name"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Address</label>
+                <input
+                  className={inputCls}
+                  value={invoice.fromAddress}
+                  onChange={(e) => updateInvoice("fromAddress", e.target.value)}
+                  placeholder="Street address"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>City / Country</label>
+                <input
+                  className={inputCls}
+                  value={invoice.fromCity}
+                  onChange={(e) => updateInvoice("fromCity", e.target.value)}
+                  placeholder="City, Country"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Bill To */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="w-4 h-4 text-sky-600" />
+              <h2 className="font-semibold text-slate-800 text-sm">Bill To (Recipient)</h2>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Client Name *</label>
+                <input
+                  className={inputCls}
+                  value={invoice.clientName}
+                  onChange={(e) => updateInvoice("clientName", e.target.value)}
+                  placeholder="Full name or company"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Email</label>
+                <input
+                  type="email"
+                  className={inputCls}
+                  value={invoice.clientEmail}
+                  onChange={(e) => updateInvoice("clientEmail", e.target.value)}
+                  placeholder="client@example.com"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Address</label>
+                <input
+                  className={inputCls}
+                  value={invoice.clientAddress}
+                  onChange={(e) => updateInvoice("clientAddress", e.target.value)}
+                  placeholder="Street address"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>City / Country</label>
+                <input
+                  className={inputCls}
+                  value={invoice.clientCity}
+                  onChange={(e) => updateInvoice("clientCity", e.target.value)}
+                  placeholder="City, Country"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Bank transfer */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <CreditCard className="w-4 h-4 text-sky-600" />
+              <h2 className="font-semibold text-slate-800 text-sm">Bank Transfer Details</h2>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Bank Name</label>
+                <input
+                  className={inputCls}
+                  value={invoice.bankName}
+                  onChange={(e) => updateInvoice("bankName", e.target.value)}
+                  placeholder="e.g. Emirates NBD"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Account Holder</label>
+                <input
+                  className={inputCls}
+                  value={invoice.accountHolder}
+                  onChange={(e) => updateInvoice("accountHolder", e.target.value)}
+                  placeholder="Account holder name"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>IBAN / Account No.</label>
+                <input
+                  className={inputCls}
+                  value={invoice.iban}
+                  onChange={(e) => updateInvoice("iban", e.target.value)}
+                  placeholder="AE00 0000 0000 0000 0000 000"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>SWIFT / BIC</label>
+                <input
+                  className={inputCls}
+                  value={invoice.swift}
+                  onChange={(e) => updateInvoice("swift", e.target.value)}
+                  placeholder="e.g. EBILAEAD"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <label className={labelCls}>Notes / Payment Terms</label>
+            <textarea
+              className={`${inputCls} resize-none`}
+              rows={3}
+              value={invoice.notes}
+              onChange={(e) => updateInvoice("notes", e.target.value)}
+              placeholder="e.g. Payment due within 30 days. Thank you for your business."
+            />
+          </div>
+        </div>
+
+        {/* ── Right column: Line items + summary ── */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-slate-800 text-sm">Line Items</h2>
+              <button
+                onClick={addItem}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-lg transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Item
+              </button>
+            </div>
+
+            {/* Column headers */}
+            <div className="grid grid-cols-[1fr_60px_80px_80px_32px] gap-2 mb-2 px-1">
+              {["Description", "Qty", "Unit Price", "Amount", ""].map((h) => (
+                <span key={h} className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                  {h}
+                </span>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              {items.map((item) => {
+                const lineTotal = item.quantity * item.unitPrice;
+                return (
+                  <div
+                    key={item.id}
+                    className="grid grid-cols-[1fr_60px_80px_80px_32px] gap-2 items-start"
+                  >
+                    <input
+                      className={inputCls}
+                      value={item.description}
+                      onChange={(e) => updateItem(item.id, "description", e.target.value)}
+                      placeholder="Item or service description"
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      className={inputCls}
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateItem(item.id, "quantity", Math.max(1, Number(e.target.value)))
+                      }
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className={inputCls}
+                      value={item.unitPrice}
+                      onChange={(e) =>
+                        updateItem(item.id, "unitPrice", Number(e.target.value))
+                      }
+                      placeholder="0.00"
+                    />
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 text-right">
+                      {lineTotal.toFixed(2)}
+                    </div>
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      disabled={items.length === 1}
+                      className="flex items-center justify-center w-8 h-9 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition disabled:opacity-30"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Subtotal / Total */}
+            <div className="mt-5 pt-4 border-t border-slate-100 space-y-2">
+              <div className="flex justify-between text-sm text-slate-500">
+                <span>Subtotal</span>
+                <span className="font-medium text-slate-700">
+                  {formatCurrency(subtotal, invoice.currency)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center bg-slate-900 text-white rounded-xl px-4 py-3">
+                <span className="font-bold text-sm">Total Due</span>
+                <span className="font-bold text-base">
+                  {formatCurrency(total, invoice.currency)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* PDF preview hint */}
+          <div className="rounded-2xl border border-dashed border-sky-300 bg-sky-50 p-6 text-center">
+            <Download className="w-8 h-8 text-sky-400 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-sky-700">Ready to export</p>
+            <p className="text-xs text-sky-500 mt-1">
+              Click <strong>Export PDF</strong> at the top to download your invoice with the Aliice logo and all details included.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
