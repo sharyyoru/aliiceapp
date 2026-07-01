@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { runStageAutomations } from "@/lib/pipelineAutomations";
 
 // Sales funnel stages for tracking clients
 const FUNNEL_STAGES = [
@@ -135,6 +136,19 @@ export async function PATCH(request: Request) {
 
     const supabase = getSupabaseAdmin();
 
+    // If the stage is changing, capture the previous stage first so we can
+    // trigger stage-based automations after a successful update.
+    const isStageChange = Object.prototype.hasOwnProperty.call(updates, "sales_funnel_stage");
+    let previousStage: string | null = null;
+    if (isStageChange) {
+      const { data: existing } = await supabase
+        .from("organizations")
+        .select("sales_funnel_stage")
+        .eq("id", id)
+        .single();
+      previousStage = existing?.sales_funnel_stage ?? null;
+    }
+
     const updateData = {
       ...updates,
       updated_at: new Date().toISOString(),
@@ -150,6 +164,30 @@ export async function PATCH(request: Request) {
     if (error) {
       console.error("Database error:", error);
       return NextResponse.json({ error: "Failed to update organization" }, { status: 500 });
+    }
+
+    // Fire stage-based automations (non-blocking failures are swallowed inside)
+    if (isStageChange && data && data.sales_funnel_stage !== previousStage) {
+      try {
+        await runStageAutomations(
+          supabase,
+          {
+            id: data.id,
+            name: data.name,
+            slug: data.slug,
+            email: data.email,
+            phone: data.phone,
+            city: data.city,
+            country: data.country,
+            subscription_tier: data.subscription_tier,
+            deal_value: data.deal_value,
+          },
+          data.sales_funnel_stage,
+          previousStage
+        );
+      } catch (automationErr) {
+        console.error("Stage automation error (non-fatal):", automationErr);
+      }
     }
 
     return NextResponse.json({ organization: data });

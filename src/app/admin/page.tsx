@@ -29,8 +29,11 @@ import {
   Receipt,
   ChevronDown,
   Trash2,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { LayoutGrid, List } from "lucide-react";
+import PipelineListView from "@/components/admin/PipelineListView";
 
 interface Organization {
   id: string;
@@ -113,6 +116,7 @@ const STAGE_COLORS: Record<string, { bg: string; text: string; border: string; h
 export default function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"pipeline" | "users">("pipeline");
+  const [pipelineView, setPipelineView] = useState<"kanban" | "list">("kanban");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [stages, setStages] = useState<FunnelStage[]>([]);
@@ -210,6 +214,30 @@ export default function AdminDashboard() {
       }
     } catch {
       console.error("Failed to update stage");
+    }
+  };
+
+  const updateOrgField = async (orgId: string, field: string, value: unknown) => {
+    const previous = organizations;
+    // Optimistic update
+    setOrganizations((prev) =>
+      prev.map((o) => (o.id === orgId ? { ...o, [field]: value } : o))
+    );
+
+    try {
+      const response = await fetch("/api/admin/organizations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: orgId, [field]: value }),
+      });
+
+      if (!response.ok) {
+        setOrganizations(previous);
+        setError("Failed to update organization");
+      }
+    } catch {
+      setOrganizations(previous);
+      setError("Failed to update organization");
     }
   };
 
@@ -391,6 +419,13 @@ export default function AdminDashboard() {
               <Shield className="w-4 h-4" />
               Team
             </Link>
+            <Link
+              href="/admin/automations"
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+            >
+              <Zap className="w-4 h-4" />
+              Automations
+            </Link>
             {/* Documents dropdown: Offer Letters + Invoices */}
             <div className="relative group">
               <button className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
@@ -522,19 +557,68 @@ export default function AdminDashboard() {
             <div className="w-8 h-8 border-4 border-sky-200 border-t-sky-600 rounded-full animate-spin" />
           </div>
         ) : activeTab === "pipeline" ? (
-          <PipelineView
-            organizations={organizations}
-            stages={stages}
-            getOrgsByStage={getOrgsByStage}
-            handleDragStart={handleDragStart}
-            handleDragOver={handleDragOver}
-            handleDrop={handleDrop}
-            draggedOrg={draggedOrg}
-            formatDate={formatDate}
-            getSubscriptionBadge={getSubscriptionBadge}
-            updateOrgStage={updateOrgStage}
-            deleteOrg={deleteOrg}
-          />
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold text-slate-800">Sales Pipeline</h1>
+                <p className="text-sm text-slate-500">
+                  {pipelineView === "kanban"
+                    ? "Drag organizations between stages to track their progress"
+                    : "Search, filter and manage all organizations in a table view"}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+                <button
+                  onClick={() => setPipelineView("kanban")}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                    pipelineView === "kanban"
+                      ? "bg-sky-100 text-sky-700"
+                      : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  Board
+                </button>
+                <button
+                  onClick={() => setPipelineView("list")}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                    pipelineView === "list"
+                      ? "bg-sky-100 text-sky-700"
+                      : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  <List className="h-4 w-4" />
+                  List
+                </button>
+              </div>
+            </div>
+
+            {pipelineView === "kanban" ? (
+              <PipelineView
+                organizations={organizations}
+                stages={stages}
+                getOrgsByStage={getOrgsByStage}
+                handleDragStart={handleDragStart}
+                handleDragOver={handleDragOver}
+                handleDrop={handleDrop}
+                draggedOrg={draggedOrg}
+                formatDate={formatDate}
+                getSubscriptionBadge={getSubscriptionBadge}
+                updateOrgStage={updateOrgStage}
+                deleteOrg={deleteOrg}
+              />
+            ) : (
+              <PipelineListView
+                organizations={organizations}
+                stages={stages}
+                updateOrgStage={updateOrgStage}
+                updateOrgField={updateOrgField}
+                deleteOrg={deleteOrg}
+                formatDate={formatDate}
+                formatCurrency={formatCurrency}
+              />
+            )}
+          </div>
         ) : (
           <UsersView users={users} formatDate={formatDate} />
         )}
@@ -988,13 +1072,6 @@ function PipelineView({
 }) {
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-slate-800">Sales Pipeline</h1>
-        <p className="text-sm text-slate-500">
-          Drag organizations between stages to track their progress
-        </p>
-      </div>
-
       <div className="flex gap-4 overflow-x-auto pb-4">
         {stages.map((stage) => {
           const stageOrgs = getOrgsByStage(stage.id);
