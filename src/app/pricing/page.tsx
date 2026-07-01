@@ -95,7 +95,7 @@ export default function PricingPage() {
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">Login</Link>
-            <Link href="/register" className="rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
+            <Link href="/signup" className="rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
               Start Free Trial
             </Link>
           </div>
@@ -187,7 +187,7 @@ export default function PricingPage() {
                 </ul>
 
                 <Link
-                  href="/register"
+                  href="/signup"
                   className={`mt-8 block w-full py-3 rounded-xl font-semibold text-center transition-all ${
                     tier.popular
                       ? "bg-white text-sky-600 hover:bg-sky-50"
@@ -323,7 +323,7 @@ export default function PricingPage() {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/register"
+              href="/signup"
               className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-8 py-4 text-base font-semibold text-white shadow-lg"
             >
               Start Free Trial

@@ -11,7 +11,7 @@ import {
   Code2,
 } from "lucide-react";
 
-const PRIMARY_CTA_URL = "https://www.aliice.app/register";
+const PRIMARY_CTA_URL = "https://www.aliice.app/signup";
 const DEMO_CTA_URL = "https://www.aliice.app/contact";
 const LOGO_URL = "https://www.aliice.app/logos/aliice-logo.png";
 
