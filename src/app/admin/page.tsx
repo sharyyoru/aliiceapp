@@ -28,6 +28,7 @@ import {
   FileText,
   Receipt,
   ChevronDown,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -209,6 +210,27 @@ export default function AdminDashboard() {
       }
     } catch {
       console.error("Failed to update stage");
+    }
+  };
+
+  const deleteOrg = async (orgId: string) => {
+    // Optimistic removal
+    const previous = organizations;
+    setOrganizations((prev) => prev.filter((o) => o.id !== orgId));
+
+    try {
+      const response = await fetch(`/api/admin/organizations?id=${orgId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        // Roll back on failure
+        setOrganizations(previous);
+        setError("Failed to delete organization");
+      }
+    } catch {
+      setOrganizations(previous);
+      setError("Failed to delete organization");
     }
   };
 
@@ -511,6 +533,7 @@ export default function AdminDashboard() {
             formatDate={formatDate}
             getSubscriptionBadge={getSubscriptionBadge}
             updateOrgStage={updateOrgStage}
+            deleteOrg={deleteOrg}
           />
         ) : (
           <UsersView users={users} formatDate={formatDate} />
@@ -949,6 +972,7 @@ function PipelineView({
   formatDate,
   getSubscriptionBadge,
   updateOrgStage,
+  deleteOrg,
 }: {
   organizations: Organization[];
   stages: FunnelStage[];
@@ -960,6 +984,7 @@ function PipelineView({
   formatDate: (date: string) => string;
   getSubscriptionBadge: (tier: string | null, status: string | null) => string;
   updateOrgStage: (orgId: string, newStage: string) => void;
+  deleteOrg: (orgId: string) => void;
 }) {
   return (
     <div>
@@ -1005,6 +1030,7 @@ function PipelineView({
                     formatDate={formatDate}
                     getSubscriptionBadge={getSubscriptionBadge}
                     onMoveToStage={(stageId) => updateOrgStage(org.id, stageId)}
+                    onDelete={() => deleteOrg(org.id)}
                   />
                 ))}
                 {stageOrgs.length === 0 && (
@@ -1028,6 +1054,7 @@ function OrgCard({
   formatDate,
   getSubscriptionBadge,
   onMoveToStage,
+  onDelete,
 }: {
   org: Organization;
   stages: FunnelStage[];
@@ -1035,6 +1062,7 @@ function OrgCard({
   formatDate: (date: string) => string;
   getSubscriptionBadge: (tier: string | null, status: string | null) => string;
   onMoveToStage: (stageId: string) => void;
+  onDelete: () => void;
 }) {
   const [showActions, setShowActions] = useState(false);
   const [showMoveMenu, setShowMoveMenu] = useState(false);
@@ -1125,6 +1153,24 @@ function OrgCard({
                       </div>
                     )}
                   </div>
+                  <div className="my-1 border-t border-slate-100" />
+                  <button
+                    onClick={() => {
+                      setShowActions(false);
+                      setShowMoveMenu(false);
+                      if (
+                        window.confirm(
+                          `Delete "${org.name}"? This permanently removes the record and cannot be undone.`
+                        )
+                      ) {
+                        onDelete();
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
                 </div>
               </>
             )}

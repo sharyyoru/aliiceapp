@@ -157,3 +157,42 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    if (!(await verifyAdmin())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Support id via query param (?id=) or JSON body
+    let id: string | null = new URL(request.url).searchParams.get("id");
+    if (!id) {
+      try {
+        const body = await request.json();
+        id = body?.id ?? null;
+      } catch {
+        // no body
+      }
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "Organization ID is required" }, { status: 400 });
+    }
+
+    const supabase = getSupabaseAdmin();
+
+    // Remove dependent contacts first (defensive — FK may already cascade)
+    await supabase.from("organization_contacts").delete().eq("organization_id", id);
+
+    const { error } = await supabase.from("organizations").delete().eq("id", id);
+
+    if (error) {
+      console.error("Database error deleting organization:", error);
+      return NextResponse.json({ error: "Failed to delete organization" }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, id });
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
