@@ -141,6 +141,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No reference ID" }, { status: 400 });
     }
 
+    // ── Client-billing invoice (Aliice SaaS) — reference prefixed with CLIENT- ──
+    if (referenceId.startsWith("CLIENT-")) {
+      const invoiceNumber = referenceId.slice("CLIENT-".length);
+      const { data: ci } = await supabaseAdmin
+        .from("client_invoices")
+        .select("id, total, status")
+        .eq("invoice_number", invoiceNumber)
+        .single();
+
+      if (!ci) {
+        console.error("Client invoice not found for reference:", referenceId);
+        return NextResponse.json({ received: true, message: "Client invoice not found" });
+      }
+
+      const isPaid = isTransactionPaid(transaction.status);
+      const paidAt = isPaid ? new Date().toISOString() : null;
+
+      const update: Record<string, unknown> = {
+        payrexx_transaction_id: String(transaction.id),
+        payrexx_transaction_uuid: transaction.uuid,
+        payrexx_payment_status: transaction.status,
+      };
+
+      if (isPaid && ci.status !== "PAID") {
+        const total = Number(ci.total) || 0;
+        const txAmount = (transaction.invoice?.amount ?? 0) / 100;
+        if (txAmount > 0 && txAmount < total - 0.01) {
+          update.status = "PARTIAL_LOSS";
+          update.paid_amount = txAmount;
+        } else {
+          update.status = "PAID";
+          update.paid_amount = total;
+        }
+        update.paid_at = paidAt;
+        update.payrexx_paid_at = paidAt;
+      }
+
+      await supabaseAdmin.from("client_invoices").update(update).eq("id", ci.id);
+      console.log("Client invoice payment processed:", { referenceId, isPaid });
+      return NextResponse.json({ received: true, clientInvoiceId: ci.id, isPaid });
+    }
+
     // Check if this is an installment payment (referenceId format: INVOICE_NUMBER-INST1)
     const installmentMatch = referenceId.match(/^(.+)-INST(\d+)$/);
 

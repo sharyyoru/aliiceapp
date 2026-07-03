@@ -13,6 +13,9 @@ import {
   Building2,
   CreditCard,
   Receipt,
+  Send,
+  Link2,
+  CheckCircle2,
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -107,6 +110,12 @@ async function loadImageAsBase64(url: string): Promise<string> {
 
 export default function InvoicesPage() {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [invoicePaymentLink, setInvoicePaymentLink] = useState<string>("");
+  const [invoiceStatus, setInvoiceStatus] = useState<string>("");
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   const [invoice, setInvoice] = useState<InvoiceData>({
     invoiceNumber: generateInvoiceNumber(),
@@ -158,17 +167,20 @@ export default function InvoicesPage() {
 
   // ── PDF Generation ──────────────────────────────────────────────────────
 
-  const generatePDF = async () => {
+  const validateInvoice = (): boolean => {
     if (!invoice.clientName) {
       alert("Please enter the client name.");
-      return;
+      return false;
     }
     if (items.every((i) => !i.description)) {
       alert("Please add at least one line item.");
-      return;
+      return false;
     }
+    return true;
+  };
 
-    setIsGenerating(true);
+  const buildInvoiceDoc = async (payLinkOverride?: string): Promise<jsPDF> => {
+    const payLink = payLinkOverride ?? invoicePaymentLink;
     try {
       // Load the Aliice logo — try public path first, then the Next image URL
       let logoBase64: string | null = null;
@@ -406,6 +418,27 @@ export default function InvoicesPage() {
       doc.text(formatCurrency(total, invoice.currency), totalsValueX, y + 7, { align: "right" });
       y += 18;
 
+      // ── Pay Now button (Payrexx online payment) ──
+      if (payLink) {
+        const btnW = 74;
+        const btnH = 13;
+        const btnX = pageW - margin - btnW;
+        doc.setFillColor(2, 132, 199); // sky-600
+        doc.roundedRect(btnX, y - 2, btnW, btnH, 2.5, 2.5, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10.5);
+        doc.text("Pay Now Online", btnX + btnW / 2, y + 6.5, { align: "center" });
+        // Clickable link over the button
+        doc.link(btnX, y - 2, btnW, btnH, { url: payLink });
+        // Caption on the left
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text("Pay securely by card via Payrexx:", margin, y + 6);
+        y += btnH + 8;
+      }
+
       // ── Bank Transfer Details ────────────────────────────────────────────
       if (invoice.bankName || invoice.iban || invoice.swift) {
         doc.setFillColor(239, 246, 255); // blue-50
@@ -488,12 +521,98 @@ export default function InvoicesPage() {
         { align: "center" }
       );
 
-      doc.save(`${invoice.invoiceNumber}.pdf`);
+      return doc;
     } catch (err) {
       console.error("PDF generation failed:", err);
+      throw err;
+    }
+  };
+
+  const exportPDF = async () => {
+    if (!validateInvoice()) return;
+    setIsGenerating(true);
+    try {
+      const doc = await buildInvoiceDoc();
+      doc.save(`${invoice.invoiceNumber}.pdf`);
+    } catch {
       alert("Failed to generate PDF. Please try again.");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const saveInvoice = async (createPaymentLink: boolean) => {
+    const res = await fetch("/api/admin/client-invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        invoice_number: invoice.invoiceNumber,
+        issue_date: invoice.issueDate,
+        due_date: invoice.dueDate,
+        client_name: invoice.clientName,
+        client_email: invoice.clientEmail,
+        client_address: invoice.clientAddress,
+        client_city: invoice.clientCity,
+        from_name: invoice.fromName,
+        from_address: invoice.fromAddress,
+        from_city: invoice.fromCity,
+        currency: invoice.currency,
+        notes: invoice.notes,
+        line_items: items
+          .filter((i) => i.description.trim())
+          .map((i) => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })),
+        createPaymentLink,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to save invoice");
+    if (data.invoice?.id) setInvoiceId(data.invoice.id);
+    if (data.invoice?.status) setInvoiceStatus(data.invoice.status);
+    if (data.paymentLink) setInvoicePaymentLink(data.paymentLink);
+    return data as { invoice?: { id: string; status: string }; paymentLink?: string };
+  };
+
+  const createPayLink = async () => {
+    if (!validateInvoice()) return;
+    setCreatingLink(true);
+    setActionMsg(null);
+    try {
+      const data = await saveInvoice(true);
+      setActionMsg(data.paymentLink ? "Payment link ready." : "Saved (no link created).");
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : "Failed to create link");
+    } finally {
+      setCreatingLink(false);
+    }
+  };
+
+  const sendToClient = async () => {
+    if (!validateInvoice()) return;
+    if (!invoice.clientEmail.trim()) {
+      alert("Please enter the client email address first.");
+      return;
+    }
+    setSending(true);
+    setActionMsg(null);
+    try {
+      const data = await saveInvoice(true);
+      const id = data.invoice?.id || invoiceId;
+      const link = data.paymentLink || invoicePaymentLink;
+      const doc = await buildInvoiceDoc(link);
+      const dataUri = doc.output("datauristring");
+      const base64 = dataUri.split(",").pop() || "";
+      const res = await fetch("/api/admin/client-invoices/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, pdfBase64: base64, fileName: `${invoice.invoiceNumber}.pdf` }),
+      });
+      const sendData = await res.json();
+      if (!res.ok) throw new Error(sendData.error || "Failed to send");
+      setActionMsg(`Invoice emailed to ${invoice.clientEmail}.`);
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : "Failed to send");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -522,19 +641,69 @@ export default function InvoicesPage() {
             <h1 className="font-semibold text-slate-900 text-lg">Invoice Generator</h1>
           </div>
         </div>
-        <button
-          onClick={generatePDF}
-          disabled={isGenerating}
-          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition disabled:opacity-50"
-        >
-          {isGenerating ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Download className="w-4 h-4" />
-          )}
-          {isGenerating ? "Generating…" : "Export PDF"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={createPayLink}
+            disabled={creatingLink}
+            className="flex items-center gap-2 px-4 py-2.5 bg-sky-50 text-sky-700 border border-sky-200 rounded-xl text-sm font-semibold hover:bg-sky-100 transition disabled:opacity-50"
+          >
+            {creatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+            {invoicePaymentLink ? "Pay link ready" : "Create pay link"}
+          </button>
+          <button
+            onClick={sendToClient}
+            disabled={sending}
+            className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700 transition disabled:opacity-50"
+          >
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {sending ? "Sending…" : "Send to client"}
+          </button>
+          <button
+            onClick={exportPDF}
+            disabled={isGenerating}
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition disabled:opacity-50"
+          >
+            {isGenerating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            {isGenerating ? "Generating…" : "Export PDF"}
+          </button>
+        </div>
       </div>
+
+      {/* Payment status / link bar */}
+      {(invoicePaymentLink || invoiceStatus || actionMsg) && (
+        <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+          {invoiceStatus && (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold ${
+                invoiceStatus === "PAID"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : invoiceStatus === "PARTIAL_LOSS"
+                  ? "bg-amber-50 text-amber-700"
+                  : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {invoiceStatus === "PAID" && <CheckCircle2 className="w-3 h-3" />}
+              {invoiceStatus}
+            </span>
+          )}
+          {invoicePaymentLink && (
+            <a
+              href={invoicePaymentLink}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 font-medium truncate max-w-[380px]"
+            >
+              <CreditCard className="w-3.5 h-3.5 shrink-0" />
+              {invoicePaymentLink}
+            </a>
+          )}
+          {actionMsg && <span className="text-slate-500">{actionMsg}</span>}
+        </div>
+      )}
 
       <div className="max-w-5xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
 

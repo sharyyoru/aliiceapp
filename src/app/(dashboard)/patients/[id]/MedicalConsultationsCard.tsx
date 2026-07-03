@@ -707,6 +707,8 @@ export default function MedicalConsultationsCard({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [generatedPaymentLink, setGeneratedPaymentLink] = useState<{ consultationId: string; url: string } | null>(null);
   const [paymentLinkCopied, setPaymentLinkCopied] = useState(false);
+  const [emailingInvoice, setEmailingInvoice] = useState<string | null>(null);
+  const [emailedInvoice, setEmailedInvoice] = useState<string | null>(null);
 
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
@@ -2805,6 +2807,36 @@ export default function MedicalConsultationsCard({
       console.error("Error generating PDF:", error);
       setPdfError(error instanceof Error ? error.message : "Failed to generate PDF");
       setGeneratingPdf(null);
+    }
+  }
+
+  // Email the invoice PDF to the patient with a Payrexx "Pay online" button + attachment.
+  async function handleEmailInvoiceToClient(
+    invoiceId: string,
+    invoiceType: "tg" | "tp" | "reminder" | "receipt" = "tg",
+  ) {
+    if (!patientEmail) {
+      setPdfError("No email address on file for this patient.");
+      return;
+    }
+    try {
+      setEmailingInvoice(invoiceId);
+      setPdfError(null);
+      const res = await fetch("/api/invoices/send-to-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceId, invoiceType }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to email invoice");
+      }
+      setEmailedInvoice(invoiceId);
+      setTimeout(() => setEmailedInvoice((cur) => (cur === invoiceId ? null : cur)), 4000);
+    } catch (error) {
+      setPdfError(error instanceof Error ? error.message : "Failed to email invoice");
+    } finally {
+      setEmailingInvoice(null);
     }
   }
 
@@ -7851,6 +7883,34 @@ export default function MedicalConsultationsCard({
                                 </div>
                               )}
                             </div>
+
+                            {/* Email invoice to patient (with Payrexx pay button + PDF attached) */}
+                            {row.invoice_id && (
+                              <button
+                                type="button"
+                                disabled={
+                                  emailingInvoice === row.invoice_id ||
+                                  !patientEmail ||
+                                  !(row.invoice_pdf_path_tg || row.invoice_pdf_path_receipt)
+                                }
+                                title={
+                                  !patientEmail
+                                    ? "No email address on file for this patient"
+                                    : !(row.invoice_pdf_path_tg || row.invoice_pdf_path_receipt)
+                                    ? "Generate the patient invoice or receipt PDF first"
+                                    : "Email the invoice to the patient with an online pay button"
+                                }
+                                onClick={() => handleEmailInvoiceToClient(row.invoice_id!, row.invoice_pdf_path_tg ? "tg" : "receipt")}
+                                className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-medium text-sky-700 hover:bg-sky-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {emailingInvoice === row.invoice_id ? (
+                                  <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                ) : (
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                )}
+                                {emailedInvoice === row.invoice_id ? "Sent!" : "Email invoice"}
+                              </button>
+                            )}
 
                             <div className="h-4 w-px bg-slate-200" />
 
