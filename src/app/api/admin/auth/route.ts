@@ -16,32 +16,34 @@ function getSupabaseAdmin() {
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
+    const emailClean = (email || "").trim().toLowerCase();
+    const passwordClean = (password || "").trim();
 
     // Try database auth first
     const supabase = getSupabaseAdmin();
-    const { data: adminUser, error } = await supabase
+    const { data: adminUser } = await supabase
       .from("admin_users")
       .select("id, email, full_name, is_active, password_hash")
-      .eq("email", email)
+      .ilike("email", emailClean)
       .eq("is_active", true)
-      .single();
+      .maybeSingle();
 
     let isValid = false;
 
-    if (!error && adminUser && adminUser.password_hash === password) {
+    if (adminUser && adminUser.password_hash === passwordClean) {
       isValid = true;
       // Update last login
       await supabase
         .from("admin_users")
         .update({ last_login_at: new Date().toISOString() })
         .eq("id", adminUser.id);
-    } else if (email === FALLBACK_ADMIN_EMAIL && password === FALLBACK_ADMIN_PASSWORD) {
+    } else if (emailClean === FALLBACK_ADMIN_EMAIL && passwordClean === FALLBACK_ADMIN_PASSWORD) {
       // Fallback to hardcoded credentials
       isValid = true;
     }
 
     if (isValid) {
-      const token = Buffer.from(`admin:${email}:${Date.now()}`).toString("base64");
+      const token = Buffer.from(`admin:${emailClean}:${Date.now()}`).toString("base64");
       
       const cookieStore = await cookies();
       cookieStore.set("admin_session", token, {
