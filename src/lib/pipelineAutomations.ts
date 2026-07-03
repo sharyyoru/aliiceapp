@@ -1,5 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { sendSystemEmail } from "@/lib/gmail";
 import { createDemoCalendarEvent, DemoEventResult } from "@/lib/googleCalendar";
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes, createHmac } from "crypto";
@@ -8,9 +8,6 @@ const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const emailFromAddress = process.env.EMAIL_FROM_ADDRESS || "info@mail.maisontoa.com";
-const emailFromName = process.env.EMAIL_FROM_NAME || "Aliice";
 
 // Sales funnel stage labels (kept in sync with the admin organizations route)
 const STAGE_LABELS: Record<string, string> = {
@@ -440,23 +437,43 @@ export async function runStageAutomations(
         const subject = renderTemplate(rawSubject, context) || "Update from Aliice";
         const html = renderTemplate(rawBody, context);
 
-        if (!isEmailConfigured()) {
-          await logRun("skipped", { reason: "Email service not configured", recipient, subject });
-          continue;
-        }
+        // Log the email into the org's emails table before sending so it appears in the Emails tab
+        const nowIso = new Date().toISOString();
+        const systemAdmin = process.env.SYSTEM_GMAIL_ADMIN_EMAIL || "info@aliice.app";
+        const { data: insertedEmail } = await supabase
+          .from("emails")
+          .insert({
+            organization_id: org.id,
+            to_address: recipient,
+            from_address: systemAdmin,
+            subject,
+            body: html,
+            direction: "outbound",
+            status: "sending",
+            sent_at: nowIso,
+            provider: "gmail",
+          })
+          .select("id")
+          .single();
 
-        const result = await sendEmail({
-          to: recipient,
-          subject,
-          html,
-          from: emailFromAddress,
-          fromName: emailFromName,
-        });
+        const result = await sendSystemEmail({ to: recipient, subject, html });
 
-        if (result.success) {
+        if (result.ok) {
           sent += 1;
+          // Update email record to sent + store Gmail thread/message ids
+          if (insertedEmail) {
+            await supabase.from("emails").update({
+              status: "sent",
+              gmail_message_id: result.messageId ?? null,
+              gmail_thread_id: result.threadId ?? null,
+              rfc822_message_id: result.rfc822MessageId ?? null,
+            }).eq("id", insertedEmail.id);
+          }
           await logRun("success", { recipient, subject, language, messageId: result.messageId });
         } else {
+          if (insertedEmail) {
+            await supabase.from("emails").update({ status: "failed" }).eq("id", insertedEmail.id);
+          }
           await logRun("failed", { recipient, subject, language, error: result.error });
         }
       } else {
