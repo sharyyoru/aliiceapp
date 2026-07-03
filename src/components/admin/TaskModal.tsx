@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  X, Loader2, Trash2, Send, User, Building2, Flag, Calendar,
-  CheckCircle2, Circle, Clock, MessageSquare, AtSign, ChevronDown,
+  X, Loader2, Trash2, Send, User, Building2, Calendar,
+  CheckCircle2, Circle, Clock, MessageSquare, AtSign, ChevronDown, Search,
 } from "lucide-react";
 import type { AdminTask } from "@/app/admin/tasks/page";
 
@@ -44,6 +44,7 @@ function fmtDateTime(iso: string) {
   });
 }
 
+// Renders a saved comment body with @mentions highlighted blue
 function renderCommentBody(body: string) {
   const parts = body.split(/(@[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g);
   return parts.map((p, i) =>
@@ -52,6 +53,129 @@ function renderCommentBody(body: string) {
     ) : (
       <span key={i}>{p}</span>
     )
+  );
+}
+
+// Breaks comment text into segments with @mentions highlighted in the live input
+function CommentPreview({ text }: { text: string }) {
+  const parts = text.split(/(@[^\s@]+(?:@[^\s]+)?)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith("@") ? (
+          <mark key={i} className="bg-sky-100 text-sky-700 rounded not-italic font-medium">{p}</mark>
+        ) : (
+          <span key={i}>{p}</span>
+        )
+      )}
+    </>
+  );
+}
+
+// Searchable assignee combobox
+function AssigneeCombobox({
+  adminUsers,
+  value,
+  onChange,
+  loading,
+}: {
+  adminUsers: AdminUser[];
+  value: string;
+  onChange: (email: string, name: string) => void;
+  loading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = adminUsers.find((u) => u.email === value);
+  const filtered = adminUsers.filter((u) => {
+    if (!q) return true;
+    const lq = q.toLowerCase();
+    return u.email.toLowerCase().includes(lq) || (u.full_name || "").toLowerCase().includes(lq);
+  });
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => { setOpen((o) => !o); setTimeout(() => inputRef.current?.focus(), 50); }}
+        className="w-full flex items-center justify-between gap-2 px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-colors"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          {loading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 shrink-0" />
+          ) : selected ? (
+            <span className="w-5 h-5 rounded-full bg-sky-100 flex items-center justify-center text-xs font-bold text-sky-700 shrink-0">
+              {(selected.full_name || selected.email)[0].toUpperCase()}
+            </span>
+          ) : (
+            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          )}
+          <span className={`truncate ${selected ? "text-slate-800" : "text-slate-400"}`}>
+            {loading ? "Loading…" : selected ? (selected.full_name || selected.email) : "Unassigned"}
+          </span>
+        </span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-slate-100">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50 rounded-lg">
+              <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search admin users…"
+                className="flex-1 bg-transparent text-sm outline-none text-slate-900 placeholder:text-slate-400"
+              />
+            </div>
+          </div>
+          <div className="max-h-48 overflow-y-auto py-1">
+            <button
+              type="button"
+              onClick={() => { onChange("", ""); setOpen(false); setQ(""); }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 text-sm transition ${!value ? "bg-sky-50" : ""}`}
+            >
+              <User className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-500">Unassigned</span>
+            </button>
+            {filtered.map((u) => (
+              <button
+                type="button"
+                key={u.email}
+                onClick={() => { onChange(u.email, u.full_name || u.email); setOpen(false); setQ(""); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-sky-50 transition group ${u.email === value ? "bg-sky-50" : ""}`}
+              >
+                <span className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-bold text-sky-700 shrink-0">
+                  {(u.full_name || u.email)[0].toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate group-hover:text-sky-700">{u.full_name || "—"}</p>
+                  <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                </div>
+                {u.email === value && <CheckCircle2 className="w-4 h-4 text-sky-500 ml-auto shrink-0" />}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-4 py-3 text-sm text-slate-400 text-center">No users found</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -82,6 +206,7 @@ export default function TaskModal({
   const [orgIdState, setOrgIdState] = useState(task?.organization_id ?? orgId ?? "");
 
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [loadingAdminUsers, setLoadingAdminUsers] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
@@ -94,8 +219,12 @@ export default function TaskModal({
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    fetch("/api/admin/admin-users").then((r) => r.json()).then((d) => setAdminUsers(d.adminUsers || []));
-    fetch("/api/admin/organizations").then((r) => r.json()).then((d) => setOrganizations((d.organizations || []).map((o: any) => ({ id: o.id, name: o.name }))));
+    setLoadingAdminUsers(true);
+    fetch("/api/admin/admin-users")
+      .then((r) => r.json())
+      .then((d) => setAdminUsers(d.adminUsers || []))
+      .finally(() => setLoadingAdminUsers(false));
+    fetch("/api/admin/organizations").then((r) => r.json()).then((d) => setOrganizations((d.organizations || []).map((o: { id: string; name: string }) => ({ id: o.id, name: o.name }))));
     if (task?.id) loadComments();
   }, [task?.id]);
 
@@ -147,10 +276,17 @@ export default function TaskModal({
   };
 
   const handleCommentKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendComment(); }
-    if (mentionQuery !== null) {
-      if (e.key === "Escape") { setMentionQuery(null); }
+    // Enter (without Shift) sends. Shift+Enter inserts newline.
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (mentionQuery !== null && filteredMentions.length > 0) {
+        insertMention(filteredMentions[0]);
+      } else {
+        sendComment();
+      }
+      return;
     }
+    if (e.key === "Escape" && mentionQuery !== null) { setMentionQuery(null); }
   };
 
   const handleCommentChange = (val: string) => {
@@ -186,9 +322,6 @@ export default function TaskModal({
         (u.full_name || "").toLowerCase().includes(mentionQuery.toLowerCase())
       ).slice(0, 6)
     : [];
-
-  const selectedOrg = organizations.find((o) => o.id === orgIdState);
-  const selectedAssignee = adminUsers.find((u) => u.email === assigneeEmail);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-12 px-4" onMouseDown={onClose}>
@@ -274,20 +407,12 @@ export default function TaskModal({
                 <label className="block text-xs font-medium text-slate-500 mb-1">
                   <User className="inline w-3 h-3 mr-1" />Assignee
                 </label>
-                <select
+                <AssigneeCombobox
+                  adminUsers={adminUsers}
                   value={assigneeEmail}
-                  onChange={(e) => {
-                    const u = adminUsers.find((u) => u.email === e.target.value);
-                    setAssigneeEmail(e.target.value);
-                    setAssigneeName(u?.full_name || e.target.value);
-                  }}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-sky-400"
-                >
-                  <option value="">Unassigned</option>
-                  {adminUsers.map((u) => (
-                    <option key={u.email} value={u.email}>{u.full_name || u.email}</option>
-                  ))}
-                </select>
+                  loading={loadingAdminUsers}
+                  onChange={(email, name) => { setAssigneeEmail(email); setAssigneeName(name); }}
+                />
               </div>
 
               {/* Due date */}
@@ -356,48 +481,66 @@ export default function TaskModal({
                 ))}
               </div>
 
-              {/* Comment composer */}
+              {/* Comment composer — overlay gives live @mention blue highlight */}
               <div className="relative">
-                <textarea
-                  ref={commentRef}
-                  value={commentText}
-                  onChange={(e) => handleCommentChange(e.target.value)}
-                  onKeyDown={handleCommentKey}
-                  placeholder="Add a comment… Use @email to mention someone"
-                  rows={2}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm resize-none focus:outline-none focus:border-sky-400"
-                />
-                <button
-                  onClick={sendComment}
-                  disabled={!commentText.trim() || sendingComment}
-                  className="absolute right-2 bottom-2 p-1.5 bg-sky-600 text-white rounded-lg disabled:opacity-40 hover:bg-sky-700"
-                >
-                  {sendingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                </button>
-
                 {/* @mention dropdown */}
                 {mentionQuery !== null && filteredMentions.length > 0 && (
-                  <div className="absolute bottom-full mb-1 left-0 w-72 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-10">
-                    {filteredMentions.map((u) => (
+                  <div className="absolute bottom-full mb-1 left-0 w-72 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-20">
+                    <div className="px-3 py-1.5 border-b border-slate-100">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <Search className="w-3 h-3" />
+                        <span>Mention someone…</span>
+                      </div>
+                    </div>
+                    {filteredMentions.map((u, idx) => (
                       <button
                         key={u.email}
                         onMouseDown={(e) => { e.preventDefault(); insertMention(u); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-sky-50 transition"
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition ${
+                          idx === 0 ? "bg-sky-50" : "hover:bg-sky-50"
+                        }`}
                       >
                         <div className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-bold text-sky-700 shrink-0">
                           {(u.full_name || u.email)[0].toUpperCase()}
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">{u.full_name || u.email}</p>
-                          <p className="text-xs text-slate-500">{u.email}</p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-800 truncate">{u.full_name || u.email}</p>
+                          <p className="text-xs text-slate-500 truncate">{u.email}</p>
                         </div>
                       </button>
                     ))}
                   </div>
                 )}
+
+                {/* Highlight overlay — mirrors textarea text, shows mentions in blue */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 px-3 py-2.5 pr-10 text-sm whitespace-pre-wrap break-words overflow-hidden rounded-xl text-transparent"
+                  style={{ fontFamily: "inherit", lineHeight: "1.5" }}
+                >
+                  <CommentPreview text={commentText || " "} />
+                </div>
+
+                <textarea
+                  ref={commentRef}
+                  value={commentText}
+                  onChange={(e) => handleCommentChange(e.target.value)}
+                  onKeyDown={handleCommentKey}
+                  placeholder="Add a comment… Use @name to mention someone"
+                  rows={2}
+                  className="relative w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm resize-none focus:outline-none focus:border-sky-400 bg-transparent caret-slate-900 text-slate-900 placeholder:text-slate-400"
+                  style={{ fontFamily: "inherit", lineHeight: "1.5" }}
+                />
+                <button
+                  onClick={sendComment}
+                  disabled={!commentText.trim() || sendingComment}
+                  className="absolute right-2 bottom-2 p-1.5 bg-sky-600 text-white rounded-lg disabled:opacity-40 hover:bg-sky-700 z-10"
+                >
+                  {sendingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                </button>
               </div>
               <p className="text-xs text-slate-400 mt-1.5">
-                <AtSign className="inline w-3 h-3" /> type @email or name to mention · Ctrl+Enter to send
+                <AtSign className="inline w-3 h-3" /> type @name to mention · Enter to send · Shift+Enter for new line
               </p>
             </div>
           )}
