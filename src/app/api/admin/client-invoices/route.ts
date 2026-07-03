@@ -28,21 +28,108 @@ function getSupabaseAdmin() {
 
 type LineItem = { description: string; quantity: number; unitPrice: number };
 
-export async function GET() {
+const SORTABLE = new Set([
+  "created_at",
+  "issue_date",
+  "due_date",
+  "total",
+  "client_name",
+  "status",
+  "invoice_number",
+]);
+
+export async function GET(request: Request) {
   if (!(await verifyAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("client_invoices")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const { searchParams } = new URL(request.url);
 
+  const q = (searchParams.get("q") || "").trim();
+  const statusParam = (searchParams.get("status") || "").trim();
+  const statuses = statusParam ? statusParam.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const currency = (searchParams.get("currency") || "").trim();
+  const from = (searchParams.get("from") || "").trim();
+  const to = (searchParams.get("to") || "").trim();
+  const minAmount = parseFloat(searchParams.get("minAmount") || "");
+  const maxAmount = parseFloat(searchParams.get("maxAmount") || "");
+  const overdueOnly = searchParams.get("overdue") === "1";
+  const sortRaw = (searchParams.get("sort") || "created_at").trim();
+  const sort = SORTABLE.has(sortRaw) ? sortRaw : "created_at";
+  const order = searchParams.get("order") === "asc" ? "asc" : "desc";
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") || "25", 10) || 25));
+
+  let query = supabase.from("client_invoices").select("*");
+
+  if (statuses.length > 0) query = query.in("status", statuses);
+  if (currency) query = query.eq("currency", currency);
+  if (from) query = query.gte("issue_date", from);
+  if (to) query = query.lte("issue_date", to);
+  if (!Number.isNaN(minAmount)) query = query.gte("total", minAmount);
+  if (!Number.isNaN(maxAmount)) query = query.lte("total", maxAmount);
+  if (q) {
+    const safe = q.replace(/[%,]/g, " ");
+    query = query.or(
+      `invoice_number.ilike.%${safe}%,client_name.ilike.%${safe}%,client_email.ilike.%${safe}%`
+    );
+  }
+
+  query = query.order(sort, { ascending: order === "asc" }).limit(2000);
+
+  const { data, error } = await query;
   if (error) {
     return NextResponse.json({ error: "Failed to fetch invoices" }, { status: 500 });
   }
-  return NextResponse.json({ invoices: data || [] });
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const isOverdue = (inv: Record<string, unknown>) =>
+    !!inv.due_date &&
+    (inv.due_date as string) < todayStr &&
+    inv.status !== "PAID" &&
+    inv.status !== "CANCELLED";
+
+  let rows = (data || []).map((inv) => ({ ...inv, is_overdue: isOverdue(inv) }));
+  if (overdueOnly) rows = rows.filter((r) => r.is_overdue);
+
+  // KPI stats over the full filtered set (before pagination).
+  const stats = {
+    count: rows.length,
+    totalAmount: 0,
+    paidAmount: 0,
+    outstandingAmount: 0,
+    overdueCount: 0,
+    overdueAmount: 0,
+    byStatus: { OPEN: 0, PAID: 0, PARTIAL_LOSS: 0, CANCELLED: 0 } as Record<string, number>,
+  };
+  for (const r of rows) {
+    const total = Number(r.total) || 0;
+    const paid = Number(r.paid_amount) || 0;
+    stats.totalAmount += total;
+    if (r.status === "PAID") stats.paidAmount += total;
+    else if (r.status === "PARTIAL_LOSS") stats.paidAmount += paid;
+    if (r.status === "OPEN" || r.status === "PARTIAL_LOSS") {
+      stats.outstandingAmount += total - (r.status === "PARTIAL_LOSS" ? paid : 0);
+    }
+    if (r.is_overdue) {
+      stats.overdueCount += 1;
+      stats.overdueAmount += total;
+    }
+    if (r.status in stats.byStatus) stats.byStatus[r.status as string] += 1;
+  }
+
+  const total = rows.length;
+  const start = (page - 1) * pageSize;
+  const invoices = rows.slice(start, start + pageSize);
+
+  return NextResponse.json({
+    invoices,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    stats,
+  });
 }
 
 export async function POST(request: Request) {
