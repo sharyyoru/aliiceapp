@@ -21,13 +21,12 @@ BEGIN
 
   -- Only create if template exists and no automation exists
   IF tpl_id IS NOT NULL AND auto_count = 0 THEN
-    INSERT INTO sales_pipeline_automations (name, trigger_stage, action_type, template_id, admin_email, active)
+    INSERT INTO sales_pipeline_automations (name, trigger_stage, action_type, template_id, active)
     VALUES (
       'New Signup Welcome',
       'new_signup',
       'send_email',
       tpl_id,
-      'info@aliice.app',
       true
     );
   END IF;

@@ -145,7 +145,8 @@ export async function POST(request: Request) {
               if (automation.action_type !== "send_email" || !automation.template) return;
 
               const template = automation.template;
-              const recipientEmail = automation.admin_email || fullOrg.email || "info@aliice.app";
+              // Send to the lead's email (the person who signed up), not admin_email
+              const recipientEmail = fullOrg.email || "info@aliice.app";
 
               let subject = template.subject || "Welcome to Aliice";
               let html = template.body_html || "";
