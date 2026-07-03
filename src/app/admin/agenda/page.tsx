@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Loader2,
   CalendarDays,
+  X,
 } from "lucide-react";
 import {
   AgendaEvent,
@@ -124,6 +125,23 @@ export default function AgendaPage() {
     openCreate({ startLocal: toDatetimeLocal(start), endLocal: toDatetimeLocal(end) });
   };
 
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+
+  const disconnectCalendar = async (adminEmail: string) => {
+    if (!confirm(`Disconnect Google Calendar for ${adminEmail}?`)) return;
+    setDisconnecting(adminEmail);
+    try {
+      await fetch("/api/admin/gmail/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_email: adminEmail }),
+      });
+      await fetchEvents();
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
   const connectHref = `/api/admin/gmail/connect?returnTo=${encodeURIComponent("/admin/agenda")}`;
   const needsConnect = configured && (!me.connected || !me.hasCalendar);
 
@@ -230,25 +248,37 @@ export default function AgendaPage() {
               {accounts.map((acc) => {
                 const c = colorForEmail(acc.adminEmail);
                 const hidden = hiddenOwners.has(acc.adminEmail);
+                const isDisconnecting = disconnecting === acc.adminEmail;
                 return (
-                  <button
-                    key={acc.adminEmail}
-                    onClick={() => acc.hasCalendar && toggleOwner(acc.adminEmail)}
-                    className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left hover:bg-slate-50"
-                    title={acc.hasCalendar ? acc.googleEmail : "Calendar access not granted"}
-                  >
-                    <span
-                      className="flex h-4 w-4 items-center justify-center rounded-[4px] border"
-                      style={{
-                        backgroundColor: hidden ? "transparent" : c.bg,
-                        borderColor: c.bg,
-                      }}
-                    />
-                    <span className={`flex-1 truncate text-sm ${acc.hasCalendar ? "text-slate-700" : "text-slate-400"}`}>
-                      {acc.googleEmail}
-                    </span>
-                    {!acc.hasCalendar && <span className="text-[10px] text-amber-500">no access</span>}
-                  </button>
+                  <div key={acc.adminEmail} className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-slate-50">
+                    <button
+                      onClick={() => acc.hasCalendar && toggleOwner(acc.adminEmail)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                      title={acc.hasCalendar ? acc.googleEmail : "Calendar access not granted"}
+                    >
+                      <span
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border"
+                        style={{
+                          backgroundColor: hidden ? "transparent" : c.bg,
+                          borderColor: c.bg,
+                        }}
+                      />
+                      <span className={`min-w-0 flex-1 truncate text-sm ${acc.hasCalendar ? "text-slate-700" : "text-slate-400"}`}>
+                        {acc.googleEmail}
+                      </span>
+                      {!acc.hasCalendar && <span className="shrink-0 text-[10px] text-amber-500">no access</span>}
+                    </button>
+                    <button
+                      onClick={() => disconnectCalendar(acc.adminEmail)}
+                      disabled={isDisconnecting}
+                      title={`Disconnect ${acc.adminEmail}`}
+                      className="shrink-0 rounded p-0.5 text-slate-300 opacity-0 transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 disabled:opacity-50"
+                    >
+                      {isDisconnecting
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : <X className="h-3 w-3" />}
+                    </button>
+                  </div>
                 );
               })}
             </div>
