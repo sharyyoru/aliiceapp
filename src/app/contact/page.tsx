@@ -103,8 +103,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <div className="font-semibold text-slate-900">Email Us</div>
-                    <a href="mailto:sharyyoru@gmail.com" className="text-sky-600 hover:text-sky-700">
-                      sharyyoru@gmail.com
+                    <a href="mailto:info@aliice.app" className="text-sky-600 hover:text-sky-700">
+                      info@aliice.app
                     </a>
                     <div className="text-sm text-slate-500 mt-1">We reply within 24 hours</div>
                   </div>

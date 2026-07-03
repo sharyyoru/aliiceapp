@@ -88,7 +88,7 @@ Sent from Aliice Contact Form
 
     // Send email using centralized email service
     const result = await sendEmail({
-      to: "sharyyoru@gmail.com",
+      to: "info@aliice.app",
       subject: `[Aliice Contact] ${subject || "General Inquiry"} - ${name}`,
       html: htmlContent,
       replyTo: email,
