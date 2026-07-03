@@ -6,7 +6,7 @@
 import * as crypto from "crypto";
 
 // Payrexx configuration
-const PAYREXX_INSTANCE = process.env.PAYREXX_INSTANCE || "aesthetics-ge";
+const PAYREXX_INSTANCE = process.env.PAYREXX_INSTANCE || "";
 const PAYREXX_API_SECRET = process.env.PAYREXX_API_SECRET || "";
 const PAYREXX_BASE_URL = `https://api.payrexx.com/v1.14/`;
 
@@ -224,7 +224,9 @@ export async function createPayrexxGateway(
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Payrexx API error:", errorText);
-    throw new Error(`Payrexx API error: ${response.status} ${errorText}`);
+    let detail = errorText;
+    try { detail = JSON.parse(errorText)?.message || errorText; } catch {}
+    throw new Error(`Payrexx error: ${detail}`);
   }
 
   return response.json() as Promise<PayrexxGatewayResponse>;

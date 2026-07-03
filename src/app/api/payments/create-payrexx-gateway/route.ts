@@ -115,7 +115,8 @@ export async function POST(request: NextRequest) {
     const gatewayHash = gateway.hash;
     
     // Build payment link from hash if link is not directly provided
-    const paymentLink = gateway.link || `https://aesthetics-ge.payrexx.com/?payment=${gatewayHash}`;
+    const payrexxInstance = process.env.PAYREXX_INSTANCE || "";
+    const paymentLink = gateway.link || (payrexxInstance ? `https://${payrexxInstance}.payrexx.com/?payment=${gatewayHash}` : `https://payrexx.com/?payment=${gatewayHash}`);
     
     console.log("Payment link:", paymentLink, "Gateway ID:", gatewayId, "Hash:", gatewayHash);
 

@@ -228,6 +228,7 @@ export async function POST(request: Request) {
     organization_id: organization_id || null,
     period_start: period_start || null,
     period_end: period_end || null,
+    payment_method: (body as Record<string, unknown>).payment_method || "payrexx",
     updated_at: new Date().toISOString(),
   };
 
@@ -287,8 +288,9 @@ export async function POST(request: Request) {
         ? gatewayResponse.data[0]
         : gatewayResponse.data;
       const gateway = gatewayData as unknown as { id: number; hash: string; link: string };
+      const payrexxInstance = process.env.PAYREXX_INSTANCE || "";
       paymentLink =
-        gateway.link || `https://aesthetics-ge.payrexx.com/?payment=${gateway.hash}`;
+        gateway.link || (payrexxInstance ? `https://${payrexxInstance}.payrexx.com/?payment=${gateway.hash}` : null);
 
       await supabase
         .from("client_invoices")

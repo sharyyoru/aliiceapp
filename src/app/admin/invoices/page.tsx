@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -16,6 +16,10 @@ import {
   Send,
   Link2,
   CheckCircle2,
+  Search,
+  ChevronDown,
+  Banknote,
+  X,
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -49,6 +53,15 @@ interface InvoiceData {
   currency: string;
   // Notes
   notes: string;
+}
+
+interface OrgClient {
+  id: string;
+  name: string;
+  email: string | null;
+  street_address: string | null;
+  city: string | null;
+  country: string | null;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -116,6 +129,67 @@ export default function InvoicesPage() {
   const [creatingLink, setCreatingLink] = useState(false);
   const [sending, setSending] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Payment method
+  const [paymentMethod, setPaymentMethod] = useState<"payrexx" | "bank">("payrexx");
+
+  // Organization/client search
+  const [orgClients, setOrgClients] = useState<OrgClient[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientDropOpen, setClientDropOpen] = useState(false);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const clientDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoadingClients(true);
+    fetch("/api/admin/organizations")
+      .then((r) => r.json())
+      .then((d) => {
+        const orgs: OrgClient[] = (d.organizations || []).map((o: {
+          id: string; name: string; email: string | null;
+          street_address?: string | null; city?: string | null; country?: string | null;
+        }) => ({
+          id: o.id,
+          name: o.name,
+          email: o.email,
+          street_address: o.street_address ?? null,
+          city: o.city ?? null,
+          country: o.country ?? null,
+        }));
+        setOrgClients(orgs);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingClients(false));
+  }, []);
+
+  useEffect(() => {
+    function outside(e: MouseEvent) {
+      if (clientDropRef.current && !clientDropRef.current.contains(e.target as Node))
+        setClientDropOpen(false);
+    }
+    document.addEventListener("mousedown", outside);
+    return () => document.removeEventListener("mousedown", outside);
+  }, []);
+
+  const filteredClients = orgClients.filter((o) => {
+    const q = clientSearch.toLowerCase();
+    return !q || o.name.toLowerCase().includes(q) || (o.email || "").toLowerCase().includes(q);
+  });  
+
+  function selectClient(org: OrgClient) {
+    setSelectedOrgId(org.id);
+    setInvoice((prev) => ({
+      ...prev,
+      clientName: org.name,
+      clientEmail: org.email || "",
+      clientAddress: org.street_address || "",
+      clientCity: [org.city, org.country].filter(Boolean).join(", "),
+    }));
+    setClientDropOpen(false);
+    setClientSearch("");
+  }
 
   const [invoice, setInvoice] = useState<InvoiceData>({
     invoiceNumber: generateInvoiceNumber(),
@@ -531,11 +605,14 @@ export default function InvoicesPage() {
   const exportPDF = async () => {
     if (!validateInvoice()) return;
     setIsGenerating(true);
+    setActionError(null);
     try {
+      // Save invoice record to DB (without Payrexx link — PDF export doesn't need it)
+      await saveInvoice(false).catch(() => null); // non-fatal: save best-effort
       const doc = await buildInvoiceDoc();
       doc.save(`${invoice.invoiceNumber}.pdf`);
     } catch {
-      alert("Failed to generate PDF. Please try again.");
+      setActionError("Failed to generate PDF. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -558,10 +635,12 @@ export default function InvoicesPage() {
         from_city: invoice.fromCity,
         currency: invoice.currency,
         notes: invoice.notes,
+        organization_id: selectedOrgId || null,
+        payment_method: paymentMethod,
         line_items: items
           .filter((i) => i.description.trim())
           .map((i) => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })),
-        createPaymentLink,
+        createPaymentLink: createPaymentLink && paymentMethod === "payrexx",
       }),
     });
     const data = await res.json();
@@ -576,11 +655,12 @@ export default function InvoicesPage() {
     if (!validateInvoice()) return;
     setCreatingLink(true);
     setActionMsg(null);
+    setActionError(null);
     try {
       const data = await saveInvoice(true);
       setActionMsg(data.paymentLink ? "Payment link ready." : "Saved (no link created).");
     } catch (e) {
-      setActionMsg(e instanceof Error ? e.message : "Failed to create link");
+      setActionError(e instanceof Error ? e.message : "Failed to create link");
     } finally {
       setCreatingLink(false);
     }
@@ -594,6 +674,7 @@ export default function InvoicesPage() {
     }
     setSending(true);
     setActionMsg(null);
+    setActionError(null);
     try {
       const data = await saveInvoice(true);
       const id = data.invoice?.id || invoiceId;
@@ -610,7 +691,7 @@ export default function InvoicesPage() {
       if (!res.ok) throw new Error(sendData.error || "Failed to send");
       setActionMsg(`Invoice emailed to ${invoice.clientEmail}.`);
     } catch (e) {
-      setActionMsg(e instanceof Error ? e.message : "Failed to send");
+      setActionError(e instanceof Error ? e.message : "Failed to send");
     } finally {
       setSending(false);
     }
@@ -650,14 +731,22 @@ export default function InvoicesPage() {
           </Link>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={createPayLink}
-            disabled={creatingLink}
-            className="flex items-center gap-2 px-4 py-2.5 bg-sky-50 text-sky-700 border border-sky-200 rounded-xl text-sm font-semibold hover:bg-sky-100 transition disabled:opacity-50"
-          >
-            {creatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-            {invoicePaymentLink ? "Pay link ready" : "Create pay link"}
-          </button>
+          {paymentMethod === "payrexx" && (
+            <button
+              onClick={createPayLink}
+              disabled={creatingLink}
+              className="flex items-center gap-2 px-4 py-2.5 bg-sky-50 text-sky-700 border border-sky-200 rounded-xl text-sm font-semibold hover:bg-sky-100 transition disabled:opacity-50"
+            >
+              {creatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+              {invoicePaymentLink ? "Pay link ready" : "Create pay link"}
+            </button>
+          )}
+          {paymentMethod === "bank" && (
+            <span className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 text-slate-500 border border-slate-200 rounded-xl text-sm font-medium">
+              <Banknote className="w-4 h-4" />
+              Bank Transfer
+            </span>
+          )}
           <button
             onClick={sendToClient}
             disabled={sending}
@@ -681,10 +770,18 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Payment status / link bar */}
-      {(invoicePaymentLink || invoiceStatus || actionMsg) && (
-        <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
-          {invoiceStatus && (
+      {/* Status / error bar */}
+      {(invoicePaymentLink || invoiceStatus || actionMsg || actionError) && (
+        <div className={`border-b px-6 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs ${
+          actionError ? "bg-red-50 border-red-200" : "bg-white border-slate-200"
+        }`}>
+          {actionError && (
+            <span className="flex items-center gap-1.5 text-red-700 font-medium">
+              <X className="w-3.5 h-3.5" />
+              {actionError}
+            </span>
+          )}
+          {invoiceStatus && !actionError && (
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold ${
                 invoiceStatus === "PAID"
@@ -698,7 +795,7 @@ export default function InvoicesPage() {
               {invoiceStatus}
             </span>
           )}
-          {invoicePaymentLink && (
+          {invoicePaymentLink && !actionError && (
             <a
               href={invoicePaymentLink}
               target="_blank"
@@ -709,7 +806,7 @@ export default function InvoicesPage() {
               {invoicePaymentLink}
             </a>
           )}
-          {actionMsg && <span className="text-slate-500">{actionMsg}</span>}
+          {actionMsg && !actionError && <span className="text-slate-500">{actionMsg}</span>}
         </div>
       )}
 
@@ -810,6 +907,74 @@ export default function InvoicesPage() {
               <h2 className="font-semibold text-slate-800 text-sm">Bill To (Recipient)</h2>
             </div>
             <div className="space-y-3">
+              {/* Searchable org/client dropdown */}
+              <div ref={clientDropRef} className="relative">
+                <label className={labelCls}>Search Organization / Client</label>
+                <button
+                  type="button"
+                  onClick={() => setClientDropOpen((o) => !o)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white hover:border-sky-400 transition-colors"
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    {loadingClients ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                    ) : (
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    )}
+                    <span className={`truncate ${
+                      invoice.clientName ? "text-slate-800" : "text-slate-400"
+                    }`}>
+                      {invoice.clientName || "Select an organization…"}
+                    </span>
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${
+                    clientDropOpen ? "rotate-180" : ""
+                  }`} />
+                </button>
+
+                {clientDropOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                    <div className="p-2 border-b border-slate-100">
+                      <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50 rounded-lg">
+                        <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <input
+                          autoFocus
+                          type="text"
+                          value={clientSearch}
+                          onChange={(e) => setClientSearch(e.target.value)}
+                          placeholder="Search by name or email…"
+                          className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-52 overflow-y-auto py-1">
+                      {filteredClients.length === 0 && (
+                        <p className="px-4 py-3 text-sm text-slate-400 text-center">No organizations found</p>
+                      )}
+                      {filteredClients.map((org) => (
+                        <button
+                          key={org.id}
+                          type="button"
+                          onClick={() => selectClient(org)}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-sky-50 transition group ${
+                            selectedOrgId === org.id ? "bg-sky-50" : ""
+                          }`}
+                        >
+                          <span className="w-7 h-7 rounded-full bg-sky-100 flex items-center justify-center text-xs font-bold text-sky-700 shrink-0">
+                            {org.name[0].toUpperCase()}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate group-hover:text-sky-700">{org.name}</p>
+                            {org.email && <p className="text-xs text-slate-500 truncate">{org.email}</p>}
+                          </div>
+                          {selectedOrgId === org.id && <CheckCircle2 className="w-4 h-4 text-sky-500 ml-auto shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className={labelCls}>Client Name *</label>
                 <input
@@ -850,10 +1015,57 @@ export default function InvoicesPage() {
             </div>
           </div>
 
-          {/* Bank transfer */}
+          {/* Payment Method */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <CreditCard className="w-4 h-4 text-sky-600" />
+              <h2 className="font-semibold text-slate-800 text-sm">Payment Method</h2>
+            </div>
+            <div className="flex gap-3">
+              <label className={`flex-1 flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                paymentMethod === "payrexx"
+                  ? "border-sky-500 bg-sky-50"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="payrexx"
+                  checked={paymentMethod === "payrexx"}
+                  onChange={() => setPaymentMethod("payrexx")}
+                  className="accent-sky-600"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Payrexx (Online)</p>
+                  <p className="text-xs text-slate-500">Card payment via secure link</p>
+                </div>
+              </label>
+              <label className={`flex-1 flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                paymentMethod === "bank"
+                  ? "border-sky-500 bg-sky-50"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="bank"
+                  checked={paymentMethod === "bank"}
+                  onChange={() => setPaymentMethod("bank")}
+                  className="accent-sky-600"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Bank Transfer</p>
+                  <p className="text-xs text-slate-500">IBAN / wire transfer</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Bank transfer — shown only when bank method selected */}
+          {paymentMethod === "bank" && (
+          <div className="bg-white rounded-2xl border border-sky-200 bg-sky-50/30 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Banknote className="w-4 h-4 text-sky-600" />
               <h2 className="font-semibold text-slate-800 text-sm">Bank Transfer Details</h2>
             </div>
             <div className="space-y-3">
@@ -895,6 +1107,7 @@ export default function InvoicesPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Notes */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
