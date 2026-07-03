@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendEmail } from "@/lib/email";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
@@ -120,6 +121,57 @@ export async function POST(request: Request) {
       });
     } catch (contactErr) {
       console.error("Failed to create organization contact (non-fatal):", contactErr);
+    }
+
+    // Execute automations for the new_signup stage
+    try {
+      const { data: automations } = await supabase
+        .from("sales_pipeline_automations")
+        .select("*, template:sales_pipeline_email_templates(*)")
+        .eq("trigger_stage", "new_signup")
+        .eq("active", true);
+
+      if (automations && automations.length > 0) {
+        // Fetch full org data for templating
+        const { data: fullOrg } = await supabase
+          .from("organizations")
+          .select("*")
+          .eq("id", org.id)
+          .single();
+
+        if (fullOrg) {
+          await Promise.allSettled(
+            automations.map(async (automation: any) => {
+              if (automation.action_type !== "send_email" || !automation.template) return;
+
+              const template = automation.template;
+              const recipientEmail = automation.admin_email || fullOrg.email || "info@aliice.app";
+
+              let subject = template.subject || "Welcome to Aliice";
+              let html = template.body_html || "";
+
+              // Replace template variables
+              subject = subject.replace(/\{\{org\.name\}\}/g, fullOrg.name || "");
+              subject = subject.replace(/\{\{org\.email\}\}/g, fullOrg.email || "");
+              html = html.replace(/\{\{org\.name\}\}/g, fullOrg.name || "");
+              html = html.replace(/\{\{org\.email\}\}/g, fullOrg.email || "");
+              html = html.replace(/\{\{org\.phone\}\}/g, fullOrg.phone || "");
+              html = html.replace(/\{\{org\.slug\}\}/g, fullOrg.slug || "");
+
+              await sendEmail({
+                to: recipientEmail,
+                subject,
+                html,
+                replyTo: fullOrg.email || undefined,
+              });
+
+              console.log("[signup] Sent automation email:", template.name, "to", recipientEmail);
+            })
+          );
+        }
+      }
+    } catch (autoErr) {
+      console.error("[signup] Failed to execute automations (non-fatal):", autoErr);
     }
 
     return NextResponse.json({ ok: true, organization_id: org.id });
