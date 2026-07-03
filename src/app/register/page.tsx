@@ -12,8 +12,10 @@ export default function RegisterPage() {
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get("invite");
   const inviteEmail = searchParams.get("email");
+  // Prefill from marketing links (e.g. the Welcome email CTA) — editable.
+  const prefillName = searchParams.get("name");
 
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState(prefillName || "");
   const [email, setEmail] = useState(inviteEmail || "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -210,7 +212,7 @@ export default function RegisterPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     required
-                    disabled={loading || !!inviteEmail}
+                    disabled={loading || !!inviteToken}
                     className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-60"
                   />
                 </div>

@@ -70,11 +70,14 @@ export function buildOrgContext(
 ) {
   const contactFull = (contact?.full_name || "").trim();
   const contactFirst = (contact?.first_name || contactFull.split(" ")[0] || "").trim();
+  const displayName = contactFull || org.name || "";
   return {
     org: {
       name: org.name || "",
       slug: org.slug || "",
       email: org.email || "",
+      // URL-encoded for safe use inside link query strings.
+      email_encoded: encodeURIComponent(org.email || ""),
       phone: org.phone || "",
       city: org.city || "",
       country: org.country || "",
@@ -83,8 +86,9 @@ export function buildOrgContext(
     },
     contact: {
       // Falls back to the organization name so greetings are never empty.
-      name: contactFull || org.name || "",
+      name: displayName,
       first_name: contactFirst || org.name || "",
+      name_encoded: encodeURIComponent(displayName),
     },
     stage: {
       id: toStageId,

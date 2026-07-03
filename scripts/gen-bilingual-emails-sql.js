@@ -19,7 +19,10 @@ const path = require("path");
 
 const OUT_PATH = path.join(__dirname, "manual-bilingual-emails.sql");
 const LOGO_URL = "https://www.aliice.app/logos/aliice-logo.png";
-const CTA_URL = "https://www.aliice.app/signup";
+// Welcome CTA -> register with the lead's name & email prefilled (URL-encoded
+// merge tags resolved by the automation engine at send time).
+const REGISTER_URL =
+  "https://www.aliice.app/register?name={{contact.name_encoded}}&email={{org.email_encoded}}";
 
 // ---------------------------------------------------------------------------
 // Shared, email-client-safe layout (table based, inline styles)
@@ -95,10 +98,10 @@ function shell({ preheader, badge, heading, inner }) {
 
 const P = (html) => `<p style="margin:0 0 16px 0;font-size:15px;line-height:24px;color:#475569;">${html}</p>`;
 const H2 = (t) => `<h2 style="margin:24px 0 12px 0;font-size:18px;font-weight:700;color:#0f172a;">${t}</h2>`;
-function ctaButton(label) {
+function ctaButton(label, url) {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px 0;">
     <tr><td style="border-radius:999px;background:linear-gradient(90deg,#0284c7,#7c3aed);">
-      <a href="${CTA_URL}" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">${label}</a>
+      <a href="${url}" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">${label}</a>
     </td></tr>
   </table>`;
 }
@@ -124,7 +127,7 @@ const welcomeEn = shell({
     ${check("No obligation")}
     ${check("Personalized demonstration")}
     ${check("Response within 48 hours")}
-    ${ctaButton("Complete the form to get started &rarr;")}
+    ${ctaButton("Complete the form to get started &rarr;", REGISTER_URL)}
   `,
 });
 
@@ -146,7 +149,7 @@ const welcomeFr = shell({
     ${check("Sans engagement")}
     ${check("Démonstration personnalisée")}
     ${check("Réponse sous 48 heures")}
-    ${ctaButton("Complétez le formulaire pour commencer &rarr;")}
+    ${ctaButton("Complétez le formulaire pour commencer &rarr;", REGISTER_URL)}
   `,
 });
 

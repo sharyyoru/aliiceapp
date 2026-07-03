@@ -43,8 +43,10 @@ const MERGE_TAGS = [
 const PREVIEW_CONTEXT: Record<string, string> = {
   "contact.name": "Dr. Tenorio",
   "contact.first_name": "Tenorio",
+  "contact.name_encoded": encodeURIComponent("Dr. Tenorio"),
   "org.name": "Aesthetics Clinic",
   "org.email": "contact@aesthetics-clinic.com",
+  "org.email_encoded": encodeURIComponent("contact@aesthetics-clinic.com"),
   "org.phone": "+41 22 000 0000",
   "org.city": "Geneva",
   "org.country": "Switzerland",

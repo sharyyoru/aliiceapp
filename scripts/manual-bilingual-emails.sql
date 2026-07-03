@@ -113,7 +113,7 @@ BEGIN
   </tr></table>
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px 0;">
     <tr><td style="border-radius:999px;background:linear-gradient(90deg,#0284c7,#7c3aed);">
-      <a href="https://www.aliice.app/signup" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">Complete the form to get started &rarr;</a>
+      <a href="https://www.aliice.app/register?name={{contact.name_encoded}}&email={{org.email_encoded}}" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">Complete the form to get started &rarr;</a>
     </td></tr>
   </table>
   
@@ -223,7 +223,7 @@ BEGIN
   </tr></table>
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px 0;">
     <tr><td style="border-radius:999px;background:linear-gradient(90deg,#0284c7,#7c3aed);">
-      <a href="https://www.aliice.app/signup" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">Complétez le formulaire pour commencer &rarr;</a>
+      <a href="https://www.aliice.app/register?name={{contact.name_encoded}}&email={{org.email_encoded}}" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">Complétez le formulaire pour commencer &rarr;</a>
     </td></tr>
   </table>
   
@@ -338,7 +338,7 @@ BEGIN
   </tr></table>
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px 0;">
     <tr><td style="border-radius:999px;background:linear-gradient(90deg,#0284c7,#7c3aed);">
-      <a href="https://www.aliice.app/signup" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">Complete the form to get started &rarr;</a>
+      <a href="https://www.aliice.app/register?name={{contact.name_encoded}}&email={{org.email_encoded}}" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">Complete the form to get started &rarr;</a>
     </td></tr>
   </table>
   
@@ -448,7 +448,7 @@ BEGIN
   </tr></table>
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px 0;">
     <tr><td style="border-radius:999px;background:linear-gradient(90deg,#0284c7,#7c3aed);">
-      <a href="https://www.aliice.app/signup" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">Complétez le formulaire pour commencer &rarr;</a>
+      <a href="https://www.aliice.app/register?name={{contact.name_encoded}}&email={{org.email_encoded}}" target="_blank" style="display:inline-block;padding:15px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">Complétez le formulaire pour commencer &rarr;</a>
     </td></tr>
   </table>
   
