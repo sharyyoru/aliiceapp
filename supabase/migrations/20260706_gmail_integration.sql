@@ -21,6 +21,21 @@ CREATE TABLE IF NOT EXISTS admin_gmail_accounts (
 ALTER TABLE emails ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS emails_organization_id_idx ON emails(organization_id);
 
+-- Columns the app relies on (originally in 20260320; ensure present everywhere).
+ALTER TABLE emails ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+ALTER TABLE emails ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE emails ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ;
+ALTER TABLE emails ADD COLUMN IF NOT EXISTS mailgun_message_id TEXT;
+ALTER TABLE emails ADD COLUMN IF NOT EXISTS in_reply_to TEXT;
+ALTER TABLE emails ADD COLUMN IF NOT EXISTS thread_id TEXT;
+CREATE INDEX IF NOT EXISTS emails_read_at_idx ON emails(read_at);
+
+-- Relax status from a restrictive enum to free text so the mailbox can use
+-- values like 'sending', 'received', and 'read'.
+ALTER TABLE emails ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE emails ALTER COLUMN status TYPE TEXT USING status::text;
+ALTER TABLE emails ALTER COLUMN status SET DEFAULT 'draft';
+
 -- Gmail message/thread identifiers so we can thread replies and sync inbound.
 ALTER TABLE emails ADD COLUMN IF NOT EXISTS provider TEXT;
 ALTER TABLE emails ADD COLUMN IF NOT EXISTS gmail_message_id TEXT;
