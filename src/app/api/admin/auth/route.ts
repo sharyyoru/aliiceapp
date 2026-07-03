@@ -21,12 +21,17 @@ export async function POST(request: Request) {
 
     // Try database auth first
     const supabase = getSupabaseAdmin();
-    const { data: adminUser } = await supabase
+    const { data: adminUser, error: dbError } = await supabase
       .from("admin_users")
       .select("id, email, full_name, is_active, password_hash")
       .ilike("email", emailClean)
       .eq("is_active", true)
       .maybeSingle();
+
+    console.log("[auth] emailClean:", emailClean);
+    console.log("[auth] dbError:", dbError);
+    console.log("[auth] adminUser found:", !!adminUser, adminUser?.email);
+    console.log("[auth] password match:", adminUser?.password_hash === passwordClean);
 
     let isValid = false;
 
