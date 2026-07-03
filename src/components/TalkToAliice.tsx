@@ -107,6 +107,37 @@ export default function TalkToAliice() {
     }
   }, []);
 
+  // Fire endSession on tab close / navigation using sendBeacon (survives page unload)
+  useEffect(() => {
+    function handleUnload() {
+      if (!sessionIdRef.current) return;
+      const transcript = messages
+        .filter((m) => m.id !== "welcome")
+        .map((m) => ({ role: m.role, content: m.content }));
+      const payload = JSON.stringify({
+        action: "end",
+        session_id: sessionIdRef.current,
+        transcript,
+      });
+      // sendBeacon is fire-and-forget, works during page unload
+      navigator.sendBeacon("/api/chat/session", new Blob([payload], { type: "application/json" }));
+      sessionIdRef.current = null;
+    }
+
+    function handleVisibility() {
+      if (document.visibilityState === "hidden" && sessionIdRef.current) {
+        handleUnload();
+      }
+    }
+
+    window.addEventListener("beforeunload", handleUnload);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [messages]);
+
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       checkOnboardingStatus();
