@@ -38,34 +38,42 @@ export async function GET(request: Request) {
 
     const supabase = getSupabaseAdmin();
 
-    // Get organization members with user details
+    // Get organization members. Note: organization_members.user_id references
+    // auth.users, so we can't embed public.users via PostgREST — fetch separately.
     const { data: members, error } = await supabase
       .from("organization_members")
-      .select(`
-        id,
-        role,
-        is_active,
-        created_at,
-        user:users (
-          id,
-          email,
-          full_name
-        )
-      `)
+      .select("id, role, is_active, created_at, user_id")
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Database error:", error);
-      return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to fetch users", details: error.message, code: error.code },
+        { status: 500 }
+      );
     }
 
-    // Transform data to flatten user info
+    const userIds = Array.from(
+      new Set((members || []).map((m: any) => m.user_id).filter(Boolean))
+    );
+
+    const usersById: Record<string, { email?: string; full_name?: string }> = {};
+    if (userIds.length) {
+      const { data: userRows } = await supabase
+        .from("users")
+        .select("id, email, full_name")
+        .in("id", userIds);
+      for (const u of userRows || []) {
+        usersById[u.id] = { email: u.email, full_name: u.full_name };
+      }
+    }
+
     const users = (members || []).map((m: any) => ({
       id: m.id,
-      user_id: m.user?.id,
-      email: m.user?.email,
-      full_name: m.user?.full_name,
+      user_id: m.user_id,
+      email: usersById[m.user_id]?.email ?? null,
+      full_name: usersById[m.user_id]?.full_name ?? null,
       role: m.role,
       is_active: m.is_active,
       created_at: m.created_at,
