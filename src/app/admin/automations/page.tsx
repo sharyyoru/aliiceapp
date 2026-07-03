@@ -39,6 +39,10 @@ const MERGE_TAGS = [
   "{{org.tier}}",
   "{{stage.label}}",
   "{{from_stage.label}}",
+  "{{demo.date}}",
+  "{{demo.time}}",
+  "{{demo.meet_link}}",
+  "{{demo.calendar_link}}",
 ];
 
 // Sample data used only for the live preview so merge tags render nicely.
@@ -55,6 +59,10 @@ const PREVIEW_CONTEXT: Record<string, string> = {
   "org.tier": "professional",
   "stage.label": "Demo Scheduled",
   "from_stage.label": "Contacted",
+  "demo.date": "Thursday, 10 July 2025",
+  "demo.time": "14:00 CEST",
+  "demo.meet_link": "https://meet.google.com/abc-defg-hij",
+  "demo.calendar_link": "https://calendar.google.com/calendar/event?eid=example",
 };
 
 /** Lightweight client-side merge renderer for previews. */

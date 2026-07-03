@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { createDemoCalendarEvent, DemoEventResult } from "@/lib/googleCalendar";
 
 const emailFromAddress = process.env.EMAIL_FROM_ADDRESS || "info@mail.maisontoa.com";
 const emailFromName = process.env.EMAIL_FROM_NAME || "Aliice";
@@ -62,11 +63,39 @@ export function renderTemplate(template: string, context: unknown): string {
   });
 }
 
+function formatDemoDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "Europe/Zurich",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatDemoTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/Zurich",
+      timeZoneName: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export function buildOrgContext(
   org: AutomationOrg,
   toStageId: string,
   fromStageId: string | null,
-  contact?: AutomationContact | null
+  contact?: AutomationContact | null,
+  demoEvent?: DemoEventResult | null
 ) {
   const contactFull = (contact?.full_name || "").trim();
   const contactFirst = (contact?.first_name || contactFull.split(" ")[0] || "").trim();
@@ -98,6 +127,25 @@ export function buildOrgContext(
       id: fromStageId || "",
       label: fromStageId ? STAGE_LABELS[fromStageId] || fromStageId : "",
     },
+    demo: demoEvent
+      ? {
+          meet_link: demoEvent.meetLink || "",
+          calendar_link: demoEvent.htmlLink || "",
+          date: formatDemoDate(demoEvent.start),
+          time: formatDemoTime(demoEvent.start),
+          start_iso: demoEvent.start,
+          end_iso: demoEvent.end,
+          has_meet: demoEvent.meetLink ? "true" : "",
+        }
+      : {
+          meet_link: "",
+          calendar_link: "",
+          date: "",
+          time: "",
+          start_iso: "",
+          end_iso: "",
+          has_meet: "",
+        },
   };
 }
 
@@ -166,7 +214,24 @@ export async function runStageAutomations(
     }
 
     const language = normalizeLanguage(org.preferred_language);
-    const context = buildOrgContext(org, toStageId, fromStageId, primaryContact);
+
+    // For demo_scheduled stage: auto-create a Google Calendar event with Meet.
+    let demoEvent: DemoEventResult | null = null;
+    if (toStageId === "demo_scheduled") {
+      try {
+        demoEvent = await createDemoCalendarEvent(
+          org.name || "Client",
+          org.email,
+        );
+        if (demoEvent) {
+          console.log(`[agenda] Created demo event for org ${org.id}: meet=${demoEvent.meetLink}`);
+        }
+      } catch (calErr) {
+        console.error("[agenda] Failed to create demo calendar event (non-fatal):", calErr);
+      }
+    }
+
+    const context = buildOrgContext(org, toStageId, fromStageId, primaryContact, demoEvent);
 
     for (const automation of automations as AutomationRow[]) {
       triggered += 1;

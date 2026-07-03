@@ -153,6 +153,74 @@ export async function listAggregatedEvents(
   return { events, accounts };
 }
 
+// ─── Demo event auto-creation ─────────────────────────────────────────────────
+
+export type DemoEventResult = {
+  meetLink: string | null;
+  htmlLink: string | null;
+  start: string;
+  end: string;
+  eventId: string;
+  calendarAdminEmail: string;
+};
+
+/**
+ * Creates a 1-hour demo calendar event on the first connected admin that has
+ * the calendar scope. Adds a Google Meet link and invites the org contact.
+ *
+ * @param orgName       Display name for the event title
+ * @param orgEmail      Org contact email to add as attendee (optional)
+ * @param startISO      ISO start time; defaults to next round hour if omitted
+ * @param timeZone      IANA tz string; defaults to "Europe/Zurich"
+ */
+export async function createDemoCalendarEvent(
+  orgName: string,
+  orgEmail: string | null,
+  startISO?: string,
+  timeZone = "Europe/Zurich"
+): Promise<DemoEventResult | null> {
+  const admins = await listConnectedAdmins();
+  const calendarAdmin = admins.find((a) => a.hasCalendar);
+  if (!calendarAdmin) return null;
+
+  const token = await getValidAccessToken(calendarAdmin.adminEmail);
+  if (!token) return null;
+
+  // Default start = next round hour from now
+  let start: Date;
+  if (startISO) {
+    start = new Date(startISO);
+  } else {
+    start = new Date();
+    start.setMinutes(0, 0, 0);
+    start.setHours(start.getHours() + 1);
+  }
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+  const attendees: string[] = [];
+  if (orgEmail) attendees.push(orgEmail);
+
+  const event = await createEvent(token.accessToken, {
+    summary: `Aliice Demo – ${orgName}`,
+    description: `Product demo for ${orgName}. This event was automatically created by Aliice when the deal moved to "Demo Scheduled".`,
+    start: start.toISOString(),
+    end: end.toISOString(),
+    timeZone,
+    attendees,
+    addMeet: true,
+    sendUpdates: "all",
+  });
+
+  return {
+    meetLink: event.hangoutLink || null,
+    htmlLink: event.htmlLink || null,
+    start: event.start?.dateTime || start.toISOString(),
+    end: event.end?.dateTime || end.toISOString(),
+    eventId: event.id,
+    calendarAdminEmail: calendarAdmin.adminEmail,
+  };
+}
+
 // ─── Writing ──────────────────────────────────────────────────────────────────
 export type CreateEventInput = {
   summary: string;
