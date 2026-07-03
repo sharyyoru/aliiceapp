@@ -108,6 +108,8 @@ const STAGE_COLORS: Record<string, { bg: string; text: string; border: string; h
   slate: { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", header: "bg-slate-100" },
   blue: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", header: "bg-blue-100" },
   purple: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200", header: "bg-purple-100" },
+  violet: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200", header: "bg-violet-100" },
+  orange: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", header: "bg-orange-100" },
   amber: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", header: "bg-amber-100" },
   emerald: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", header: "bg-emerald-100" },
   red: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200", header: "bg-red-100" },
@@ -349,7 +351,7 @@ export default function AdminDashboard() {
 
   // Financial Stats
   // Potential value = stages up to onboarding (new_signup, contacted, demo_scheduled, onboarding)
-  const potentialStages = ["new_signup", "contacted", "demo_scheduled", "onboarding"];
+  const potentialStages = ["new_signup", "contacted", "demo_scheduled", "moment_reflection", "custom_quote", "onboarding"];
   const potentialDealValue = organizations
     .filter((o) => potentialStages.includes(o.sales_funnel_stage || "new_signup"))
     .reduce((sum, o) => sum + (o.deal_value || 0), 0);

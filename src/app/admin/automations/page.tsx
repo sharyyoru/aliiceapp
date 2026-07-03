@@ -23,6 +23,8 @@ const STAGES = [
   { id: "new_signup", label: "New Signup" },
   { id: "contacted", label: "Contacted" },
   { id: "demo_scheduled", label: "Demo Scheduled" },
+  { id: "moment_reflection", label: "Moment Reflection" },
+  { id: "custom_quote", label: "Custom Quote" },
   { id: "onboarding", label: "Onboarding" },
   { id: "active", label: "Active Client" },
   { id: "churned", label: "Churned" },

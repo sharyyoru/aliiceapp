@@ -17,6 +17,8 @@ const STAGE_LABELS: Record<string, string> = {
   new_signup: "New Signup",
   contacted: "Contacted",
   demo_scheduled: "Demo Scheduled",
+  moment_reflection: "Moment Reflection",
+  custom_quote: "Custom Quote",
   onboarding: "Onboarding",
   active: "Active Client",
   churned: "Churned",

@@ -8,6 +8,8 @@ const FUNNEL_STAGES = [
   { id: "new_signup", label: "New Signup", color: "slate", weight: 0.1 },
   { id: "contacted", label: "Contacted", color: "blue", weight: 0.2 },
   { id: "demo_scheduled", label: "Demo Scheduled", color: "purple", weight: 0.4 },
+  { id: "moment_reflection", label: "Moment Reflection", color: "violet", weight: 0.5 },
+  { id: "custom_quote", label: "Custom Quote", color: "orange", weight: 0.6 },
   { id: "onboarding", label: "Onboarding", color: "amber", weight: 0.7 },
   { id: "active", label: "Active Client", color: "emerald", weight: 1.0 },
   { id: "churned", label: "Churned", color: "red", weight: 0 },
