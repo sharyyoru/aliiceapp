@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendSystemEmail } from "@/lib/gmail";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+function getSupabase() {
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,6 +94,21 @@ Sent from Aliice Contact Form
 </html>
     `.trim();
 
+    // Save submission to DB (best-effort, don't block on failure)
+    try {
+      const supabase = getSupabase();
+      await supabase.from("contact_form_submissions").insert({
+        name,
+        email,
+        company: company || null,
+        phone: phone || null,
+        subject: subject || "General Inquiry",
+        message,
+      });
+    } catch (dbErr) {
+      console.error("[Contact API] Failed to save submission to DB:", dbErr);
+    }
+
     // Send email using Gmail
     const result = await sendSystemEmail({
       to: "info@aliice.app",
@@ -114,5 +137,32 @@ Sent from Aliice Contact Form
       { error: "Internal server error" },
       { status: 500 }
     );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = getSupabase();
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q") || "";
+    const sort = searchParams.get("sort") || "desc";
+    const limit = parseInt(searchParams.get("limit") || "100");
+
+    let query = supabase
+      .from("contact_form_submissions")
+      .select("*")
+      .order("created_at", { ascending: sort === "asc" })
+      .limit(limit);
+
+    if (q) {
+      query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,company.ilike.%${q}%,subject.ilike.%${q}%,message.ilike.%${q}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return NextResponse.json({ submissions: data || [] });
+  } catch (error) {
+    console.error("[Contact API GET]", error);
+    return NextResponse.json({ error: "Failed to fetch submissions" }, { status: 500 });
   }
 }
