@@ -42,35 +42,35 @@ export async function GET() {
 
     const supabase = getSupabaseAdmin();
 
-    // Fetch organizations with owner info
+    // Fetch organizations
     const { data: organizations, error } = await supabase
       .from("organizations")
-      .select(`
-        *,
-        owner:users!organizations_owner_user_id_fkey (
-          id,
-          email,
-          full_name
-        )
-      `)
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Database error:", error);
-      // Try simpler query if join fails
-      const { data: orgs, error: simpleError } = await supabase
-        .from("organizations")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (simpleError) {
-        return NextResponse.json({ error: "Failed to fetch organizations" }, { status: 500 });
-      }
-
-      return NextResponse.json({ organizations: orgs || [], stages: FUNNEL_STAGES });
+      return NextResponse.json({ error: "Failed to fetch organizations" }, { status: 500 });
     }
 
-    return NextResponse.json({ organizations: organizations || [], stages: FUNNEL_STAGES });
+    // Enrich with admin user details for the owner field
+    const { data: adminUsers } = await supabase
+      .from("admin_users")
+      .select("id, email, full_name")
+      .eq("is_active", true);
+
+    const adminByEmail = Object.fromEntries(
+      (adminUsers || []).map((u: { id: string; email: string; full_name: string | null }) => [u.email, u])
+    );
+
+    const enriched = (organizations || []).map((org) => ({
+      ...org,
+      owner: org.assigned_to_admin_email
+        ? (adminByEmail[org.assigned_to_admin_email] ?? { id: "", email: org.assigned_to_admin_email, full_name: null })
+        : null,
+    }));
+
+    return NextResponse.json({ organizations: enriched, stages: FUNNEL_STAGES });
   } catch (err) {
     console.error("Server error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

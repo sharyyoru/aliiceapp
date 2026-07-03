@@ -33,6 +33,9 @@ import {
   Video,
   CalendarDays,
   RefreshCw,
+  ChevronDown,
+  Search,
+  UserCheck,
 } from "lucide-react";
 
 interface Organization {
@@ -132,6 +135,45 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
   const [calEvents, setCalEvents] = useState<OrgCalEvent[]>([]);
   const [calLoading, setCalLoading] = useState(false);
 
+  // Admin users for owner dropdown
+  interface AdminUser { id: string; email: string; full_name: string | null; }
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [ownerSearch, setOwnerSearch] = useState("");
+  const [ownerDropdownOpen, setOwnerDropdownOpen] = useState(false);
+  const [savingOwner, setSavingOwner] = useState(false);
+
+  const fetchAdminUsers = async () => {
+    try {
+      const res = await fetch("/api/admin/admin-users");
+      if (!res.ok) return;
+      const data = await res.json();
+      setAdminUsers(data.adminUsers || []);
+    } catch { /* non-fatal */ }
+  };
+
+  const handleOwnerChange = async (adminUser: AdminUser | null) => {
+    if (!organization) return;
+    setSavingOwner(true);
+    try {
+      const res = await fetch("/api/admin/organizations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: organization.id, assigned_to_admin_email: adminUser?.email ?? null }),
+      });
+      if (res.ok) {
+        setOrganization((prev) => prev ? {
+          ...prev,
+          owner: adminUser ? { id: adminUser.id, email: adminUser.email, full_name: adminUser.full_name || "" } : null,
+        } : prev);
+      }
+    } catch { /* non-fatal */ }
+    finally {
+      setSavingOwner(false);
+      setOwnerDropdownOpen(false);
+      setOwnerSearch("");
+    }
+  };
+
   const fetchOrgCalEvents = async (orgEmail: string | null) => {
     if (!orgEmail) return;
     setCalLoading(true);
@@ -193,7 +235,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
           setOrganization(org);
           setEditForm(org);
           // Fetch stats, users, payments, and calendar events
-          await Promise.all([fetchStats(org.id), fetchUsers(org.id), fetchPayments(org.id)]);
+          await Promise.all([fetchStats(org.id), fetchUsers(org.id), fetchPayments(org.id), fetchAdminUsers()]);
           fetchOrgCalEvents(org.email);
         } else {
           setError("Organization not found");
@@ -844,24 +886,111 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
           {/* Owner Info */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Owner Information</h2>
-            {organization.owner ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center">
-                    <span className="text-sky-600 font-semibold">
-                      {(organization.owner.full_name || organization.owner.email)[0].toUpperCase()}
-                    </span>
+
+            {/* Current owner display */}
+            {organization.owner && (
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center shrink-0">
+                  <span className="text-sky-600 font-semibold text-sm">
+                    {(organization.owner.full_name || organization.owner.email)[0].toUpperCase()}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-slate-900 truncate">{organization.owner.full_name || "No name"}</p>
+                  <p className="text-sm text-slate-500 truncate">{organization.owner.email}</p>
+                </div>
+                <button
+                  onClick={() => handleOwnerChange(null)}
+                  disabled={savingOwner}
+                  className="ml-auto text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                  title="Remove owner"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Searchable dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => { setOwnerDropdownOpen((o) => !o); setOwnerSearch(""); }}
+                disabled={savingOwner}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-colors bg-white disabled:opacity-60"
+              >
+                <span className="flex items-center gap-2 text-slate-500">
+                  {savingOwner ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UserCheck className="w-4 h-4" />
+                  )}
+                  {organization.owner ? "Change owner…" : "Assign an owner…"}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${ownerDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {ownerDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                  {/* Search box */}
+                  <div className="p-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50 rounded-lg">
+                      <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Search admin users…"
+                        value={ownerSearch}
+                        onChange={(e) => setOwnerSearch(e.target.value)}
+                        className="flex-1 bg-transparent text-sm outline-none text-slate-900 placeholder:text-slate-400"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-slate-900">
-                      {organization.owner.full_name || "No name"}
-                    </p>
-                    <p className="text-sm text-slate-500">{organization.owner.email}</p>
+
+                  {/* Options */}
+                  <div className="max-h-52 overflow-y-auto py-1">
+                    {adminUsers
+                      .filter((u) => {
+                        const q = ownerSearch.toLowerCase();
+                        return !q || u.email.toLowerCase().includes(q) || (u.full_name || "").toLowerCase().includes(q);
+                      })
+                      .map((u) => (
+                        <button
+                          key={u.id}
+                          onClick={() => handleOwnerChange(u)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-sky-50 text-left transition-colors group"
+                        >
+                          <div className="w-7 h-7 bg-sky-100 rounded-full flex items-center justify-center shrink-0">
+                            <span className="text-sky-600 font-semibold text-xs">
+                              {(u.full_name || u.email)[0].toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate group-hover:text-sky-700">
+                              {u.full_name || "—"}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                          </div>
+                          {organization.owner?.id === u.id && (
+                            <CheckCircle className="w-4 h-4 text-sky-500 ml-auto shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                    {adminUsers.filter((u) => {
+                      const q = ownerSearch.toLowerCase();
+                      return !q || u.email.toLowerCase().includes(q) || (u.full_name || "").toLowerCase().includes(q);
+                    }).length === 0 && (
+                      <p className="px-4 py-3 text-sm text-slate-400 text-center">No admin users found</p>
+                    )}
                   </div>
                 </div>
-              </div>
-            ) : (
-              <p className="text-slate-500">No owner assigned</p>
+              )}
+            </div>
+
+            {/* Click-outside to close */}
+            {ownerDropdownOpen && (
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => { setOwnerDropdownOpen(false); setOwnerSearch(""); }}
+              />
             )}
           </div>
 
