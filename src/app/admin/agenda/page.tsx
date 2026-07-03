@@ -412,59 +412,63 @@ function TimeGridView({
   const timed = events.filter((e) => !e.allDay);
   const allDay = events.filter((e) => e.allDay);
 
-  return (
-    <div className="flex h-full flex-col">
-      {/* Day headers */}
-      <div className="sticky top-0 z-10 grid border-b bg-white" style={{ gridTemplateColumns: `56px repeat(${dayCount}, 1fr)` }}>
-        <div />
-        {days.map((day, i) => (
-          <div key={i} className="border-l py-2 text-center">
-            <div className="text-xs font-medium uppercase text-slate-500">{WEEKDAYS_SHORT[day.getDay()]}</div>
-            <div
-              className={`mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-lg font-medium ${
-                isToday(day) ? "bg-sky-600 text-white" : "text-slate-800"
-              }`}
-            >
-              {day.getDate()}
-            </div>
-          </div>
-        ))}
-      </div>
+  const colTemplate = `56px repeat(${dayCount}, minmax(0, 1fr))`;
 
-      {/* All-day row */}
-      {allDay.length > 0 && (
-        <div className="grid border-b" style={{ gridTemplateColumns: `56px repeat(${dayCount}, 1fr)` }}>
-          <div className="py-1 pr-1 text-right text-[10px] uppercase text-slate-400">All day</div>
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Scrollable container — header lives INSIDE so columns always align */}
+      <div className="flex-1 overflow-auto">
+        {/* Day headers — sticky inside the scroll container */}
+        <div className="sticky top-0 z-10 bg-white border-b" style={{ display: "grid", gridTemplateColumns: colTemplate }}>
+          {/* gutter cell — matches time-label width */}
+          <div className="border-r" />
           {days.map((day, i) => (
-            <div key={i} className="min-h-[28px] space-y-0.5 border-l p-0.5">
-              {allDay
-                .filter((e) => isSameDay(new Date(e.start), day))
-                .map((ev) => {
-                  const c = colorForEmail(ev.ownerEmail);
-                  return (
-                    <button
-                      key={ev.id}
-                      onClick={() => onEventClick(ev)}
-                      className="w-full truncate rounded px-1.5 py-0.5 text-left text-[11px]"
-                      style={{ backgroundColor: c.bg, color: "#fff" }}
-                    >
-                      {ev.title}
-                    </button>
-                  );
-                })}
+            <div key={i} className="border-r py-2 text-center last:border-r-0">
+              <div className="text-xs font-medium uppercase text-slate-500">{WEEKDAYS_SHORT[day.getDay()]}</div>
+              <div
+                className={`mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-lg font-medium ${
+                  isToday(day) ? "bg-sky-600 text-white" : "text-slate-800"
+                }`}
+              >
+                {day.getDate()}
+              </div>
             </div>
           ))}
         </div>
-      )}
 
-      {/* Time grid */}
-      <div className="relative flex-1 overflow-auto">
-        <div className="grid" style={{ gridTemplateColumns: `56px repeat(${dayCount}, 1fr)` }}>
+        {/* All-day row */}
+        {allDay.length > 0 && (
+          <div className="sticky top-[72px] z-10 border-b bg-white" style={{ display: "grid", gridTemplateColumns: colTemplate }}>
+            <div className="border-r py-1 pr-2 text-right text-[10px] uppercase text-slate-400">All day</div>
+            {days.map((day, i) => (
+              <div key={i} className="min-h-[28px] space-y-0.5 border-r p-0.5 last:border-r-0">
+                {allDay
+                  .filter((e) => isSameDay(new Date(e.start), day))
+                  .map((ev) => {
+                    const c = colorForEmail(ev.ownerEmail);
+                    return (
+                      <button
+                        key={ev.id}
+                        onClick={() => onEventClick(ev)}
+                        className="w-full truncate rounded px-1.5 py-0.5 text-left text-[11px]"
+                        style={{ backgroundColor: c.bg, color: "#fff" }}
+                      >
+                        {ev.title}
+                      </button>
+                    );
+                  })}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Time grid */}
+        <div style={{ display: "grid", gridTemplateColumns: colTemplate }}>
           {/* Hour labels */}
-          <div className="relative">
+          <div className="relative border-r">
             {hours.map((h) => (
               <div key={h} style={{ height: HOUR_HEIGHT }} className="relative">
-                <span className="absolute -top-2 right-1 text-[10px] text-slate-400">
+                <span className="absolute -top-2 right-2 text-[10px] text-slate-400">
                   {h === 0 ? "" : h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`}
                 </span>
               </div>
@@ -475,7 +479,7 @@ function TimeGridView({
           {days.map((day, di) => {
             const dayTimed = timed.filter((e) => isSameDay(new Date(e.start), day));
             return (
-              <div key={di} className="relative border-l">
+              <div key={di} className="relative border-r last:border-r-0">
                 {hours.map((h) => (
                   <div
                     key={h}
@@ -484,9 +488,7 @@ function TimeGridView({
                     className="border-b border-slate-100 hover:bg-sky-50/40"
                   />
                 ))}
-                {/* current time indicator */}
                 {isToday(day) && <NowLine />}
-                {/* events */}
                 {layoutDayEvents(dayTimed).map(({ ev, col, cols }) => {
                   const c = colorForEmail(ev.ownerEmail);
                   const top = (minutesFromMidnight(ev.start) / 60) * HOUR_HEIGHT;
