@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendEmail } from "@/lib/email";
+import { sendSystemEmail } from "@/lib/gmail";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
@@ -159,14 +159,18 @@ export async function POST(request: Request) {
               html = html.replace(/\{\{org\.phone\}\}/g, fullOrg.phone || "");
               html = html.replace(/\{\{org\.slug\}\}/g, fullOrg.slug || "");
 
-              await sendEmail({
+              const result = await sendSystemEmail({
                 to: recipientEmail,
                 subject,
                 html,
                 replyTo: fullOrg.email || undefined,
               });
 
-              console.log("[signup] Sent automation email:", template.name, "to", recipientEmail);
+              if (!result.ok) {
+                console.error("[signup] Failed to send automation email:", result.error);
+              } else {
+                console.log("[signup] Sent automation email:", template.name, "to", recipientEmail);
+              }
             })
           );
         }

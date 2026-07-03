@@ -356,3 +356,33 @@ export async function getThreadMessages(accessToken: string, threadId: string): 
     };
   });
 }
+
+// ─── System Email Sending ─────────────────────────────────────────────────────
+/**
+ * Send a system email (contact form, signup automation, etc.) via Gmail.
+ * Uses a default admin Gmail account specified by SYSTEM_GMAIL_ADMIN_EMAIL env var.
+ * Falls back to the first connected admin account if not specified.
+ */
+export async function sendSystemEmail(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  replyTo?: string;
+}): Promise<GmailSendResult> {
+  const systemAdminEmail = process.env.SYSTEM_GMAIL_ADMIN_EMAIL || "info@aliice.app";
+
+  // Get the admin's Gmail access token
+  const tokenData = await getValidAccessToken(systemAdminEmail);
+  if (!tokenData) {
+    console.error("[Gmail] No valid access token for system admin:", systemAdminEmail);
+    return { ok: false, error: "Gmail not configured for system emails" };
+  }
+
+  const from = tokenData.googleEmail;
+  return sendGmailMessage(tokenData.accessToken, {
+    from,
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+  });
+}

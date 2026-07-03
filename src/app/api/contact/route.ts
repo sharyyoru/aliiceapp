@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email";
+import { sendSystemEmail } from "@/lib/gmail";
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,21 +86,19 @@ Sent from Aliice Contact Form
 </html>
     `.trim();
 
-    // Send email using centralized email service
-    const result = await sendEmail({
+    // Send email using Gmail
+    const result = await sendSystemEmail({
       to: "info@aliice.app",
       subject: `[Aliice Contact] ${subject || "General Inquiry"} - ${name}`,
       html: htmlContent,
       replyTo: email,
     });
 
-    if (!result.success) {
+    if (!result.ok) {
       console.error("[Contact API] Email send failed:", {
         error: result.error,
         to: "info@aliice.app",
-        from: process.env.EMAIL_FROM_ADDRESS,
-        hasResendKey: !!process.env.RESEND_API_KEY,
-        resendKeyPrefix: process.env.RESEND_API_KEY?.substring(0, 10) + "..."
+        systemAdmin: process.env.SYSTEM_GMAIL_ADMIN_EMAIL || "info@aliice.app",
       });
       return NextResponse.json(
         { error: result.error || "Failed to send email" },
