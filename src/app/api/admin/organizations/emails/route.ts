@@ -71,7 +71,10 @@ export async function GET(request: Request) {
   const { data, error } = await query;
   if (error) {
     console.error("[org emails] fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch emails" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch emails", details: error.message, code: error.code },
+      { status: 500 }
+    );
   }
 
   const emails = data || [];

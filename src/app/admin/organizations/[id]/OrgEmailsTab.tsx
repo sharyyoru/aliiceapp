@@ -114,7 +114,18 @@ export default function OrgEmailsTab({
       else if (filter === "read") params.set("status", "read");
       const res = await fetch(`/api/admin/organizations/emails?${params.toString()}`);
       if (!res.ok) {
-        setError(res.status === 401 ? "Not authorized." : "Failed to load emails.");
+        let detail = "";
+        try {
+          const err = await res.json();
+          detail = err.details || err.error || "";
+        } catch {
+          // ignore
+        }
+        setError(
+          res.status === 401
+            ? "Not authorized."
+            : `Failed to load emails${detail ? `: ${detail}` : "."}`
+        );
         setEmails([]);
         setStats(null);
         return;
