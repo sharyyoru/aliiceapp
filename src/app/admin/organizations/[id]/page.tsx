@@ -7,6 +7,7 @@ import Link from "next/link";
 import OrgInvoicesTab from "./OrgInvoicesTab";
 import OrgEmailsTab from "./OrgEmailsTab";
 import OrgTasksTab from "./OrgTasksTab";
+import OrgChatTab from "./OrgChatTab";
 import {
   ArrowLeft,
   Building2,
@@ -38,6 +39,7 @@ import {
   ChevronDown,
   Search,
   UserCheck,
+  MessageCircle,
 } from "lucide-react";
 
 interface Organization {
@@ -116,7 +118,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
   const [editForm, setEditForm] = useState<Partial<Organization>>({});
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "invoices" | "emails" | "tasks">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "invoices" | "emails" | "tasks" | "chat">("overview");
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
@@ -646,6 +648,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
             { key: "invoices" as const, label: "Invoices", icon: FileText },
             { key: "emails" as const, label: "Emails", icon: Mail },
             { key: "tasks" as const, label: "Tasks", icon: CheckCircle },
+            { key: "chat" as const, label: "Chat Logs", icon: MessageCircle },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -667,6 +670,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
           <OrgEmailsTab orgId={organization.id} orgEmail={organization.email} orgName={organization.name} />
         )}
         {activeTab === "tasks" && <OrgTasksTab orgId={organization.id} />}
+        {activeTab === "chat" && <OrgChatTab orgId={organization.id} />}
 
         {activeTab === "overview" && (
         <>

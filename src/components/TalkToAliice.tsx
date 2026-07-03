@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { useOrganization } from "@/contexts/OrganizationContext";
 import { 
   MessageCircle, 
   X, 
@@ -56,21 +57,71 @@ export default function TalkToAliice() {
   const [showQuickActions, setShowQuickActions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const { organization: currentOrg } = useOrganization();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const startSession = useCallback(async (org: { id: string; name: string } | null) => {
+    try {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      const res = await fetch("/api/chat/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "start",
+          organization_id: org?.id ?? null,
+          organization_name: org?.name ?? null,
+          user_id: user?.id ?? null,
+          user_email: user?.email ?? null,
+          user_name: user?.user_metadata?.full_name ?? user?.email ?? null,
+        }),
+      });
+      const data = await res.json();
+      if (data.session_id) sessionIdRef.current = data.session_id;
+    } catch (err) {
+      console.error("[TalkToAliice] Failed to start session", err);
+    }
+  }, []);
+
+  const endSession = useCallback(async (finalMessages: Message[]) => {
+    if (!sessionIdRef.current) return;
+    try {
+      const transcript = finalMessages
+        .filter((m) => m.id !== "welcome")
+        .map((m) => ({ role: m.role, content: m.content }));
+      await fetch("/api/chat/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "end",
+          session_id: sessionIdRef.current,
+          transcript,
+        }),
+      });
+      sessionIdRef.current = null;
+    } catch (err) {
+      console.error("[TalkToAliice] Failed to end session", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       checkOnboardingStatus();
-      // Add welcome message
+      startSession(currentOrg);
       setMessages([{
         id: "welcome",
         role: "assistant",
         content: "Hi! I'm Aliice, your AI assistant. I can help you set up your clinic, answer questions about the system, or guide you through any feature. How can I help you today?",
         timestamp: new Date()
       }]);
+    }
+    if (!isOpen && sessionIdRef.current) {
+      endSession(messages);
+      setMessages([]);
+      setShowQuickActions(true);
     }
   }, [isOpen]);
 

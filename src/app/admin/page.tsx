@@ -31,6 +31,7 @@ import {
   Trash2,
   Zap,
   CheckCheck,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { LayoutGrid, List } from "lucide-react";
@@ -443,6 +444,13 @@ export default function AdminDashboard() {
             >
               <Zap className="w-4 h-4" />
               Automations
+            </Link>
+            <Link
+              href="/admin/chat-logs"
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Chat Logs
             </Link>
             {/* Documents dropdown: Offer Letters + Invoices */}
             <div className="relative group">
