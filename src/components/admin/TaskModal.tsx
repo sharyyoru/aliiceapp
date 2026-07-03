@@ -94,7 +94,7 @@ export default function TaskModal({
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    fetch("/api/admin/admin-users").then((r) => r.json()).then((d) => setAdminUsers(d.users || []));
+    fetch("/api/admin/admin-users").then((r) => r.json()).then((d) => setAdminUsers(d.adminUsers || []));
     fetch("/api/admin/organizations").then((r) => r.json()).then((d) => setOrganizations((d.organizations || []).map((o: any) => ({ id: o.id, name: o.name }))));
     if (task?.id) loadComments();
   }, [task?.id]);
