@@ -1,6 +1,13 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { createDemoCalendarEvent, DemoEventResult } from "@/lib/googleCalendar";
+import { createClient } from "@supabase/supabase-js";
+import { randomBytes, createHmac } from "crypto";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const emailFromAddress = process.env.EMAIL_FROM_ADDRESS || "info@mail.maisontoa.com";
 const emailFromName = process.env.EMAIL_FROM_NAME || "Aliice";
@@ -90,12 +97,140 @@ function formatDemoTime(iso: string): string {
   }
 }
 
+export type DemoSlot = {
+  iso: string;
+  label: string;
+  token: string;
+  url: string;
+};
+
+function generateSlotToken(orgId: string, slotISO: string): string {
+  const rand = randomBytes(8).toString("hex");
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 32) || "aliice-demo-secret";
+  const payload = `${orgId}:${slotISO}:${rand}`;
+  const sig = createHmac("sha256", secret).update(payload).digest("hex").slice(0, 12);
+  return `${rand}${sig}`;
+}
+
+const TZ = "Europe/Zurich";
+const DEMO_START_HOUR = 9;
+const DEMO_END_HOUR = 17;
+const SLOT_DURATION_MIN = 60;
+
+function getSwissOffsetMs(d: Date): number {
+  const utcStr = d.toLocaleString("en-GB", { timeZone: "UTC" });
+  const swissStr = d.toLocaleString("en-GB", { timeZone: TZ });
+  const parse = (s: string) => {
+    const [datePart, timePart] = s.split(", ");
+    const [dd, mm, yyyy] = datePart.split("/").map(Number);
+    const [hh, mi, ss] = timePart.split(":").map(Number);
+    return Date.UTC(yyyy, mm - 1, dd, hh, mi, ss);
+  };
+  return parse(swissStr) - parse(utcStr);
+}
+
+function swissDateAtHour(dateStr: string, hour: number): Date {
+  const iso = `${dateStr}T${String(hour).padStart(2, "0")}:00:00`;
+  const approx = new Date(`${iso}Z`);
+  const offsetMs = getSwissOffsetMs(approx);
+  return new Date(approx.getTime() - offsetMs);
+}
+
+function toSwissDateStr(d: Date): string {
+  return d.toLocaleDateString("en-CA", { timeZone: TZ });
+}
+
+function isWeekend(d: Date): boolean {
+  const day = d.toLocaleDateString("en-GB", { timeZone: TZ, weekday: "long" });
+  return day === "Saturday" || day === "Sunday";
+}
+
+/**
+ * Fetches (or creates) the next 3 available demo slots for the org,
+ * pre-inserting them as pending rows in demo_bookings.
+ */
+export async function fetchDemoSlots(
+  org: AutomationOrg
+): Promise<DemoSlot[]> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.aliice.app";
+  const now = new Date();
+
+  // Load already-booked slots
+  const { data: bookedRows } = await supabaseAdmin
+    .from("demo_bookings")
+    .select("slot_start, slot_end")
+    .in("status", ["pending", "confirmed"])
+    .gte("slot_end", now.toISOString());
+
+  const bookedIntervals = (bookedRows || []).map((r: { slot_start: string; slot_end: string }) => ({
+    start: new Date(r.slot_start),
+    end: new Date(r.slot_end),
+  }));
+
+  const isBooked = (s: Date, e: Date) =>
+    bookedIntervals.some((b: { start: Date; end: Date }) => s < b.end && e > b.start);
+
+  const slots: DemoSlot[] = [];
+
+  for (let dayOffset = 0; dayOffset < 14 && slots.length < 3; dayOffset++) {
+    const checkDate = new Date(now);
+    checkDate.setDate(now.getDate() + dayOffset);
+    if (isWeekend(checkDate)) continue;
+
+    const dateStr = toSwissDateStr(checkDate);
+
+    for (let h = DEMO_START_HOUR; h < DEMO_END_HOUR && slots.length < 3; h++) {
+      const slotStart = swissDateAtHour(dateStr, h);
+      const slotEnd = new Date(slotStart.getTime() + SLOT_DURATION_MIN * 60 * 1000);
+
+      if (slotStart.getTime() < now.getTime() + 30 * 60 * 1000) continue;
+      if (isBooked(slotStart, slotEnd)) continue;
+
+      const token = generateSlotToken(org.id, slotStart.toISOString());
+
+      const { error: insertErr } = await supabaseAdmin.from("demo_bookings").insert({
+        organization_id: org.id || null,
+        org_name: org.name || "Organisation",
+        org_email: org.email || "",
+        slot_start: slotStart.toISOString(),
+        slot_end: slotEnd.toISOString(),
+        status: "pending",
+        token,
+      });
+
+      if (insertErr) continue;
+
+      const label = slotStart.toLocaleString("en-GB", {
+        timeZone: TZ,
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }) + " CET";
+
+      slots.push({
+        iso: slotStart.toISOString(),
+        label,
+        token,
+        url: `${appUrl}/book-demo?token=${token}`,
+      });
+
+      break; // one slot per day
+    }
+  }
+
+  return slots;
+}
+
 export function buildOrgContext(
   org: AutomationOrg,
   toStageId: string,
   fromStageId: string | null,
   contact?: AutomationContact | null,
-  demoEvent?: DemoEventResult | null
+  demoEvent?: DemoEventResult | null,
+  demoSlots?: DemoSlot[] | null
 ) {
   const contactFull = (contact?.full_name || "").trim();
   const contactFirst = (contact?.first_name || contactFull.split(" ")[0] || "").trim();
@@ -126,6 +261,15 @@ export function buildOrgContext(
     from_stage: {
       id: fromStageId || "",
       label: fromStageId ? STAGE_LABELS[fromStageId] || fromStageId : "",
+    },
+    slots: {
+      slot1_label: demoSlots?.[0]?.label || "",
+      slot1_url:   demoSlots?.[0]?.url   || "",
+      slot2_label: demoSlots?.[1]?.label || "",
+      slot2_url:   demoSlots?.[1]?.url   || "",
+      slot3_label: demoSlots?.[2]?.label || "",
+      slot3_url:   demoSlots?.[2]?.url   || "",
+      has_slots:   (demoSlots && demoSlots.length > 0) ? "true" : "",
     },
     demo: demoEvent
       ? {
@@ -231,7 +375,18 @@ export async function runStageAutomations(
       }
     }
 
-    const context = buildOrgContext(org, toStageId, fromStageId, primaryContact, demoEvent);
+    // For contacted stage: pre-generate 3 available demo slots.
+    let demoSlots: DemoSlot[] | null = null;
+    if (toStageId === "contacted") {
+      try {
+        demoSlots = await fetchDemoSlots(org);
+        console.log(`[pipeline] Generated ${demoSlots.length} demo slots for org ${org.id}`);
+      } catch (slotErr) {
+        console.error("[pipeline] Failed to generate demo slots (non-fatal):", slotErr);
+      }
+    }
+
+    const context = buildOrgContext(org, toStageId, fromStageId, primaryContact, demoEvent, demoSlots);
 
     for (const automation of automations as AutomationRow[]) {
       triggered += 1;

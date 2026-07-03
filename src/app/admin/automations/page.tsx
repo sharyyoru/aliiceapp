@@ -43,6 +43,12 @@ const MERGE_TAGS = [
   "{{demo.time}}",
   "{{demo.meet_link}}",
   "{{demo.calendar_link}}",
+  "{{slots.slot1_label}}",
+  "{{slots.slot1_url}}",
+  "{{slots.slot2_label}}",
+  "{{slots.slot2_url}}",
+  "{{slots.slot3_label}}",
+  "{{slots.slot3_url}}",
 ];
 
 // Sample data used only for the live preview so merge tags render nicely.
@@ -63,6 +69,12 @@ const PREVIEW_CONTEXT: Record<string, string> = {
   "demo.time": "14:00 CEST",
   "demo.meet_link": "https://meet.google.com/abc-defg-hij",
   "demo.calendar_link": "https://calendar.google.com/calendar/event?eid=example",
+  "slots.slot1_label": "Mon, 7 Jul · 09:00 CET",
+  "slots.slot1_url": "https://www.aliice.app/book-demo?token=preview1",
+  "slots.slot2_label": "Tue, 8 Jul · 10:00 CET",
+  "slots.slot2_url": "https://www.aliice.app/book-demo?token=preview2",
+  "slots.slot3_label": "Wed, 9 Jul · 11:00 CET",
+  "slots.slot3_url": "https://www.aliice.app/book-demo?token=preview3",
 };
 
 /** Lightweight client-side merge renderer for previews. */
