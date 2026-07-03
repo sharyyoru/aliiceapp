@@ -24,6 +24,9 @@ const MERGE_TAGS: Record<string, { name: string; value: string }> = {
 // Wrap raw HTML (e.g. an existing SQL-seeded template) in a minimal Unlayer
 // design containing a single HTML block so it can be opened in the builder.
 function htmlToDesign(html: string): any {
+  // Guard against oversized images/tables overflowing the editor canvas when
+  // importing an existing HTML template that relies on width attributes only.
+  const guardedHtml = `<style>img{max-width:100%!important;height:auto;}table{max-width:100%;}</style>${html}`;
   return {
     counters: { u_row: 1, u_column: 1, u_content_html: 1 },
     body: {
@@ -40,7 +43,7 @@ function htmlToDesign(html: string): any {
                   id: "html-1",
                   type: "html",
                   values: {
-                    html,
+                    html: guardedHtml,
                     hideDesktop: false,
                     displayCondition: null,
                     _meta: { htmlID: "u_content_html_1", htmlClassNames: "u_content_html" },

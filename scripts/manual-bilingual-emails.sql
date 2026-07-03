@@ -47,7 +47,7 @@ BEGIN
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08);">
           <tr>
             <td class="px" style="padding:28px 40px 8px 40px;" align="left">
-              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;height:auto;border:0;outline:none;" />
+              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;width:120px;max-width:120px;height:auto;border:0;outline:none;" />
             </td>
           </tr>
           <tr>
@@ -157,7 +157,7 @@ BEGIN
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08);">
           <tr>
             <td class="px" style="padding:28px 40px 8px 40px;" align="left">
-              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;height:auto;border:0;outline:none;" />
+              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;width:120px;max-width:120px;height:auto;border:0;outline:none;" />
             </td>
           </tr>
           <tr>
@@ -272,7 +272,7 @@ BEGIN
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08);">
           <tr>
             <td class="px" style="padding:28px 40px 8px 40px;" align="left">
-              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;height:auto;border:0;outline:none;" />
+              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;width:120px;max-width:120px;height:auto;border:0;outline:none;" />
             </td>
           </tr>
           <tr>
@@ -382,7 +382,7 @@ BEGIN
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08);">
           <tr>
             <td class="px" style="padding:28px 40px 8px 40px;" align="left">
-              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;height:auto;border:0;outline:none;" />
+              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;width:120px;max-width:120px;height:auto;border:0;outline:none;" />
             </td>
           </tr>
           <tr>
@@ -503,7 +503,7 @@ BEGIN
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08);">
           <tr>
             <td class="px" style="padding:28px 40px 8px 40px;" align="left">
-              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;height:auto;border:0;outline:none;" />
+              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;width:120px;max-width:120px;height:auto;border:0;outline:none;" />
             </td>
           </tr>
           <tr>
@@ -566,7 +566,7 @@ BEGIN
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08);">
           <tr>
             <td class="px" style="padding:28px 40px 8px 40px;" align="left">
-              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;height:auto;border:0;outline:none;" />
+              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;width:120px;max-width:120px;height:auto;border:0;outline:none;" />
             </td>
           </tr>
           <tr>
@@ -633,7 +633,7 @@ BEGIN
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08);">
           <tr>
             <td class="px" style="padding:28px 40px 8px 40px;" align="left">
-              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;height:auto;border:0;outline:none;" />
+              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;width:120px;max-width:120px;height:auto;border:0;outline:none;" />
             </td>
           </tr>
           <tr>
@@ -696,7 +696,7 @@ BEGIN
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08);">
           <tr>
             <td class="px" style="padding:28px 40px 8px 40px;" align="left">
-              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;height:auto;border:0;outline:none;" />
+              <img src="https://www.aliice.app/logos/aliice-logo.png" alt="Aliice" width="120" style="display:block;width:120px;max-width:120px;height:auto;border:0;outline:none;" />
             </td>
           </tr>
           <tr>
