@@ -95,9 +95,15 @@ Sent from Aliice Contact Form
     });
 
     if (!result.success) {
-      console.error("Email send error:", result.error);
+      console.error("[Contact API] Email send failed:", {
+        error: result.error,
+        to: "info@aliice.app",
+        from: process.env.EMAIL_FROM_ADDRESS,
+        hasResendKey: !!process.env.RESEND_API_KEY,
+        resendKeyPrefix: process.env.RESEND_API_KEY?.substring(0, 10) + "..."
+      });
       return NextResponse.json(
-        { error: "Failed to send email" },
+        { error: result.error || "Failed to send email" },
         { status: 500 }
       );
     }
