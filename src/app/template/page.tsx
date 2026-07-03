@@ -84,7 +84,7 @@ function buildEmailHtml({ clinicName }: { clinicName: string }) {
                 <tr>
                   <td style="border-radius:999px;background:linear-gradient(90deg,#0284c7,#7c3aed);">
                     <a href="${PRIMARY_CTA_URL}" target="_blank" style="display:inline-block;padding:16px 34px;font-size:16px;font-weight:700;color:#ffffff;border-radius:999px;">
-                      Start your free trial &rarr;
+                      Request a demo &rarr;
                     </a>
                   </td>
                   <td style="width:14px;">&nbsp;</td>
@@ -95,7 +95,7 @@ function buildEmailHtml({ clinicName }: { clinicName: string }) {
                   </td>
                 </tr>
               </table>
-              <p style="margin:14px 0 0 0;font-size:13px;color:#94a3b8;">No credit card required &bull; 14-day free trial</p>
+              <p style="margin:14px 0 0 0;font-size:13px;color:#94a3b8;">No commitment required &bull; Free consultation</p>
             </td>
           </tr>
 
@@ -266,10 +266,10 @@ Why clinics switch to Aliice:
 
 COMING SOON: The Aliice mobile app (iOS & Android). Get on the platform today and be first in line.
 
-Start your free trial: ${PRIMARY_CTA_URL}
+Request a demo: ${PRIMARY_CTA_URL}
 Book a demo: ${DEMO_CTA_URL}
 
-No credit card required • 14-day free trial.
+No commitment required • Free consultation.
 
 Questions? Just reply to this email.
 

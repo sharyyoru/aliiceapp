@@ -101,7 +101,7 @@ export const blogPosts: BlogPost[] = [
 <li>✓ HIPAA-compliant processing</li>
 </ul>
 
-<p><strong>Ready to reclaim 2+ hours of your day?</strong> Start your free trial and experience the future of clinical documentation.</p>
+<p><strong>Ready to reclaim 2+ hours of your day?</strong> Request a demo and experience the future of clinical documentation.</p>
     `,
   },
   {
@@ -662,7 +662,7 @@ export const blogPosts: BlogPost[] = [
 <li>✓ Custom report building</li>
 </ul>
 
-<p><strong>Ready to manage by metrics?</strong> Start your free trial and gain visibility into your practice performance.</p>
+<p><strong>Ready to manage by metrics?</strong> Request a demo and gain visibility into your practice performance.</p>
     `,
   },
 ];

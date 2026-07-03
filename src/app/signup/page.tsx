@@ -32,7 +32,7 @@ const COPY: Record<Lang, {
   and: string;
 }> = {
   en: {
-    heading: "Start your free trial",
+    heading: "Request a demo",
     sub: "Tell us about yourself and we'll get your clinic set up.",
     name: "Name",
     namePlaceholder: "Dr. John Smith",

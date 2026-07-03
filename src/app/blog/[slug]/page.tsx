@@ -100,10 +100,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <h3 className="text-xl font-bold text-slate-900 mb-2">Ready to get started?</h3>
             <p className="text-slate-600 mb-6">Join thousands of clinics using Aliice to streamline their practice.</p>
             <Link 
-              href="/signup" 
+              href="/contact" 
               className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-8 py-3 text-base font-semibold text-white hover:bg-sky-700 transition-colors shadow-lg shadow-sky-600/25"
             >
-              Start Your Free Trial Today <ArrowRight className="h-5 w-5" />
+              Request a Demo <ArrowRight className="h-5 w-5" />
             </Link>
           </div>
 
@@ -122,8 +122,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <h2 className="text-2xl font-bold text-white">Ready to Transform Your Clinic?</h2>
           <p className="mt-2 text-slate-300">Join hundreds of aesthetic practices using Aliice to streamline operations.</p>
           <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/signup" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-base font-semibold text-slate-900 hover:bg-slate-100">
-              Start Free Trial <ArrowRight className="h-5 w-5" />
+            <Link href="/contact" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-base font-semibold text-slate-900 hover:bg-slate-100">
+              Request a Demo <ArrowRight className="h-5 w-5" />
             </Link>
             <Link href="/contact" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/30 px-6 py-3 text-base font-semibold text-white hover:bg-white/10">
               Schedule Demo

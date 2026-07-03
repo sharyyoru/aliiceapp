@@ -72,8 +72,8 @@ export default function ContactPage() {
           <div className="flex items-center gap-4">
             <Link href="/pricing" className="text-sm font-medium text-slate-600 hover:text-slate-900">Pricing</Link>
             <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">Login</Link>
-            <Link href="/signup" className="rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
-              Start Free Trial
+            <Link href="/contact" className="rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
+              Request a Demo
             </Link>
           </div>
         </div>

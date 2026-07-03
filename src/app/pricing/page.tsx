@@ -102,8 +102,8 @@ export default function PricingPage() {
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">Login</Link>
-            <Link href="/signup" className="rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
-              Start Free Trial
+            <Link href="/contact" className="rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
+              Request a Demo
             </Link>
           </div>
         </div>
@@ -343,14 +343,14 @@ export default function PricingPage() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-slate-900">Ready to Get Started?</h2>
           <p className="mt-4 text-lg text-slate-600">
-            Start your 14-day free trial today. No credit card required.
+            Request a demo today. No commitment required.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/signup"
+              href="/contact"
               className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-8 py-4 text-base font-semibold text-white shadow-lg"
             >
-              Start Free Trial
+              Request a Demo
               <ArrowRight className="h-5 w-5" />
             </Link>
             <Link
