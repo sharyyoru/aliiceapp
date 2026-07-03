@@ -12,7 +12,11 @@ import {
   RefreshCw,
   AlertCircle,
   CornerUpLeft,
+  Video,
+  CalendarPlus,
+  Check,
 } from "lucide-react";
+import { toDatetimeLocal, datetimeLocalToISO, localTimeZone } from "@/app/admin/agenda/lib";
 
 interface OrgEmail {
   id: string;
@@ -86,6 +90,75 @@ export default function OrgEmailsTab({
   });
   const [syncing, setSyncing] = useState(false);
 
+  // Meeting composer state
+  const defaultMeeting = () => {
+    const start = new Date();
+    start.setMinutes(start.getMinutes() < 30 ? 30 : 0, 0, 0);
+    if (start.getMinutes() === 0) start.setHours(start.getHours() + 1);
+    const end = new Date(start.getTime() + 30 * 60 * 1000);
+    return {
+      enabled: false,
+      title: "",
+      startLocal: toDatetimeLocal(start),
+      endLocal: toDatetimeLocal(end),
+      addMeet: true,
+      inviteRecipient: true,
+    };
+  };
+  const [meeting, setMeeting] = useState(defaultMeeting);
+  const [meetingCreating, setMeetingCreating] = useState(false);
+  const [meetingAdded, setMeetingAdded] = useState<{ meetLink: string | null; when: string } | null>(null);
+
+  const createMeeting = async () => {
+    setComposeError(null);
+    const title = (meeting.title || form.subject || "Meeting").trim();
+    if (new Date(meeting.endLocal) <= new Date(meeting.startLocal)) {
+      setComposeError("Meeting end time must be after the start time.");
+      return;
+    }
+    setMeetingCreating(true);
+    try {
+      const attendees =
+        meeting.inviteRecipient && form.to.trim().includes("@") ? [form.to.trim()] : [];
+      const res = await fetch("/api/admin/agenda/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: title,
+          start: datetimeLocalToISO(meeting.startLocal),
+          end: datetimeLocalToISO(meeting.endLocal),
+          timeZone: localTimeZone(),
+          attendees,
+          addMeet: meeting.addMeet,
+          sendUpdates: attendees.length ? "all" : "none",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setComposeError(data.details || data.error || "Failed to create meeting.");
+        return;
+      }
+      const meetLink: string | null = data.event?.hangoutLink || null;
+      const when = new Date(meeting.startLocal).toLocaleString("en-GB", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      // Append a meeting block to the email body.
+      const block =
+        `\n\n---\n📅 Meeting: ${title}\n🕒 ${when}` +
+        (meetLink ? `\n🎥 Join Google Meet: ${meetLink}` : "");
+      setForm((f) => ({ ...f, body: `${f.body}${block}` }));
+      setMeetingAdded({ meetLink, when });
+    } catch {
+      setComposeError("Failed to create meeting.");
+    } finally {
+      setMeetingCreating(false);
+    }
+  };
+
   const fetchGmailStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/gmail/status");
@@ -158,6 +231,8 @@ export default function OrgEmailsTab({
       setForm({ to: orgEmail || "", subject: "", body: "" });
       setReplyToId(null);
     }
+    setMeeting(defaultMeeting());
+    setMeetingAdded(null);
     setComposeOpen(true);
   };
 
@@ -199,6 +274,8 @@ export default function OrgEmailsTab({
       }
       setComposeOpen(false);
       setForm({ to: orgEmail || "", subject: "", body: "" });
+      setMeeting(defaultMeeting());
+      setMeetingAdded(null);
       await fetchData();
     } catch {
       setComposeError("Failed to send email.");
@@ -453,6 +530,102 @@ export default function OrgEmailsTab({
                 <p className="mt-1 text-xs text-slate-400">
                   A tracking pixel is added automatically so you can see when it&apos;s read. Replies are captured in this mailbox.
                 </p>
+              </div>
+
+              {/* Meeting / Google Meet */}
+              <div className="rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setMeeting((m) => ({ ...m, enabled: !m.enabled }))}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-700"
+                >
+                  <CalendarPlus className="h-4 w-4 text-sky-600" />
+                  Add a meeting to the calendar
+                  <span className="ml-auto text-xs text-slate-400">{meeting.enabled ? "Hide" : "Show"}</span>
+                </button>
+
+                {meeting.enabled && (
+                  <div className="space-y-3 border-t px-3 py-3">
+                    <input
+                      value={meeting.title}
+                      onChange={(e) => setMeeting({ ...meeting, title: e.target.value })}
+                      placeholder={form.subject || "Meeting title"}
+                      className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500">Starts</label>
+                        <input
+                          type="datetime-local"
+                          value={meeting.startLocal}
+                          onChange={(e) => {
+                            const startLocal = e.target.value;
+                            const dur =
+                              new Date(meeting.endLocal).getTime() - new Date(meeting.startLocal).getTime();
+                            const end = new Date(new Date(startLocal).getTime() + Math.max(dur, 30 * 60 * 1000));
+                            setMeeting({ ...meeting, startLocal, endLocal: toDatetimeLocal(end) });
+                          }}
+                          className="w-full rounded-lg border px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500">Ends</label>
+                        <input
+                          type="datetime-local"
+                          value={meeting.endLocal}
+                          onChange={(e) => setMeeting({ ...meeting, endLocal: e.target.value })}
+                          className="w-full rounded-lg border px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={meeting.addMeet}
+                          onChange={(e) => setMeeting({ ...meeting, addMeet: e.target.checked })}
+                          className="h-4 w-4 accent-sky-600"
+                        />
+                        <Video className="h-4 w-4 text-sky-600" />
+                        Generate Google Meet link
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={meeting.inviteRecipient}
+                          onChange={(e) => setMeeting({ ...meeting, inviteRecipient: e.target.checked })}
+                          className="h-4 w-4 accent-sky-600"
+                        />
+                        Send calendar invite to recipient
+                      </label>
+                    </div>
+
+                    {meetingAdded ? (
+                      <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                        <Check className="h-4 w-4" />
+                        Meeting created for {meetingAdded.when} and added to the email.
+                        {meetingAdded.meetLink && (
+                          <a href={meetingAdded.meetLink} target="_blank" rel="noreferrer" className="ml-auto font-semibold underline">
+                            Join
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={createMeeting}
+                        disabled={meetingCreating || !gmail.connected}
+                        className="inline-flex items-center gap-2 rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-50"
+                      >
+                        {meetingCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+                        {meetingCreating ? "Creating…" : "Create meeting & insert into email"}
+                      </button>
+                    )}
+                    {!gmail.connected && (
+                      <p className="text-xs text-amber-600">Connect Google above to create meetings.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="p-4 border-t flex justify-end gap-2">

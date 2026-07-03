@@ -23,13 +23,22 @@ const OAUTH_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 
-// Scopes: send mail, read threads (for reply sync), and read the account email.
+// Scopes: send mail, read threads (for reply sync), read the account email,
+// and manage Google Calendar events (agenda + Google Meet links).
 export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/userinfo.email",
   "openid",
 ];
+
+// Scope required to read/write calendar events.
+export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+
+export function hasCalendarScope(scope: string | null | undefined): boolean {
+  return !!scope && scope.includes(CALENDAR_SCOPE);
+}
 
 export function isGmailConfigured(): boolean {
   return !!GOOGLE_CLIENT_ID && !!GOOGLE_CLIENT_SECRET;
