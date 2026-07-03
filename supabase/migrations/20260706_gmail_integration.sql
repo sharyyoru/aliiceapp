@@ -16,6 +16,11 @@ CREATE TABLE IF NOT EXISTS admin_gmail_accounts (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Link emails to an organization (admin org mailbox). This column did not
+-- previously exist on the emails table.
+ALTER TABLE emails ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS emails_organization_id_idx ON emails(organization_id);
+
 -- Gmail message/thread identifiers so we can thread replies and sync inbound.
 ALTER TABLE emails ADD COLUMN IF NOT EXISTS provider TEXT;
 ALTER TABLE emails ADD COLUMN IF NOT EXISTS gmail_message_id TEXT;
