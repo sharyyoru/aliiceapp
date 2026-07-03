@@ -4,9 +4,12 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import OrgInvoicesTab from "./OrgInvoicesTab";
+import OrgEmailsTab from "./OrgEmailsTab";
 import {
   ArrowLeft,
   Building2,
+  FileText,
   Mail,
   Phone,
   Globe,
@@ -81,6 +84,7 @@ interface SubscriptionPayment {
   paid_at: string | null;
   notes: string | null;
   created_at: string;
+  payrexx_payment_link?: string | null;
 }
 
 const FUNNEL_STAGES = [
@@ -102,6 +106,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
   const [editForm, setEditForm] = useState<Partial<Organization>>({});
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "invoices" | "emails">("overview");
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
@@ -282,9 +287,37 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
             period_end: periodEnd,
             amount: monthlyAmount,
             status: "pending",
+            createPaymentLink: false,
           }),
         }).then(() => fetchPayments(organization.id));
       }
+    }
+  }
+
+  async function handleCreatePayLink(payment: SubscriptionPayment) {
+    if (!organization) return;
+    try {
+      const response = await fetch("/api/admin/organizations/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization_id: organization.id,
+          period_start: payment.period_start,
+          period_end: payment.period_end,
+          amount: payment.amount,
+          status: payment.status,
+          notes: payment.notes,
+          createPaymentLink: true,
+        }),
+      });
+      if (response.ok) {
+        await fetchPayments(organization.id);
+      } else {
+        const data = await response.json();
+        setError(data.error || "Failed to create Payrexx pay link");
+      }
+    } catch {
+      setError("Failed to create Payrexx pay link");
     }
   }
 
@@ -510,6 +543,35 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="mb-6 flex items-center gap-1 border-b border-slate-200">
+          {[
+            { key: "overview" as const, label: "Overview", icon: Building2 },
+            { key: "invoices" as const, label: "Invoices", icon: FileText },
+            { key: "emails" as const, label: "Emails", icon: Mail },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition ${
+                activeTab === tab.key
+                  ? "border-sky-600 text-sky-700"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "invoices" && <OrgInvoicesTab orgId={organization.id} />}
+        {activeTab === "emails" && (
+          <OrgEmailsTab orgId={organization.id} orgEmail={organization.email} orgName={organization.name} />
+        )}
+
+        {activeTab === "overview" && (
+        <>
         {/* Stats Grid */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 border shadow-sm">
@@ -958,13 +1020,38 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                           {payment.paid_at ? formatDate(payment.paid_at) : "-"}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => handleDeletePayment(payment.id)}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                            title="Delete payment"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            {payment.payrexx_payment_link ? (
+                              <a
+                                href={payment.payrexx_payment_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-sky-600 hover:bg-sky-50 rounded-lg"
+                                title="Open Payrexx pay link"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Pay link
+                              </a>
+                            ) : (
+                              payment.status !== "paid" && (
+                                <button
+                                  onClick={() => handleCreatePayLink(payment)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-600 border rounded-lg hover:bg-slate-50"
+                                  title="Create Payrexx pay link"
+                                >
+                                  <CreditCard className="w-3.5 h-3.5" />
+                                  Create link
+                                </button>
+                              )
+                            )}
+                            <button
+                              onClick={() => handleDeletePayment(payment.id)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                              title="Delete payment"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -973,6 +1060,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
               </div>
             )}
           </div>
+        )}
+        </>
         )}
       </main>
 

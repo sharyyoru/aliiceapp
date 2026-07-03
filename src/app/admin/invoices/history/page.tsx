@@ -41,6 +41,7 @@ interface ClientInvoice {
   total: number;
   paid_amount: number | null;
   status: string;
+  invoice_type?: string | null;
   payrexx_payment_link: string | null;
   payrexx_payment_status: string | null;
   payrexx_gateway_id: number | null;
@@ -140,6 +141,7 @@ export default function ClientInvoiceHistoryPage() {
   const [searchInput, setSearchInput] = useState("");
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL"); // ALL | OPEN | PAID | PARTIAL_LOSS | CANCELLED | OVERDUE
+  const [typeFilter, setTypeFilter] = useState<string>("ALL"); // ALL | manual | subscription
   const [currency, setCurrency] = useState("");
   const [datePreset, setDatePreset] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
@@ -173,6 +175,7 @@ export default function ClientInvoiceHistoryPage() {
       if (q) params.set("q", q);
       if (statusFilter === "OVERDUE") params.set("overdue", "1");
       else if (statusFilter !== "ALL") params.set("status", statusFilter);
+      if (typeFilter !== "ALL") params.set("type", typeFilter);
       if (currency) params.set("currency", currency);
       const range = datePreset === "custom" ? { from: customFrom, to: customTo } : presetRange(datePreset);
       if (range.from) params.set("from", range.from);
@@ -186,7 +189,7 @@ export default function ClientInvoiceHistoryPage() {
       if (overrides) for (const [k, v] of Object.entries(overrides)) params.set(k, v);
       return params;
     },
-    [q, statusFilter, currency, datePreset, customFrom, customTo, minAmount, maxAmount, sort, order, page, pageSize]
+    [q, statusFilter, typeFilter, currency, datePreset, customFrom, customTo, minAmount, maxAmount, sort, order, page, pageSize]
   );
 
   const fetchData = useCallback(async () => {
@@ -237,6 +240,7 @@ export default function ClientInvoiceHistoryPage() {
     setSearchInput("");
     setQ("");
     setStatusFilter("ALL");
+    setTypeFilter("ALL");
     setCurrency("");
     setDatePreset("all");
     setCustomFrom("");
@@ -503,6 +507,29 @@ export default function ClientInvoiceHistoryPage() {
             ))}
           </div>
 
+          {/* Type filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mr-1">Type</span>
+            {[
+              { k: "ALL", label: "All" },
+              { k: "manual", label: "Manual" },
+              { k: "subscription", label: "Subscription" },
+            ].map((t) => (
+              <button
+                key={t.k}
+                onClick={() => {
+                  setTypeFilter(t.k);
+                  setPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                  typeFilter === t.k ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           {/* Advanced filters */}
           {showFilters && (
             <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -595,6 +622,9 @@ export default function ClientInvoiceHistoryPage() {
                       <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition">
                         <td className="px-4 py-3">
                           <span className="font-semibold text-slate-800">{inv.invoice_number}</span>
+                          {inv.invoice_type === "subscription" && (
+                            <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-700 align-middle">SUB</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="font-medium text-slate-800">{inv.client_name}</div>

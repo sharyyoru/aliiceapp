@@ -71,19 +71,21 @@ export async function POST(request: Request) {
 
     let patientId: string | null = null;
     let dealId: string | null = null;
+    let organizationId: string | null = null;
 
     let originalSenderId: string | null = null;
 
     if (originalEmailId) {
       const { data: original, error: originalError } = await supabaseAdmin
         .from("emails")
-        .select("id, patient_id, deal_id, sent_by_user_id")
+        .select("id, patient_id, deal_id, organization_id, sent_by_user_id")
         .eq("id", originalEmailId)
         .single();
 
       if (!originalError && original) {
         patientId = (original as any).patient_id ?? null;
         dealId = (original as any).deal_id ?? null;
+        organizationId = (original as any).organization_id ?? null;
         originalSenderId = (original as any).sent_by_user_id ?? null;
       }
     }
@@ -133,6 +135,7 @@ export async function POST(request: Request) {
     const insertPayload: Record<string, unknown> = {
       patient_id: patientId,
       deal_id: dealId,
+      organization_id: organizationId,
       to_address: recipientEmail ?? recipient ?? "",
       from_address: sender ?? null,
       subject: inboundSubject,

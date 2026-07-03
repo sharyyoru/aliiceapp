@@ -48,6 +48,9 @@ export async function GET(request: Request) {
   const q = (searchParams.get("q") || "").trim();
   const statusParam = (searchParams.get("status") || "").trim();
   const statuses = statusParam ? statusParam.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const typeParam = (searchParams.get("type") || "").trim();
+  const types = typeParam ? typeParam.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const organizationId = (searchParams.get("organization_id") || "").trim();
   const currency = (searchParams.get("currency") || "").trim();
   const from = (searchParams.get("from") || "").trim();
   const to = (searchParams.get("to") || "").trim();
@@ -63,6 +66,8 @@ export async function GET(request: Request) {
   let query = supabase.from("client_invoices").select("*");
 
   if (statuses.length > 0) query = query.in("status", statuses);
+  if (types.length > 0) query = query.in("invoice_type", types);
+  if (organizationId) query = query.eq("organization_id", organizationId);
   if (currency) query = query.eq("currency", currency);
   if (from) query = query.gte("issue_date", from);
   if (to) query = query.lte("issue_date", to);
@@ -153,6 +158,10 @@ export async function POST(request: Request) {
     line_items,
     notes,
     createPaymentLink,
+    invoice_type,
+    organization_id,
+    period_start,
+    period_end,
   } = body as {
     invoice_number?: string;
     issue_date?: string;
@@ -168,6 +177,10 @@ export async function POST(request: Request) {
     line_items?: LineItem[];
     notes?: string;
     createPaymentLink?: boolean;
+    invoice_type?: string;
+    organization_id?: string;
+    period_start?: string;
+    period_end?: string;
   };
 
   if (!invoice_number?.trim()) {
@@ -211,6 +224,10 @@ export async function POST(request: Request) {
     tax,
     total,
     notes: notes || null,
+    invoice_type: invoice_type === "subscription" ? "subscription" : "manual",
+    organization_id: organization_id || null,
+    period_start: period_start || null,
+    period_end: period_end || null,
     updated_at: new Date().toISOString(),
   };
 

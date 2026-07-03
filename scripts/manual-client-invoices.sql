@@ -40,6 +40,16 @@ CREATE TABLE IF NOT EXISTS client_invoices (
 CREATE INDEX IF NOT EXISTS idx_client_invoices_status ON client_invoices(status);
 CREATE INDEX IF NOT EXISTS idx_client_invoices_created_at ON client_invoices(created_at DESC);
 
+-- Unified subscription billing: type discriminator + org/period linkage
+ALTER TABLE client_invoices
+  ADD COLUMN IF NOT EXISTS invoice_type TEXT NOT NULL DEFAULT 'manual',
+  ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS period_start DATE,
+  ADD COLUMN IF NOT EXISTS period_end DATE;
+
+CREATE INDEX IF NOT EXISTS idx_client_invoices_type ON client_invoices(invoice_type);
+CREATE INDEX IF NOT EXISTS idx_client_invoices_org ON client_invoices(organization_id);
+
 -- Verify
 SELECT column_name FROM information_schema.columns
 WHERE table_name = 'client_invoices' ORDER BY ordinal_position;
