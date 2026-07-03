@@ -82,8 +82,15 @@ const tiers = [
   },
 ];
 
+const CURRENCIES = [
+  { code: "EUR", symbol: "€" },
+  { code: "CHF", symbol: "CHF " },
+];
+
 export default function PricingPage() {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
+  const [currency, setCurrency] = useState<"EUR" | "CHF">("EUR");
+  const sym = currency === "EUR" ? "€" : "CHF ";
 
   return (
     <div className="min-h-screen bg-white">
@@ -112,8 +119,25 @@ export default function PricingPage() {
             All-in-one clinic management platform. Replace 3 expensive tools with one unified solution.
           </p>
 
+          {/* Currency toggle */}
+          <div className="mt-8 inline-flex items-center gap-1 bg-slate-100 rounded-full p-1">
+            {CURRENCIES.map((c) => (
+              <button
+                key={c.code}
+                onClick={() => setCurrency(c.code as "EUR" | "CHF")}
+                className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                  currency === c.code
+                    ? "bg-white text-slate-900 shadow"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {c.code}
+              </button>
+            ))}
+          </div>
+
           {/* Stats */}
-          <div className="mt-12 grid grid-cols-3 gap-6 max-w-3xl mx-auto">
+          <div className="mt-10 grid grid-cols-3 gap-6 max-w-3xl mx-auto">
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
               <div className="text-3xl font-bold text-sky-600">100%</div>
               <div className="text-sm text-slate-600">Automated</div>
@@ -158,13 +182,13 @@ export default function PricingPage() {
                 
                 <div className="mt-6">
                   <span className={`text-4xl font-bold ${tier.popular ? "text-white" : "text-slate-900"}`}>
-                    ${tier.monthlyPrice.toLocaleString()}
+                    {sym}{tier.monthlyPrice.toLocaleString()}
                   </span>
                   <span className={tier.popular ? "text-sky-200" : "text-slate-500"}>/month</span>
                 </div>
                 
                 <div className={`text-sm mt-2 ${tier.popular ? "text-sky-200" : "text-slate-500"}`}>
-                  + ${tier.onboarding.toLocaleString()} one-time onboarding
+                  + {sym}{tier.onboarding.toLocaleString()} one-time onboarding
                 </div>
 
                 <ul className="mt-8 space-y-3">
@@ -217,15 +241,15 @@ export default function PricingPage() {
                   <th className="text-left p-4 text-sm font-semibold text-slate-900">Feature</th>
                   <th className="text-center p-4 text-sm font-semibold text-slate-900">
                     <div>Starter</div>
-                    <div className="text-sky-600 font-bold">$1,490/mo</div>
+                    <div className="text-sky-600 font-bold">{sym}1,490/mo</div>
                   </th>
                   <th className="text-center p-4 text-sm font-semibold text-slate-900 bg-sky-50">
                     <div>Professional</div>
-                    <div className="text-sky-600 font-bold">$2,240/mo</div>
+                    <div className="text-sky-600 font-bold">{sym}2,240/mo</div>
                   </th>
                   <th className="text-center p-4 text-sm font-semibold text-slate-900">
                     <div>Enterprise</div>
-                    <div className="text-sky-600 font-bold">$3,200/mo</div>
+                    <div className="text-sky-600 font-bold">{sym}3,200/mo</div>
                   </th>
                 </tr>
               </thead>
@@ -307,7 +331,7 @@ export default function PricingPage() {
               <div className="text-3xl font-bold text-slate-900">+1 TB</div>
               <div className="text-slate-600 mt-1">Additional storage</div>
               <div className="mt-4 inline-block bg-slate-100 text-slate-700 text-sm font-medium px-3 py-1 rounded-full">
-                $50/month
+                {sym}50/month
               </div>
             </div>
           </div>

@@ -86,11 +86,18 @@ const stats = [
   { value: "GDPR", label: "Compliant", sublabel: "Swiss hosted" },
 ];
 
+const CURRENCIES = [
+  { code: "EUR", symbol: "€" },
+  { code: "CHF", symbol: "CHF" },
+];
+
 export default function LandingPageClient() {
   const [activeDemo, setActiveDemo] = useState<"patient" | "calendar" | "ai" | "analytics">("patient");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [currency, setCurrency] = useState<"EUR" | "CHF">("EUR");
   const heroRef = useRef<HTMLDivElement>(null);
+  const sym = currency === "EUR" ? "€" : "CHF ";
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -466,21 +473,38 @@ export default function LandingPageClient() {
               Save 49% compared to using separate CRM, ERP, and booking systems.
             </p>
             
-            <div className="mt-12 grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {/* Currency toggle */}
+            <div className="mt-10 inline-flex items-center gap-1 bg-white/10 rounded-full p-1">
+              {CURRENCIES.map((c) => (
+                <button
+                  key={c.code}
+                  onClick={() => setCurrency(c.code as "EUR" | "CHF")}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                    currency === c.code
+                      ? "bg-white text-slate-900 shadow"
+                      : "text-white/70 hover:text-white"
+                  }`}
+                >
+                  {c.code}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-6 grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
               <div className="bg-slate-800 rounded-2xl p-6 text-left border border-slate-700">
                 <div className="text-slate-400 text-sm font-medium mb-2">Starter</div>
-                <div className="text-3xl font-bold text-white">$1,490<span className="text-lg text-slate-500">/mo</span></div>
+                <div className="text-3xl font-bold text-white">{sym}1,490<span className="text-lg text-slate-500">/mo</span></div>
                 <div className="text-sm text-slate-400 mt-1">Essential CRM & Booking</div>
               </div>
               <div className="bg-white rounded-2xl p-6 text-left scale-105 shadow-xl">
                 <div className="text-slate-500 text-sm font-medium mb-2">Professional</div>
-                <div className="text-3xl font-bold text-slate-900">$2,240<span className="text-lg text-slate-400">/mo</span></div>
+                <div className="text-3xl font-bold text-slate-900">{sym}2,240<span className="text-lg text-slate-400">/mo</span></div>
                 <div className="text-sm text-slate-600 mt-1">Full CRM + ERP + Booking</div>
                 <div className="mt-3 text-xs bg-slate-900 text-white rounded-full px-3 py-1 inline-block">Most Popular</div>
               </div>
               <div className="bg-slate-800 rounded-2xl p-6 text-left border border-slate-700">
                 <div className="text-slate-400 text-sm font-medium mb-2">Enterprise</div>
-                <div className="text-3xl font-bold text-white">$3,200<span className="text-lg text-slate-500">/mo</span></div>
+                <div className="text-3xl font-bold text-white">{sym}3,200<span className="text-lg text-slate-500">/mo</span></div>
                 <div className="text-sm text-slate-400 mt-1">Everything + AI & Custom</div>
               </div>
             </div>
