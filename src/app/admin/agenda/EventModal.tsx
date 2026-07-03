@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Video, MapPin, AlignLeft, Users, Loader2, Trash2 } from "lucide-react";
+import { X, Video, MapPin, AlignLeft, Users, Loader2, Trash2, CheckCheck } from "lucide-react";
+import TaskModal from "@/components/admin/TaskModal";
 import { AgendaEvent, toDatetimeLocal, datetimeLocalToISO, localTimeZone } from "./lib";
 
 export type EventDraft = {
@@ -66,6 +67,7 @@ export default function EventModal({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTask, setShowTask] = useState(false);
 
   const isEditing = !!editingEvent;
   const readOnly = isEditing && !canEdit;
@@ -276,6 +278,13 @@ export default function EventModal({
             )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowTask(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              <CheckCheck className="h-4 w-4 text-sky-600" />
+              Create Task
+            </button>
             <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">
               {readOnly ? "Close" : "Cancel"}
             </button>
@@ -292,6 +301,17 @@ export default function EventModal({
           </div>
         </div>
       </div>
+      {showTask && (
+        <TaskModal
+          prefill={{
+            source_type: "agenda",
+            source_id: draft.id,
+            title: draft.title ? `Follow up: ${draft.title}` : "Calendar follow-up",
+          }}
+          onClose={() => setShowTask(false)}
+          onSaved={() => setShowTask(false)}
+        />
+      )}
     </div>
   );
 }

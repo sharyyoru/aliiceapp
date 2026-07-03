@@ -30,10 +30,12 @@ import {
   ChevronDown,
   Trash2,
   Zap,
+  CheckCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { LayoutGrid, List } from "lucide-react";
 import PipelineListView from "@/components/admin/PipelineListView";
+import NotificationBell from "@/components/admin/NotificationBell";
 
 interface Organization {
   id: string;
@@ -422,6 +424,13 @@ export default function AdminDashboard() {
               Agenda
             </Link>
             <Link
+              href="/admin/tasks"
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+            >
+              <CheckCheck className="w-4 h-4" />
+              Tasks
+            </Link>
+            <Link
               href="/admin/team"
               className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
             >
@@ -466,6 +475,7 @@ export default function AdminDashboard() {
               <Plus className="w-4 h-4" />
               New Organization
             </button>
+            <NotificationBell />
             <button
               onClick={fetchData}
               className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"

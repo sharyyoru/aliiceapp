@@ -17,6 +17,7 @@ import {
   Check,
 } from "lucide-react";
 import { toDatetimeLocal, datetimeLocalToISO, localTimeZone } from "@/app/admin/agenda/lib";
+import TaskModal from "@/components/admin/TaskModal";
 
 interface OrgEmail {
   id: string;
@@ -89,6 +90,7 @@ export default function OrgEmailsTab({
     googleEmail: null,
   });
   const [syncing, setSyncing] = useState(false);
+  const [taskPrefill, setTaskPrefill] = useState<{ source_type: string; source_id: string; title: string } | null>(null);
 
   // Meeting composer state
   const defaultMeeting = () => {
@@ -464,7 +466,14 @@ export default function OrgEmailsTab({
                 dangerouslySetInnerHTML={{ __html: selected.body || "<p>(no content)</p>" }}
               />
             </div>
-            <div className="p-4 border-t flex justify-end">
+            <div className="p-4 border-t flex justify-between">
+              <button
+                onClick={() => setTaskPrefill({ source_type: "email", source_id: selected!.id, title: `Follow up: ${selected!.subject}` })}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <Check className="w-4 h-4 text-sky-600" />
+                Create Task
+              </button>
               <button
                 onClick={() => {
                   const target = selected;
@@ -628,24 +637,42 @@ export default function OrgEmailsTab({
                 )}
               </div>
             </div>
-            <div className="p-4 border-t flex justify-end gap-2">
+            <div className="p-4 border-t flex justify-between items-center">
               <button
-                onClick={() => setComposeOpen(false)}
-                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm"
+                type="button"
+                onClick={() => setTaskPrefill({ source_type: "email", source_id: "compose", title: form.subject ? `Follow up: ${form.subject}` : "Email follow-up" })}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
-                Cancel
+                <Check className="w-4 h-4 text-sky-600" />
+                Create Task
               </button>
-              <button
-                onClick={send}
-                disabled={sending}
-                className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
-              >
-                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {sending ? "Sending…" : "Send email"}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setComposeOpen(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={send}
+                  disabled={sending}
+                  className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+                >
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {sending ? "Sending…" : "Send email"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+      {taskPrefill && (
+        <TaskModal
+          orgId={orgId}
+          prefill={taskPrefill}
+          onClose={() => setTaskPrefill(null)}
+          onSaved={() => setTaskPrefill(null)}
+        />
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import OrgInvoicesTab from "./OrgInvoicesTab";
 import OrgEmailsTab from "./OrgEmailsTab";
+import OrgTasksTab from "./OrgTasksTab";
 import {
   ArrowLeft,
   Building2,
@@ -28,6 +29,7 @@ import {
   UserPlus,
   Loader2,
   CheckCircle,
+  CheckCircle2,
   AlertCircle,
   Clock,
   Video,
@@ -114,7 +116,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
   const [editForm, setEditForm] = useState<Partial<Organization>>({});
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "invoices" | "emails">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "invoices" | "emails" | "tasks">("overview");
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
@@ -643,6 +645,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
             { key: "overview" as const, label: "Overview", icon: Building2 },
             { key: "invoices" as const, label: "Invoices", icon: FileText },
             { key: "emails" as const, label: "Emails", icon: Mail },
+            { key: "tasks" as const, label: "Tasks", icon: CheckCircle },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -663,6 +666,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
         {activeTab === "emails" && (
           <OrgEmailsTab orgId={organization.id} orgEmail={organization.email} orgName={organization.name} />
         )}
+        {activeTab === "tasks" && <OrgTasksTab orgId={organization.id} />}
 
         {activeTab === "overview" && (
         <>
