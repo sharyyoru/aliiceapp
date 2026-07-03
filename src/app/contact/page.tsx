@@ -36,8 +36,10 @@ export default function ContactPage() {
         body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to send message");
+        throw new Error(data.error || "Failed to send message");
       }
 
       setIsSuccess(true);
@@ -50,7 +52,9 @@ export default function ContactPage() {
         message: "",
       });
     } catch (err) {
-      setError("Failed to send message. Please try again or email us directly.");
+      const errorMessage = err instanceof Error ? err.message : "Failed to send message. Please try again or email us directly.";
+      setError(errorMessage);
+      console.error("Contact form error:", err);
     } finally {
       setIsSubmitting(false);
     }

@@ -28,158 +28,115 @@ export default function PrivacyPage() {
 
           <h1 className="text-4xl font-bold text-slate-900 mb-8">Privacy Policy</h1>
 
-          <div className="prose prose-slate max-w-none">
+          <div className="prose prose-slate prose-lg max-w-none">
             <p className="text-slate-600 mb-8">
-              Last updated: July 3, 2026
+              Last updated: {new Date().toLocaleDateString()}
             </p>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">1. Introduction</h2>
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">1. Information We Collect</h2>
+              <p className="text-slate-600 mb-4">
+                Aliice collects information you provide directly to us, including:
+              </p>
+              <ul className="list-disc pl-6 text-slate-600 space-y-2">
+                <li>Name and contact information (email, phone number)</li>
+                <li>Company or organization details</li>
+                <li>Account credentials and authentication data</li>
+                <li>Patient records and medical information (for healthcare providers)</li>
+                <li>Payment and billing information</li>
+                <li>Communications with our support team</li>
+              </ul>
+            </section>
+
+            <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">2. How We Use Your Information</h2>
+              <p className="text-slate-600 mb-4">
+                We use the information we collect to:
+              </p>
+              <ul className="list-disc pl-6 text-slate-600 space-y-2">
+                <li>Provide, maintain, and improve our services</li>
+                <li>Process transactions and send related information</li>
+                <li>Send technical notices and support messages</li>
+                <li>Respond to comments and questions</li>
+                <li>Monitor and analyze trends, usage, and activities</li>
+                <li>Detect, prevent, and address technical issues and fraud</li>
+              </ul>
+            </section>
+
+            <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">3. Data Security</h2>
+              <p className="text-slate-600 mb-4">
+                We implement appropriate technical and organizational measures to protect your personal data against unauthorized access, alteration, disclosure, or destruction. This includes:
+              </p>
+              <ul className="list-disc pl-6 text-slate-600 space-y-2">
+                <li>Encryption of data in transit and at rest</li>
+                <li>Secure authentication and access controls</li>
+                <li>Regular security audits and assessments</li>
+                <li>GDPR compliance for European users</li>
+                <li>Swiss data hosting for enhanced privacy protection</li>
+              </ul>
+            </section>
+
+            <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">4. Data Retention</h2>
               <p className="text-slate-600">
-                Aliice ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our clinic management platform.
+                We retain your personal data for as long as necessary to provide our services and fulfill the purposes outlined in this privacy policy, unless a longer retention period is required or permitted by law.
               </p>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">2. Information We Collect</h2>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">2.1 Personal Information</h3>
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">5. Your Rights</h2>
               <p className="text-slate-600 mb-4">
-                We collect information you provide directly, including:
+                You have the right to:
               </p>
-              <ul className="list-disc pl-6 text-slate-600 mb-4">
-                <li>Name and contact details (email, phone number)</li>
-                <li>Company/clinic information</li>
-                <li>Account credentials</li>
-                <li>Payment information (processed securely through third-party providers)</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">2.2 Patient Data</h3>
-              <p className="text-slate-600 mb-4">
-                For healthcare providers using our platform, we process patient data including:
-              </p>
-              <ul className="list-disc pl-6 text-slate-600 mb-4">
-                <li>Patient names and contact information</li>
-                <li>Medical history and treatment records</li>
-                <li>Appointment schedules</li>
-                <li>Invoices and payment records</li>
-              </ul>
-
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">2.3 Usage Data</h3>
-              <p className="text-slate-600">
-                We automatically collect information about your use of our platform, including IP address, device information, and usage patterns.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">3. How We Use Your Information</h2>
-              <p className="text-slate-600 mb-4">We use your information to:</p>
-              <ul className="list-disc pl-6 text-slate-600 mb-4">
-                <li>Provide and improve our services</li>
-                <li>Process transactions and send invoices</li>
-                <li>Communicate with you about your account</li>
-                <li>Send important notices and updates</li>
-                <li>Analyze usage patterns to improve user experience</li>
-                <li>Comply with legal obligations</li>
-              </ul>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">4. Data Security</h2>
-              <p className="text-slate-600 mb-4">
-                We implement appropriate technical and organizational measures to protect your information:
-              </p>
-              <ul className="list-disc pl-6 text-slate-600 mb-4">
-                <li>All data is encrypted in transit and at rest</li>
-                <li>We host data in Switzerland (GDPR compliant)</li>
-                <li>Access to data is restricted to authorized personnel only</li>
-                <li>Regular security audits and penetration testing</li>
-                <li>Compliance with healthcare data protection regulations</li>
-              </ul>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">5. Data Sharing</h2>
-              <p className="text-slate-600 mb-4">
-                We do not sell your personal data. We may share your information only in the following circumstances:
-              </p>
-              <ul className="list-disc pl-6 text-slate-600 mb-4">
-                <li>With your explicit consent</li>
-                <li>With service providers who perform services on our behalf (e.g., payment processors, email services)</li>
-                <li>To comply with legal obligations or court orders</li>
-                <li>To protect our rights, property, or safety</li>
-              </ul>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">6. Your Rights</h2>
-              <p className="text-slate-600 mb-4">
-                Under GDPR and Swiss data protection laws, you have the right to:
-              </p>
-              <ul className="list-disc pl-6 text-slate-600 mb-4">
-                <li>Access your personal data</li>
+              <ul className="list-disc pl-6 text-slate-600 space-y-2">
+                <li>Access and review your personal data</li>
                 <li>Request correction of inaccurate data</li>
-                <li>Request deletion of your data</li>
-                <li>Object to processing of your data</li>
-                <li>Data portability</li>
+                <li>Request deletion of your personal data</li>
+                <li>Object to processing of your personal data</li>
+                <li>Request data portability</li>
                 <li>Withdraw consent at any time</li>
               </ul>
-              <p className="text-slate-600">
-                To exercise these rights, contact us at privacy@aliice.app
-              </p>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">7. Data Retention</h2>
-              <p className="text-slate-600">
-                We retain your data only as long as necessary for the purposes outlined in this policy, unless required by law to retain it longer. When you delete your account, we will delete or anonymize your personal data within 30 days.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">8. Third-Party Services</h2>
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">6. Third-Party Services</h2>
               <p className="text-slate-600 mb-4">
-                We use third-party services to operate our platform:
+                We use third-party services to help operate our business, including:
               </p>
-              <ul className="list-disc pl-6 text-slate-600 mb-4">
-                <li><strong>Supabase</strong> - Database and authentication</li>
-                <li><strong>Resend</strong> - Email delivery</li>
-                <li><strong>Payrexx</strong> - Payment processing</li>
-                <li><strong>Google</strong> - Calendar and email integration</li>
+              <ul className="list-disc pl-6 text-slate-600 space-y-2">
+                <li>Supabase for database and authentication</li>
+                <li>Resend for email delivery</li>
+                <li>Stripe for payment processing</li>
+                <li>Google for calendar integration</li>
               </ul>
               <p className="text-slate-600">
-                These services have their own privacy policies, which we encourage you to review.
+                These third parties have access to your personal data only to perform specific tasks on our behalf and are obligated not to disclose or use it for any other purpose.
               </p>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">9. International Data Transfers</h2>
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">7. International Data Transfers</h2>
               <p className="text-slate-600">
-                Your data is primarily stored in Switzerland. Any international transfers are conducted in compliance with GDPR requirements using appropriate safeguards such as Standard Contractual Clauses.
+                Your information may be transferred to and processed in countries other than your own. We ensure appropriate safeguards are in place to protect your data in accordance with this privacy policy and applicable data protection laws.
               </p>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">10. Children's Privacy</h2>
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">8. Changes to This Policy</h2>
               <p className="text-slate-600">
-                Our services are not intended for individuals under the age of 16. We do not knowingly collect personal information from children.
+                We may update this privacy policy from time to time. We will notify you of any changes by posting the new privacy policy on this page and updating the "Last updated" date.
               </p>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">11. Changes to This Policy</h2>
-              <p className="text-slate-600">
-                We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new policy on our website and updating the "Last updated" date.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">12. Contact Us</h2>
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">9. Contact Us</h2>
               <p className="text-slate-600 mb-4">
-                If you have questions about this Privacy Policy or our data practices, please contact us:
+                If you have any questions about this privacy policy, please contact us:
               </p>
-              <ul className="list-none text-slate-600">
-                <li>Email: privacy@aliice.app</li>
-                <li>Address: Switzerland</li>
+              <ul className="list-none text-slate-600 space-y-2">
+                <li>Email: <a href="mailto:info@aliice.app" className="text-sky-600 hover:underline">info@aliice.app</a></li>
+                <li>Website: <a href="https://www.aliice.app" className="text-sky-600 hover:underline">www.aliice.app</a></li>
               </ul>
             </section>
           </div>
@@ -189,7 +146,7 @@ export default function PrivacyPage() {
       {/* Footer */}
       <footer className="border-t border-slate-100 py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <p className="text-sm text-slate-500">© 2026 Aliice. All rights reserved.</p>
+          <p className="text-sm text-slate-500">© 2025 Aliice. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <Link href="/privacy" className="text-sm text-slate-500 hover:text-slate-900">Privacy</Link>
             <Link href="/terms" className="text-sm text-slate-500 hover:text-slate-900">Terms</Link>
