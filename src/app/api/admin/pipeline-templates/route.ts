@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await request.json();
-  const { name, subject, body_html, description } = body;
+  const { name, subject, body_html, subject_fr, body_html_fr, description } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -55,6 +55,8 @@ export async function POST(request: Request) {
       name: name.trim(),
       subject: subject || "",
       body_html: body_html || "",
+      subject_fr: subject_fr || null,
+      body_html_fr: body_html_fr || null,
       description: description || null,
     })
     .select()

@@ -1,11 +1,90 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Loader2, User, Mail, Phone, Building2 } from "lucide-react";
 
+type Lang = "en" | "fr";
+
+const COPY: Record<Lang, {
+  heading: string;
+  sub: string;
+  name: string;
+  namePlaceholder: string;
+  email: string;
+  mobile: string;
+  company: string;
+  companyPlaceholder: string;
+  submit: string;
+  submitting: string;
+  fillAll: string;
+  invalidEmail: string;
+  genericError: string;
+  successTitle: string;
+  successBody: (name: string, email: string, company: string) => string;
+  backHome: string;
+  haveAccount: string;
+  signIn: string;
+  terms: string;
+  tos: string;
+  privacy: string;
+  and: string;
+}> = {
+  en: {
+    heading: "Start your free trial",
+    sub: "Tell us about yourself and we'll get your clinic set up.",
+    name: "Name",
+    namePlaceholder: "Dr. John Smith",
+    email: "Email",
+    mobile: "Mobile",
+    company: "Company Name",
+    companyPlaceholder: "Acme Clinic",
+    submit: "Get Started",
+    submitting: "Submitting...",
+    fillAll: "Please fill in all fields.",
+    invalidEmail: "Please enter a valid email address.",
+    genericError: "Something went wrong. Please try again.",
+    successTitle: "You're on the list!",
+    successBody: (name, email, company) =>
+      `Thanks, ${name}. Our team will reach out to ${email} shortly to get ${company} set up on Aliice.`,
+    backHome: "Back to Home",
+    haveAccount: "Already have an account?",
+    signIn: "Sign in",
+    terms: "By signing up, you agree to our",
+    tos: "Terms of Service",
+    privacy: "Privacy Policy",
+    and: "and",
+  },
+  fr: {
+    heading: "Démarrez votre essai gratuit",
+    sub: "Parlez-nous de vous et nous configurerons votre clinique.",
+    name: "Nom",
+    namePlaceholder: "Dr Jean Dupont",
+    email: "E-mail",
+    mobile: "Téléphone",
+    company: "Nom de l'établissement",
+    companyPlaceholder: "Clinique Acme",
+    submit: "Commencer",
+    submitting: "Envoi en cours...",
+    fillAll: "Veuillez remplir tous les champs.",
+    invalidEmail: "Veuillez saisir une adresse e-mail valide.",
+    genericError: "Une erreur s'est produite. Veuillez réessayer.",
+    successTitle: "Votre demande est enregistrée !",
+    successBody: (name, email, company) =>
+      `Merci, ${name}. Notre équipe contactera ${email} prochainement pour configurer ${company} sur Aliice.`,
+    backHome: "Retour à l'accueil",
+    haveAccount: "Vous avez déjà un compte ?",
+    signIn: "Se connecter",
+    terms: "En vous inscrivant, vous acceptez nos",
+    tos: "Conditions d'utilisation",
+    privacy: "Politique de confidentialité",
+    and: "et",
+  },
+};
+
 export default function SignupPage() {
+  const [lang, setLang] = useState<Lang>("en");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
@@ -14,18 +93,37 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  const t = COPY[lang];
+
+  // Determine initial language from ?lang= (e.g. QR code links) or the browser.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const q = (params.get("lang") || "").toLowerCase();
+      if (q.startsWith("fr")) {
+        setLang("fr");
+      } else if (q.startsWith("en")) {
+        setLang("en");
+      } else if ((navigator.language || "").toLowerCase().startsWith("fr")) {
+        setLang("fr");
+      }
+    } catch {
+      // default en
+    }
+  }, []);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
 
     if (!name.trim() || !email.trim() || !mobile.trim() || !companyName.trim()) {
-      setError("Please fill in all fields.");
+      setError(t.fillAll);
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      setError("Please enter a valid email address.");
+      setError(t.invalidEmail);
       return;
     }
 
@@ -40,13 +138,14 @@ export default function SignupPage() {
           email: email.trim(),
           mobile: mobile.trim(),
           company_name: companyName.trim(),
+          preferred_language: lang,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Something went wrong. Please try again.");
+        setError(data.error || t.genericError);
         setLoading(false);
         return;
       }
@@ -54,7 +153,7 @@ export default function SignupPage() {
       setSuccess(true);
     } catch (err) {
       console.error("Signup error:", err);
-      setError("An unexpected error occurred. Please try again.");
+      setError(t.genericError);
     } finally {
       setLoading(false);
     }
@@ -63,8 +162,8 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-sky-50 p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="mb-8 flex justify-center">
+        {/* Logo + language switch */}
+        <div className="mb-8 flex items-center justify-between">
           <Link href="/">
             <Image
               src="/logos/aliice-logo.png"
@@ -74,6 +173,26 @@ export default function SignupPage() {
               className="h-10 w-auto"
             />
           </Link>
+          <div className="flex items-center rounded-full border border-slate-200 bg-white/80 p-0.5 text-xs font-semibold shadow-sm">
+            <button
+              type="button"
+              onClick={() => setLang("en")}
+              className={`rounded-full px-3 py-1 transition ${
+                lang === "en" ? "bg-sky-600 text-white" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang("fr")}
+              className={`rounded-full px-3 py-1 transition ${
+                lang === "fr" ? "bg-sky-600 text-white" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              FR
+            </button>
+          </div>
         </div>
 
         <div className="rounded-3xl border border-white/70 bg-white/90 p-8 shadow-[0_22px_50px_rgba(15,23,42,0.18)] backdrop-blur-xl">
@@ -95,28 +214,26 @@ export default function SignupPage() {
                 </svg>
               </div>
               <h2 className="text-xl font-semibold text-slate-900 mb-2">
-                You&apos;re on the list!
+                {t.successTitle}
               </h2>
               <p className="text-sm text-slate-600 mb-6">
-                Thanks, <strong>{name}</strong>. Our team will reach out to{" "}
-                <strong>{email}</strong> shortly to get{" "}
-                <strong>{companyName}</strong> set up on Aliice.
+                {t.successBody(name, email, companyName)}
               </p>
               <Link
                 href="/"
                 className="text-sm font-medium text-sky-600 hover:text-sky-700"
               >
-                Back to Home
+                {t.backHome}
               </Link>
             </div>
           ) : (
             <>
               <div className="mb-6 text-center">
                 <h1 className="text-lg font-semibold text-slate-900">
-                  Start your free trial
+                  {t.heading}
                 </h1>
                 <p className="mt-1 text-xs text-slate-500">
-                  Tell us about yourself and we&apos;ll get your clinic set up.
+                  {t.sub}
                 </p>
               </div>
 
@@ -126,7 +243,7 @@ export default function SignupPage() {
                     htmlFor="name"
                     className="block text-xs font-medium text-slate-700 mb-1"
                   >
-                    Name
+                    {t.name}
                   </label>
                   <div className="relative">
                     <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -135,7 +252,7 @@ export default function SignupPage() {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Dr. John Smith"
+                      placeholder={t.namePlaceholder}
                       required
                       disabled={loading}
                       className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 pl-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-60"
@@ -148,7 +265,7 @@ export default function SignupPage() {
                     htmlFor="email"
                     className="block text-xs font-medium text-slate-700 mb-1"
                   >
-                    Email
+                    {t.email}
                   </label>
                   <div className="relative">
                     <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -170,7 +287,7 @@ export default function SignupPage() {
                     htmlFor="mobile"
                     className="block text-xs font-medium text-slate-700 mb-1"
                   >
-                    Mobile
+                    {t.mobile}
                   </label>
                   <div className="relative">
                     <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -192,7 +309,7 @@ export default function SignupPage() {
                     htmlFor="companyName"
                     className="block text-xs font-medium text-slate-700 mb-1"
                   >
-                    Company Name
+                    {t.company}
                   </label>
                   <div className="relative">
                     <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -201,7 +318,7 @@ export default function SignupPage() {
                       type="text"
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="Acme Clinic"
+                      placeholder={t.companyPlaceholder}
                       required
                       disabled={loading}
                       className="block w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 pl-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-60"
@@ -219,34 +336,34 @@ export default function SignupPage() {
                   {loading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Submitting...
+                      {t.submitting}
                     </>
                   ) : (
-                    "Get Started"
+                    t.submit
                   )}
                 </button>
               </form>
 
               <div className="mt-6 text-center">
                 <p className="text-xs text-slate-500">
-                  Already have an account?{" "}
+                  {t.haveAccount}{" "}
                   <Link
                     href="/login"
                     className="font-medium text-sky-600 hover:text-sky-700"
                   >
-                    Sign in
+                    {t.signIn}
                   </Link>
                 </p>
               </div>
 
               <p className="mt-4 text-center text-[10px] text-slate-400">
-                By signing up, you agree to our{" "}
+                {t.terms}{" "}
                 <Link href="/terms" className="underline hover:text-slate-600">
-                  Terms of Service
+                  {t.tos}
                 </Link>{" "}
-                and{" "}
+                {t.and}{" "}
                 <Link href="/privacy" className="underline hover:text-slate-600">
-                  Privacy Policy
+                  {t.privacy}
                 </Link>
                 .
               </p>

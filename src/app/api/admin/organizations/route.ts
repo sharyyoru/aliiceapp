@@ -181,6 +181,7 @@ export async function PATCH(request: Request) {
             country: data.country,
             subscription_tier: data.subscription_tier,
             deal_value: data.deal_value,
+            preferred_language: data.preferred_language,
           },
           data.sales_funnel_stage,
           previousStage

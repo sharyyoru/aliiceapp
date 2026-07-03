@@ -9,6 +9,7 @@ type SignupPayload = {
   email?: string;
   mobile?: string;
   company_name?: string;
+  preferred_language?: string;
 };
 
 function getSupabaseAdmin() {
@@ -54,6 +55,8 @@ export async function POST(request: Request) {
     const email = body.email?.trim().toLowerCase() || "";
     const mobile = body.mobile?.trim() || "";
     const companyName = body.company_name?.trim() || "";
+    const preferredLanguage =
+      String(body.preferred_language || "").toLowerCase().startsWith("fr") ? "fr" : "en";
 
     if (!name || !email || !mobile || !companyName) {
       return NextResponse.json(
@@ -91,7 +94,8 @@ export async function POST(request: Request) {
       subscription_tier: "free",
       subscription_status: "trialing",
       sales_funnel_stage: "new_signup",
-      notes: `Signup contact: ${name}\nMobile: ${mobile}\nSource: /signup form`,
+      preferred_language: preferredLanguage,
+      notes: `Signup contact: ${name}\nMobile: ${mobile}\nSource: /signup form\nLanguage: ${preferredLanguage}`,
     };
 
     const { data: org, error } = await supabase

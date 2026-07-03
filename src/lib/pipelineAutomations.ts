@@ -24,6 +24,12 @@ export interface AutomationOrg {
   country: string | null;
   subscription_tier: string | null;
   deal_value: number | null;
+  preferred_language?: string | null;
+}
+
+export interface AutomationContact {
+  full_name?: string | null;
+  first_name?: string | null;
 }
 
 function resolvePath(object: unknown, path: string): unknown {
@@ -56,7 +62,14 @@ export function renderTemplate(template: string, context: unknown): string {
   });
 }
 
-export function buildOrgContext(org: AutomationOrg, toStageId: string, fromStageId: string | null) {
+export function buildOrgContext(
+  org: AutomationOrg,
+  toStageId: string,
+  fromStageId: string | null,
+  contact?: AutomationContact | null
+) {
+  const contactFull = (contact?.full_name || "").trim();
+  const contactFirst = (contact?.first_name || contactFull.split(" ")[0] || "").trim();
   return {
     org: {
       name: org.name || "",
@@ -68,6 +81,11 @@ export function buildOrgContext(org: AutomationOrg, toStageId: string, fromStage
       tier: org.subscription_tier || "free",
       deal_value: org.deal_value || 0,
     },
+    contact: {
+      // Falls back to the organization name so greetings are never empty.
+      name: contactFull || org.name || "",
+      first_name: contactFirst || org.name || "",
+    },
     stage: {
       id: toStageId,
       label: STAGE_LABELS[toStageId] || toStageId,
@@ -77,6 +95,10 @@ export function buildOrgContext(org: AutomationOrg, toStageId: string, fromStage
       label: fromStageId ? STAGE_LABELS[fromStageId] || fromStageId : "",
     },
   };
+}
+
+function normalizeLanguage(lang: string | null | undefined): "en" | "fr" {
+  return String(lang || "").toLowerCase().startsWith("fr") ? "fr" : "en";
 }
 
 type AutomationRow = {
@@ -94,6 +116,8 @@ type TemplateRow = {
   id: string;
   subject: string;
   body_html: string;
+  subject_fr?: string | null;
+  body_html_fr?: string | null;
 };
 
 /**
@@ -122,7 +146,23 @@ export async function runStageAutomations(
       return { triggered, sent };
     }
 
-    const context = buildOrgContext(org, toStageId, fromStageId);
+    // Best-effort: fetch the org's primary contact so emails can greet a person.
+    let primaryContact: AutomationContact | null = null;
+    try {
+      const { data: contactRow } = await supabase
+        .from("organization_contacts")
+        .select("full_name")
+        .eq("organization_id", org.id)
+        .order("is_primary", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (contactRow) primaryContact = { full_name: contactRow.full_name };
+    } catch {
+      // contact enrichment is optional
+    }
+
+    const language = normalizeLanguage(org.preferred_language);
+    const context = buildOrgContext(org, toStageId, fromStageId, primaryContact);
 
     for (const automation of automations as AutomationRow[]) {
       triggered += 1;
@@ -145,7 +185,7 @@ export async function runStageAutomations(
 
         const { data: template } = await supabase
           .from("sales_pipeline_email_templates")
-          .select("id, subject, body_html")
+          .select("*")
           .eq("id", automation.template_id)
           .single();
 
@@ -165,8 +205,14 @@ export async function runStageAutomations(
           continue;
         }
 
-        const subject = renderTemplate(tpl.subject, context) || "Update from Aliice";
-        const html = renderTemplate(tpl.body_html, context);
+        // Pick the language variant. Fall back to English when the French
+        // variant is missing/empty so an automation never sends blank content.
+        const useFr = language === "fr" && !!(tpl.body_html_fr && tpl.body_html_fr.trim());
+        const rawSubject = useFr ? tpl.subject_fr || tpl.subject : tpl.subject;
+        const rawBody = useFr ? tpl.body_html_fr || tpl.body_html : tpl.body_html;
+
+        const subject = renderTemplate(rawSubject, context) || "Update from Aliice";
+        const html = renderTemplate(rawBody, context);
 
         if (!isEmailConfigured()) {
           await logRun("skipped", { reason: "Email service not configured", recipient, subject });
@@ -183,9 +229,9 @@ export async function runStageAutomations(
 
         if (result.success) {
           sent += 1;
-          await logRun("success", { recipient, subject, messageId: result.messageId });
+          await logRun("success", { recipient, subject, language, messageId: result.messageId });
         } else {
-          await logRun("failed", { recipient, subject, error: result.error });
+          await logRun("failed", { recipient, subject, language, error: result.error });
         }
       } else {
         await logRun("skipped", { reason: `Unsupported action_type: ${automation.action_type}` });

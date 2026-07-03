@@ -43,6 +43,7 @@ interface Organization {
   subscription_tier: string | null;
   subscription_status: string | null;
   sales_funnel_stage: string | null;
+  preferred_language: string | null;
   deal_value: number | null;
   trial_ends_at: string | null;
   created_at: string;
@@ -354,6 +355,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
           sales_funnel_stage: editForm.sales_funnel_stage,
           subscription_tier: editForm.subscription_tier,
           subscription_status: editForm.subscription_status,
+          preferred_language: editForm.preferred_language,
         }),
       });
 
@@ -695,6 +697,28 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                     {organization.subscription_status || "trialing"}
                   </span>
                 )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Communication Language
+                </label>
+                {isEditing ? (
+                  <select
+                    value={editForm.preferred_language || "en"}
+                    onChange={(e) => setEditForm({ ...editForm, preferred_language: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  >
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                  </select>
+                ) : (
+                  <span className="text-slate-600">
+                    {(organization.preferred_language || "en") === "fr" ? "Français" : "English"}
+                  </span>
+                )}
+                <p className="mt-1 text-xs text-slate-400">
+                  Automated pipeline emails are sent in this language.
+                </p>
               </div>
               {organization.trial_ends_at && (
                 <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
