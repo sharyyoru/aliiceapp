@@ -30,6 +30,9 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
+  Video,
+  CalendarDays,
+  RefreshCw,
 } from "lucide-react";
 
 interface Organization {
@@ -113,6 +116,52 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
   const [newUser, setNewUser] = useState({ email: "", full_name: "", password: "", role: "staff" });
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+
+  // Calendar events for this org
+  type OrgCalEvent = {
+    id: string;
+    title: string;
+    start: string;
+    end: string;
+    allDay: boolean;
+    meetLink: string | null;
+    ownerEmail: string;
+    ownerGoogleEmail: string;
+    attendees: { email: string }[];
+  };
+  const [calEvents, setCalEvents] = useState<OrgCalEvent[]>([]);
+  const [calLoading, setCalLoading] = useState(false);
+
+  const fetchOrgCalEvents = async (orgEmail: string | null) => {
+    if (!orgEmail) return;
+    setCalLoading(true);
+    try {
+      const now = new Date();
+      const past = new Date(now);
+      past.setMonth(past.getMonth() - 1);
+      const future = new Date(now);
+      future.setMonth(future.getMonth() + 3);
+      const params = new URLSearchParams({
+        timeMin: past.toISOString(),
+        timeMax: future.toISOString(),
+      });
+      const res = await fetch(`/api/admin/agenda/events?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const all: OrgCalEvent[] = data.events || [];
+      // Keep events where the org email appears as attendee
+      const filtered = all.filter((e) =>
+        e.attendees?.some(
+          (a: { email: string }) => a.email.toLowerCase() === orgEmail.toLowerCase()
+        )
+      );
+      setCalEvents(filtered);
+    } catch {
+      // ignore
+    } finally {
+      setCalLoading(false);
+    }
+  };
   const [addingPayment, setAddingPayment] = useState(false);
   const [newPayment, setNewPayment] = useState<{
     period_start: string;
@@ -143,8 +192,9 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
         if (org) {
           setOrganization(org);
           setEditForm(org);
-          // Fetch stats, users, and payments
+          // Fetch stats, users, payments, and calendar events
           await Promise.all([fetchStats(org.id), fetchUsers(org.id), fetchPayments(org.id)]);
+          fetchOrgCalEvents(org.email);
         } else {
           setError("Organization not found");
         }
@@ -1061,6 +1111,80 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
             )}
           </div>
         )}
+
+        {/* Calendar Events Section */}
+        <div className="mt-6 bg-white rounded-xl shadow-sm border p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-sky-600" />
+              <h2 className="text-lg font-semibold text-slate-900">Calendar Events</h2>
+              <span className="text-xs text-slate-400 ml-1">(last month → next 3 months)</span>
+            </div>
+            <button
+              onClick={() => fetchOrgCalEvents(organization?.email ?? null)}
+              disabled={calLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 border rounded-lg hover:bg-slate-50 disabled:opacity-50"
+            >
+              {calLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              Refresh
+            </button>
+          </div>
+
+          {!organization?.email ? (
+            <p className="text-sm text-slate-400 py-4 text-center">No email address on file — events are matched by attendee email.</p>
+          ) : calLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
+            </div>
+          ) : calEvents.length === 0 ? (
+            <div className="text-center py-8 text-slate-400">
+              <CalendarDays className="w-10 h-10 mx-auto mb-2 text-slate-200" />
+              <p className="text-sm">No calendar events found for <span className="font-medium text-slate-500">{organization.email}</span></p>
+              <p className="text-xs mt-1 text-slate-400">Events where this org&apos;s email is an attendee will appear here.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {calEvents.map((ev) => {
+                const start = new Date(ev.start);
+                const isPast = start < new Date();
+                const dateStr = ev.allDay
+                  ? start.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                  : start.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                return (
+                  <div key={ev.id} className={`flex items-start gap-4 py-3 ${isPast ? "opacity-60" : ""}`}>
+                    <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg border bg-slate-50 text-center">
+                      <span className="text-xs font-semibold leading-none text-slate-700">
+                        {start.toLocaleString("en-GB", { month: "short" }).toUpperCase()}
+                      </span>
+                      <span className="text-lg font-bold leading-none text-slate-900">{start.getDate()}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-slate-900 truncate">{ev.title}</span>
+                        {ev.meetLink && (
+                          <a
+                            href={ev.meetLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
+                          >
+                            <Video className="w-3 h-3" />
+                            Join Meet
+                          </a>
+                        )}
+                        {isPast && (
+                          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Past</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-slate-500 mt-0.5">{dateStr}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">Organiser: {ev.ownerGoogleEmail}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
         </>
         )}
       </main>
