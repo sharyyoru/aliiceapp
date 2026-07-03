@@ -4,16 +4,11 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Mail,
-  Phone,
-  MapPin,
   Send,
   CheckCircle,
   Loader2,
   ArrowLeft,
-  MessageSquare,
-  Clock,
-  Shield,
+  MessageCircle,
 } from "lucide-react";
 
 export default function ContactPage() {
@@ -72,7 +67,7 @@ export default function ContactPage() {
           <div className="flex items-center gap-4">
             <Link href="/pricing" className="text-sm font-medium text-slate-600 hover:text-slate-900">Pricing</Link>
             <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">Login</Link>
-            <Link href="/contact" className="rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
+            <Link href="/signup" className="rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
               Request a Demo
             </Link>
           </div>
@@ -87,72 +82,7 @@ export default function ContactPage() {
             Back to Home
           </Link>
 
-          <div className="grid lg:grid-cols-2 gap-16">
-            {/* Left - Contact Info */}
-            <div>
-              <h1 className="text-4xl font-bold text-slate-900 mb-4">Get in Touch</h1>
-              <p className="text-lg text-slate-600 mb-8">
-                Have questions about Aliice? Want to schedule a demo? We&apos;re here to help.
-              </p>
-
-              {/* Contact Methods */}
-              <div className="space-y-6 mb-12">
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0">
-                    <Mail className="h-6 w-6 text-sky-600" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-900">Email Us</div>
-                    <a href="mailto:info@aliice.app" className="text-sky-600 hover:text-sky-700">
-                      info@aliice.app
-                    </a>
-                    <div className="text-sm text-slate-500 mt-1">We reply within 24 hours</div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="h-6 w-6 text-violet-600" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-900">Live Chat</div>
-                    <div className="text-slate-600">Available Mon-Fri, 9am-6pm CET</div>
-                    <div className="text-sm text-slate-500 mt-1">Average response: 5 minutes</div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-6 w-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-900">Location</div>
-                    <div className="text-slate-600">Switzerland</div>
-                    <div className="text-sm text-slate-500 mt-1">Swiss data hosting & GDPR compliant</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Trust Badges */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-3">
-                  <Clock className="h-8 w-8 text-slate-400" />
-                  <div>
-                    <div className="font-semibold text-slate-900">24h Response</div>
-                    <div className="text-sm text-slate-500">Guaranteed</div>
-                  </div>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-3">
-                  <Shield className="h-8 w-8 text-slate-400" />
-                  <div>
-                    <div className="font-semibold text-slate-900">GDPR Compliant</div>
-                    <div className="text-sm text-slate-500">Data Protection</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right - Contact Form */}
+          <div className="max-w-2xl mx-auto">
             <div className="bg-slate-50 rounded-3xl p-8">
               {isSuccess ? (
                 <div className="text-center py-12">
@@ -271,10 +201,22 @@ export default function ContactPage() {
                     )}
                   </button>
 
-                  <p className="text-xs text-slate-500 text-center">
-                    By submitting this form, you agree to our{" "}
-                    <Link href="/privacy" className="text-sky-600 hover:underline">Privacy Policy</Link>.
-                  </p>
+                  <div className="flex items-center justify-center gap-4 mt-4">
+                    <a
+                      href="https://wa.me/971584647606"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-green-600 hover:text-green-700 font-medium text-sm"
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                      Chat on WhatsApp
+                    </a>
+                    <span className="text-slate-300">|</span>
+                    <p className="text-xs text-slate-500">
+                      By submitting this form, you agree to our{" "}
+                      <Link href="/privacy" className="text-sky-600 hover:underline">Privacy Policy</Link>.
+                    </p>
+                  </div>
                 </form>
               )}
             </div>

@@ -160,7 +160,7 @@ export default function LandingPageClient() {
               Login
             </Link>
             <Link
-              href="/contact"
+              href="/signup"
               className="rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-sky-600/25 transition-all hover:shadow-sky-600/40 hover:scale-105"
             >
               Request a Demo
@@ -186,7 +186,7 @@ export default function LandingPageClient() {
             <Link href="/contact" className="block py-2 text-slate-600">Contact</Link>
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <Link href="/login" className="block py-2 text-slate-600">Login</Link>
-              <Link href="/contact" className="block w-full text-center rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
+              <Link href="/signup" className="block w-full text-center rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white">
                 Request a Demo
               </Link>
             </div>
@@ -238,7 +238,7 @@ export default function LandingPageClient() {
 
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
                 <Link
-                  href="/contact"
+                  href="/signup"
                   className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-8 py-4 text-base font-semibold text-white transition-all duration-300 hover:bg-slate-800 hover:-translate-y-0.5 hover:shadow-xl"
                 >
                   Request a Demo
@@ -539,7 +539,7 @@ export default function LandingPageClient() {
           </p>
           <div className="mt-10">
             <Link
-              href="/contact"
+              href="/signup"
               className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-600 to-violet-600 px-10 py-4 text-lg font-semibold text-white shadow-lg shadow-sky-600/25 transition-all hover:shadow-sky-600/40 hover:scale-105"
             >
               <Zap className="h-5 w-5" />
