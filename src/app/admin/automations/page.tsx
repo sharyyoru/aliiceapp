@@ -15,7 +15,9 @@ import {
   Pencil,
   Power,
   Eye,
+  LayoutTemplate,
 } from "lucide-react";
+import EmailBuilder from "@/components/admin/EmailBuilder";
 
 const STAGES = [
   { id: "new_signup", label: "New Signup" },
@@ -71,6 +73,8 @@ interface Template {
   body_html: string;
   subject_fr: string | null;
   body_html_fr: string | null;
+  design_json: Record<string, unknown> | null;
+  design_json_fr: Record<string, unknown> | null;
   description: string | null;
   created_at: string;
 }
@@ -512,13 +516,32 @@ function TemplateModal({
   const [bodyHtml, setBodyHtml] = useState(template?.body_html || "");
   const [subjectFr, setSubjectFr] = useState(template?.subject_fr || "");
   const [bodyFr, setBodyFr] = useState(template?.body_html_fr || "");
+  const [designEn, setDesignEn] = useState<Record<string, unknown> | null>(
+    template?.design_json || null
+  );
+  const [designFr, setDesignFr] = useState<Record<string, unknown> | null>(
+    template?.design_json_fr || null
+  );
   const [editLang, setEditLang] = useState<"en" | "fr">("en");
   const [showPreview, setShowPreview] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   const curSubject = editLang === "fr" ? subjectFr : subject;
   const curBody = editLang === "fr" ? bodyFr : bodyHtml;
   const setCurSubject = editLang === "fr" ? setSubjectFr : setSubject;
   const setCurBody = editLang === "fr" ? setBodyFr : setBodyHtml;
+  const curDesign = editLang === "fr" ? designFr : designEn;
+
+  const handleBuilderSave = (html: string, design: Record<string, unknown>) => {
+    if (editLang === "fr") {
+      setBodyFr(html);
+      setDesignFr(design);
+    } else {
+      setBodyHtml(html);
+      setDesignEn(design);
+    }
+    setBuilderOpen(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-4">
@@ -564,14 +587,24 @@ function TemplateModal({
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setShowPreview((v) => !v)}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-sky-700"
-            >
-              <Eye className="h-3.5 w-3.5" />
-              {showPreview ? "Edit" : "Preview"}
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setBuilderOpen(true)}
+                className="flex items-center gap-1.5 rounded-md bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+              >
+                <LayoutTemplate className="h-3.5 w-3.5" />
+                Design email
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPreview((v) => !v)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-sky-700"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                {showPreview ? "Edit" : "Preview"}
+              </button>
+            </div>
           </div>
 
           {showPreview ? (
@@ -658,6 +691,8 @@ function TemplateModal({
                 body_html: bodyHtml,
                 subject_fr: subjectFr || null,
                 body_html_fr: bodyFr || null,
+                design_json: designEn,
+                design_json_fr: designFr,
               })
             }
             disabled={saving || !name.trim()}
@@ -668,6 +703,16 @@ function TemplateModal({
           </button>
         </div>
       </div>
+
+      {builderOpen && (
+        <EmailBuilder
+          title={`${name || "Untitled template"} · ${editLang === "fr" ? "Français" : "English"}`}
+          initialDesign={curDesign}
+          initialHtml={curBody}
+          onSave={handleBuilderSave}
+          onClose={() => setBuilderOpen(false)}
+        />
+      )}
     </div>
   );
 }

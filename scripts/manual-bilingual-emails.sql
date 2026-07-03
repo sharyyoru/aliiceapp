@@ -8,7 +8,9 @@ ALTER TABLE organizations
 
 ALTER TABLE sales_pipeline_email_templates
   ADD COLUMN IF NOT EXISTS subject_fr TEXT,
-  ADD COLUMN IF NOT EXISTS body_html_fr TEXT;
+  ADD COLUMN IF NOT EXISTS body_html_fr TEXT,
+  ADD COLUMN IF NOT EXISTS design_json JSONB,
+  ADD COLUMN IF NOT EXISTS design_json_fr JSONB;
 
 DO $seed$
 DECLARE
