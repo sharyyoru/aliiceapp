@@ -147,14 +147,17 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
   const [ownerSearch, setOwnerSearch] = useState("");
   const [ownerDropdownOpen, setOwnerDropdownOpen] = useState(false);
   const [savingOwner, setSavingOwner] = useState(false);
+  const [loadingAdminUsers, setLoadingAdminUsers] = useState(false);
 
   const fetchAdminUsers = async () => {
+    setLoadingAdminUsers(true);
     try {
       const res = await fetch("/api/admin/admin-users");
       if (!res.ok) return;
       const data = await res.json();
       setAdminUsers(data.adminUsers || []);
     } catch { /* non-fatal */ }
+    finally { setLoadingAdminUsers(false); }
   };
 
   const handleOwnerChange = async (adminUser: AdminUser | null) => {
@@ -923,7 +926,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
             {/* Searchable dropdown */}
             <div className="relative">
               <button
-                onClick={() => { setOwnerDropdownOpen((o) => !o); setOwnerSearch(""); }}
+                onClick={() => { setOwnerDropdownOpen((o) => !o); setOwnerSearch(""); if (adminUsers.length === 0) fetchAdminUsers(); }}
                 disabled={savingOwner}
                 className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-colors bg-white disabled:opacity-60"
               >
@@ -957,7 +960,12 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
                   {/* Options */}
                   <div className="max-h-52 overflow-y-auto py-1">
-                    {adminUsers
+                    {loadingAdminUsers ? (
+                      <div className="flex items-center justify-center py-4 gap-2 text-sm text-slate-400">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading admin users…
+                      </div>
+                    ) : adminUsers
                       .filter((u) => {
                         const q = ownerSearch.toLowerCase();
                         return !q || u.email.toLowerCase().includes(q) || (u.full_name || "").toLowerCase().includes(q);
