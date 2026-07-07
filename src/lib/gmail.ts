@@ -357,6 +357,53 @@ export async function getThreadMessages(accessToken: string, threadId: string): 
   });
 }
 
+// ─── Multipart MIME with attachment ──────────────────────────────────────────
+function buildRawEmailWithAttachments(opts: {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  replyTo?: string;
+  attachments?: Array<{ filename: string; content: string; encoding: "base64"; contentType: string }>;
+}): string {
+  const boundary = `boundary_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+  const headers = [
+    `From: ${opts.from}`,
+    `To: ${opts.to}`,
+    `Subject: ${encodeHeaderValue(opts.subject)}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+  ];
+  if (opts.replyTo) headers.push(`Reply-To: ${opts.replyTo}`);
+
+  const htmlPart = [
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    Buffer.from(opts.html, "utf-8").toString("base64").replace(/(.{76})/g, "$1\r\n"),
+  ].join("\r\n");
+
+  const attachParts = (opts.attachments || []).map((att) => [
+    `--${boundary}`,
+    `Content-Type: ${att.contentType}; name="${att.filename}"`,
+    "Content-Transfer-Encoding: base64",
+    `Content-Disposition: attachment; filename="${att.filename}"`,
+    "",
+    att.content.replace(/(.{76})/g, "$1\r\n"),
+  ].join("\r\n"));
+
+  const raw = [
+    headers.join("\r\n"),
+    "",
+    htmlPart,
+    ...attachParts,
+    `--${boundary}--`,
+  ].join("\r\n");
+
+  return base64UrlEncode(raw);
+}
+
 // ─── System Email Sending ─────────────────────────────────────────────────────
 /**
  * Send a system email (contact form, signup automation, etc.) via Gmail.
@@ -368,10 +415,10 @@ export async function sendSystemEmail(opts: {
   subject: string;
   html: string;
   replyTo?: string;
+  attachments?: Array<{ filename: string; content: string; encoding: "base64"; contentType: string }>;
 }): Promise<GmailSendResult> {
   const systemAdminEmail = process.env.SYSTEM_GMAIL_ADMIN_EMAIL || "info@aliice.app";
 
-  // Get the admin's Gmail access token
   const tokenData = await getValidAccessToken(systemAdminEmail);
   if (!tokenData) {
     console.error("[Gmail] No valid access token for system admin:", systemAdminEmail);
@@ -379,6 +426,26 @@ export async function sendSystemEmail(opts: {
   }
 
   const from = tokenData.googleEmail;
+
+  if (opts.attachments && opts.attachments.length > 0) {
+    const raw = buildRawEmailWithAttachments({
+      from,
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+      replyTo: opts.replyTo,
+      attachments: opts.attachments,
+    });
+    const res = await fetch(`${GMAIL_API}/messages/send`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenData.accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ raw }),
+    });
+    const data = (await res.json()) as { id?: string; threadId?: string; error?: { message?: string } };
+    if (!res.ok || !data.id) return { ok: false, error: data.error?.message || `Gmail send failed (${res.status})` };
+    return { ok: true, messageId: data.id, threadId: data.threadId };
+  }
+
   return sendGmailMessage(tokenData.accessToken, {
     from,
     to: opts.to,

@@ -32,6 +32,7 @@ import {
   Zap,
   CheckCheck,
   MessageCircle,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
 import { LayoutGrid, List } from "lucide-react";
@@ -452,14 +453,14 @@ export default function AdminDashboard() {
               <MessageCircle className="w-4 h-4" />
               Chat Logs
             </Link>
-            {/* Documents dropdown: Offer Letters + Invoices */}
+            {/* Documents dropdown: Offer Letters + Invoices + Quotations */}
             <div className="relative group">
               <button className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
                 <FileText className="w-4 h-4" />
                 Documents
                 <ChevronDown className="w-3.5 h-3.5 opacity-60" />
               </button>
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50">
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50">
                 <Link
                   href="/admin/offer-letters"
                   className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
@@ -473,6 +474,14 @@ export default function AdminDashboard() {
                 >
                   <Receipt className="w-4 h-4 text-slate-400" />
                   Invoices
+                </Link>
+                <div className="mx-3 my-1 border-t border-slate-100" />
+                <Link
+                  href="/admin/quotations"
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-violet-50 transition"
+                >
+                  <ClipboardList className="w-4 h-4 text-violet-400" />
+                  Quotations
                 </Link>
               </div>
             </div>
