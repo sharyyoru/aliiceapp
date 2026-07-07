@@ -68,7 +68,12 @@ const RAPPJDERM_ITEMS: Omit<LineItem, "id">[] = [
   {
     category: "Subscription",
     description: "Aliice Pro Plan",
-    detail: "Full-featured clinic management platform — unlimited appointments, patients, invoices, CRM pipeline, multi-user access, and priority support.",
+    detail:
+      "The Aliice Pro Plan is the complete clinic management platform designed for modern dermatology practices like Rappjderm. " +
+      "It includes: unlimited appointment scheduling with calendar sync, full patient record management (demographics, history, treatment notes), " +
+      "automated appointment reminders via email and SMS, integrated invoicing and payment tracking, a CRM-style sales pipeline for lead and patient follow-up, " +
+      "multi-user team access with role-based permissions, Gmail and calendar integration, and dedicated priority support. " +
+      "All data is stored securely with GDPR-compliant infrastructure. Billed monthly, cancel with 30 days notice.",
     quantity: 1,
     unitPrice: 490,
     recurring: "monthly",
@@ -76,15 +81,24 @@ const RAPPJDERM_ITEMS: Omit<LineItem, "id">[] = [
   {
     category: "Subscription",
     description: "Onboarding & Setup",
-    detail: "Dedicated onboarding session, data migration assistance, and custom workflow configuration by an Aliice specialist.",
+    detail:
+      "A dedicated onboarding engagement delivered by an Aliice implementation specialist. This covers: " +
+      "initial account configuration and branding setup, migration of existing patient data from your current system, " +
+      "custom workflow design tailored to Rappjderm's clinical processes, staff training session (up to 2 hours, remote), " +
+      "and a 30-day post-launch check-in call to ensure everything is running smoothly. " +
+      "One-time fee payable upon project initiation.",
     quantity: 1,
     unitPrice: 350,
     recurring: "once",
   },
   {
     category: "Add-on Module",
-    description: "AI Document Scanner — Starter Pack",
-    detail: "Upload a photo or scanned letter and our AI extracts structured tasks automatically. Includes 500 scans/month.",
+    description: "AI Document Scanner — Starter Pack (500 scans/month)",
+    detail:
+      "The AI Document Scanner module allows clinic staff to upload a photograph, scanned letter, or digital document and have it automatically analysed by Aliice AI. " +
+      "The system reads the content, identifies action items, and converts them into structured tasks assigned to the appropriate team member — eliminating manual data entry. " +
+      "Supported document types include referral letters, insurance pre-authorisation forms, lab results, patient intake forms, and handwritten notes. " +
+      "The Starter Pack includes 500 document scans per calendar month. Unused scans do not roll over.",
     quantity: 1,
     unitPrice: 149,
     recurring: "monthly",
@@ -92,15 +106,24 @@ const RAPPJDERM_ITEMS: Omit<LineItem, "id">[] = [
   {
     category: "Add-on Module",
     description: "AI Custom Workflow Engine",
-    detail: "Define intelligent automation rules triggered when a specific letter type or image category is detected. Includes unlimited workflow templates and AI-suggested follow-up actions.",
+    detail:
+      "The AI Custom Workflow Engine enables Rappjderm to define intelligent, rule-based automation sequences that are triggered automatically when a specific document type or image category is scanned. " +
+      "For example: when an insurance pre-authorisation letter is detected, the system can automatically create a follow-up task, send a notification to the billing team, " +
+      "and schedule a patient callback — all without manual intervention. " +
+      "Features include: unlimited custom workflow templates, AI-suggested follow-up actions based on document content, " +
+      "conditional branching logic (if/then rules), multi-step sequences with time delays, and a visual workflow builder accessible from the admin panel. " +
+      "Workflows can be cloned, version-controlled, and deactivated at any time.",
     quantity: 1,
     unitPrice: 99,
     recurring: "monthly",
   },
   {
     category: "Add-on Module",
-    description: "Additional Scan Volume — 1,000 scans/month",
-    detail: "Extend scanning capacity by 1,000 documents per month beyond the starter pack.",
+    description: "Additional Scan Volume — 1,000 extra scans/month",
+    detail:
+      "For practices with higher document processing needs, this add-on extends the monthly scanning capacity by an additional 1,000 document scans per month beyond the Starter Pack allowance. " +
+      "This brings total monthly scan capacity to 1,500 documents. Each unit of this add-on provides +1,000 scans; multiple units may be added for larger volumes. " +
+      "Scans reset on the 1st of each calendar month.",
     quantity: 1,
     unitPrice: 79,
     recurring: "monthly",
@@ -174,38 +197,74 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
   }
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pW = doc.internal.pageSize.getWidth();
-  const pH = doc.internal.pageSize.getHeight();
+  const pW = doc.internal.pageSize.getWidth();   // 210
+  const pH = doc.internal.pageSize.getHeight();  // 297
   const mg = 18;
-  const col2 = pW / 2 + 5;
+  const footerH = 14;
+  const safeBottom = pH - footerH - 4;
   let y = 0;
+  let pageNum = 1;
 
-  // ── Header bar (violet gradient effect via two rects) ──
-  doc.setFillColor(109, 40, 217); // violet-700
-  doc.rect(0, 0, pW, 38, "F");
-  doc.setFillColor(124, 58, 237); // violet-600 overlay strip
-  doc.rect(0, 30, pW, 8, "F");
+  // ── helpers that work across pages ──────────────────────────────────────
+  const addFooter = () => {
+    doc.setFillColor(15, 23, 42); // black
+    doc.rect(0, pH - footerH, pW, footerH, "F");
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `${quote.fromName}  ·  hello@aliice.app  ·  aliice.app`,
+      mg, pH - 5
+    );
+    doc.text(`Page ${pageNum}`, pW - mg, pH - 5, { align: "right" });
+  };
+
+  const newPage = () => {
+    addFooter();
+    doc.addPage();
+    pageNum++;
+    y = mg;
+    // Repeat thin header stripe on continuation pages
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pW, 8, "F");
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(148, 163, 184);
+    doc.text(`${quote.quoteNumber}  —  continued`, mg, 5.5);
+    doc.text("QUOTATION", pW - mg, 5.5, { align: "right" });
+    y = 14;
+  };
+
+  const ensureSpace = (needed: number) => {
+    if (y + needed > safeBottom) newPage();
+  };
+
+  // ── Page 1 header — black background ────────────────────────────────────
+  doc.setFillColor(15, 23, 42); // slate-900 / near-black
+  doc.rect(0, 0, pW, 42, "F");
 
   // Logo
   if (logoBase64 && logoW && logoH) {
-    const maxH = 13;
+    const maxH = 14;
     const aspect = logoW / logoH;
-    doc.addImage(logoBase64, "PNG", mg, (30 - maxH) / 2 + 2, maxH * aspect, maxH);
+    doc.addImage(logoBase64, "PNG", mg, (42 - maxH) / 2, maxH * aspect, maxH);
   }
 
   // QUOTATION label
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
+  doc.setFontSize(24);
   doc.setFont("helvetica", "bold");
-  doc.text("QUOTATION", pW - mg, 21, { align: "right" });
+  doc.text("QUOTATION", pW - mg, 24, { align: "right" });
   doc.setFontSize(8.5);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(221, 214, 254); // violet-200
-  doc.text(quote.quoteNumber, pW - mg, 30, { align: "right" });
+  doc.setTextColor(148, 163, 184);
+  doc.text(quote.quoteNumber, pW - mg, 33, { align: "right" });
 
-  y = 48;
+  y = 52;
 
-  // ── From / Quote To ──
+  // ── From / Quote To ─────────────────────────────────────────────────────
+  const col2 = pW / 2 + 5;
+
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(100, 116, 139);
@@ -228,18 +287,17 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
   if (quote.fromEmail) doc.text(quote.fromEmail, mg, y + 12 + fromLines.length * 4.5 + 4.5);
 
   if (quote.clientEmail) doc.text(quote.clientEmail, col2, y + 12);
-  const addrLines = doc.splitTextToSize(quote.clientAddress, 82);
-  doc.text(addrLines, col2, y + 17);
-  if (quote.clientCity) doc.text(quote.clientCity, col2, y + 17 + addrLines.length * 4.5);
+  const addrLines = doc.splitTextToSize(quote.clientAddress || "", 82);
+  if (addrLines.length) doc.text(addrLines, col2, y + 17);
+  if (quote.clientCity) doc.text(quote.clientCity, col2, y + 17 + Math.max(addrLines.length, 1) * 4.5);
 
-  y += 42;
+  y += 44;
 
-  // ── Meta bar ──
-  doc.setFillColor(245, 243, 255); // violet-50
-  doc.roundedRect(mg, y, pW - 2 * mg, 18, 2, 2, "F");
-  doc.setDrawColor(196, 181, 253); // violet-300
+  // ── Meta bar — light grey background ────────────────────────────────────
+  doc.setFillColor(245, 245, 245); // near-white grey
+  doc.setDrawColor(220, 220, 220);
   doc.setLineWidth(0.3);
-  doc.roundedRect(mg, y, pW - 2 * mg, 18, 2, 2, "D");
+  doc.roundedRect(mg, y, pW - 2 * mg, 18, 2, 2, "FD");
 
   const meta = [
     { label: "Quote No.", value: quote.quoteNumber },
@@ -252,7 +310,7 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
     const mx = mg + i * metaW + 5;
     doc.setFontSize(6.5);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(109, 40, 217);
+    doc.setTextColor(100, 116, 139);
     doc.text(m.label.toUpperCase(), mx, y + 6);
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "bold");
@@ -262,32 +320,29 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
 
   y += 26;
 
-  // ── Line items table ──
+  // ── Line items table ────────────────────────────────────────────────────
   const tLeft = mg;
   const tRight = pW - mg;
   const tW = tRight - tLeft;
 
-  // Column widths
-  const cDesc = tW - 28 - 30 - 32;
-  const cQty = 28;
-  const cUnit = 30;
-  const cAmt = 32;
+  // Column widths — description gets most of the width
+  const cQty = 22;
+  const cUnit = 36;
+  const cAmt = 34;
+  const cDesc = tW - cQty - cUnit - cAmt;
+  const lineH = 4.5; // pt per detail text line
 
-  // Table header
-  doc.setFillColor(109, 40, 217);
+  // Table header — black
+  doc.setFillColor(15, 23, 42);
   doc.rect(tLeft, y, tW, 8, "F");
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
 
-  let cx = tLeft + 4;
-  doc.text("DESCRIPTION", cx, y + 5.5);
-  cx += cDesc;
-  doc.text("QTY", cx + cQty / 2, y + 5.5, { align: "center" });
-  cx += cQty;
-  doc.text("UNIT PRICE", cx + cUnit / 2, y + 5.5, { align: "center" });
-  cx += cUnit;
-  doc.text("AMOUNT", cx + cAmt / 2, y + 5.5, { align: "center" });
+  doc.text("DESCRIPTION", tLeft + 4, y + 5.5);
+  doc.text("QTY", tLeft + cDesc + cQty / 2, y + 5.5, { align: "center" });
+  doc.text("UNIT PRICE", tLeft + cDesc + cQty + cUnit / 2, y + 5.5, { align: "center" });
+  doc.text("AMOUNT", tRight - cAmt / 2, y + 5.5, { align: "center" });
   y += 8;
 
   // Group items by category
@@ -297,151 +352,160 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
     const catItems = items.filter(i => i.category === cat && i.description.trim());
     if (!catItems.length) return;
 
-    // Category row
-    doc.setFillColor(237, 233, 254); // violet-100
+    // Category header — light grey
+    ensureSpace(10);
+    doc.setFillColor(230, 230, 230);
     doc.rect(tLeft, y, tW, 7, "F");
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(109, 40, 217);
+    doc.setTextColor(50, 50, 50);
     doc.text(cat.toUpperCase(), tLeft + 4, y + 5);
     y += 7;
 
     catItems.forEach((item, idx) => {
-      const rowH = item.detail ? 14 : 9;
+      // Pre-compute how many lines the detail takes
+      const detailLines = item.detail.trim()
+        ? doc.splitTextToSize(item.detail, cDesc - 6)
+        : [];
+      const rowH = 7 + detailLines.length * lineH + (detailLines.length > 0 ? 3 : 0);
 
-      // Check if we need a new page
-      if (y + rowH > pH - 45) {
-        doc.addPage();
-        y = 20;
-      }
+      ensureSpace(rowH);
 
+      // Alternate row background — very light grey
       if (idx % 2 === 1) {
-        doc.setFillColor(250, 248, 255);
+        doc.setFillColor(250, 250, 250);
         doc.rect(tLeft, y, tW, rowH, "F");
       }
 
       const lineTotal = item.quantity * item.unitPrice;
-      let rx = tLeft + 4;
+      const midY = y + 5.5; // vertical centre for numbers
 
-      // Description
+      // Description title
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(30, 41, 59);
-      doc.text(item.description, rx, y + 5.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(item.description, tLeft + 4, midY);
 
-      // Detail (sub-text)
-      if (item.detail) {
-        const detailLines = doc.splitTextToSize(item.detail, cDesc - 4);
+      // Detail lines — full text, all wrapped lines
+      if (detailLines.length > 0) {
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(7);
-        doc.setTextColor(100, 116, 139);
-        doc.text(detailLines[0], rx, y + 10.5);
+        doc.setFontSize(7.2);
+        doc.setTextColor(80, 80, 80);
+        doc.text(detailLines, tLeft + 4, midY + 5, { lineHeightFactor: 1.45 });
       }
 
-      rx += cDesc;
-
-      // Qty
+      // Qty — right side columns, centred vertically
+      const numY = y + rowH / 2 + 1.5;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
-      doc.setTextColor(30, 41, 59);
-      doc.text(String(item.quantity), rx + cQty / 2, y + (rowH > 9 ? 8 : 6), { align: "center" });
-      rx += cQty;
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(item.quantity), tLeft + cDesc + cQty / 2, numY, { align: "center" });
 
-      // Unit price + recurring label
+      // Unit price
       const unitStr = formatCHF(item.unitPrice) + recurringLabel(item.recurring);
-      doc.text(unitStr, rx + cUnit / 2, y + (rowH > 9 ? 8 : 6), { align: "center" });
-      rx += cUnit;
+      doc.text(unitStr, tLeft + cDesc + cQty + cUnit / 2, numY, { align: "center" });
 
-      // Amount
+      // Amount — bold
       doc.setFont("helvetica", "bold");
-      doc.text(formatCHF(lineTotal), rx + cAmt / 2, y + (rowH > 9 ? 8 : 6), { align: "center" });
+      doc.text(formatCHF(lineTotal), tRight - 4, numY, { align: "right" });
 
       y += rowH;
+
+      // Thin separator between items
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.2);
+      doc.line(tLeft, y, tRight, y);
     });
   });
 
-  // Table bottom line
-  doc.setDrawColor(196, 181, 253);
-  doc.setLineWidth(0.4);
+  // Table bottom border — dark
+  doc.setDrawColor(80, 80, 80);
+  doc.setLineWidth(0.5);
   doc.line(tLeft, y, tRight, y);
-  y += 8;
+  y += 10;
 
-  // ── Totals ──
+  // ── Totals ──────────────────────────────────────────────────────────────
   const oneTimeSub = items.filter(i => i.recurring === "once" && i.description.trim()).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const monthlySub = items.filter(i => i.recurring === "monthly" && i.description.trim()).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const subtotal = items.filter(i => i.description.trim()).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
 
-  const totX = pW - mg - 80;
+  // Total box needs ~26mm; ensure it fits
+  const totalsNeeded = (oneTimeSub > 0 ? 7 : 0) + (monthlySub > 0 ? 7 : 0) + 18;
+  ensureSpace(totalsNeeded + 10);
+
+  // Right-align totals block; give it 90mm width so CHF values have room
+  const totBoxW = 90;
+  const totX = pW - mg - totBoxW;
   const totValX = pW - mg;
 
-  const drawTotalRow = (label: string, value: string, bold = false) => {
-    doc.setFontSize(bold ? 9 : 8.5);
-    doc.setFont("helvetica", bold ? "bold" : "normal");
-    doc.setTextColor(bold ? 15 : 71, bold ? 23 : 85, bold ? 42 : 105);
+  const drawTotalRow = (label: string, value: string) => {
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
     doc.text(label, totX, y);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(30, 41, 59);
+    doc.setTextColor(15, 23, 42);
     doc.text(value, totValX, y, { align: "right" });
-    y += 6;
+    y += 7;
   };
 
   if (oneTimeSub > 0) drawTotalRow("One-time fees", formatCHF(oneTimeSub));
   if (monthlySub > 0) drawTotalRow("Monthly recurring", formatCHF(monthlySub) + "/mo");
   y += 2;
 
-  // Total box
-  doc.setFillColor(109, 40, 217);
-  doc.roundedRect(totX - 4, y - 1, 80, 12, 2.5, 2.5, "F");
-  doc.setFontSize(10);
+  // Total box — black, fixed width so nothing clips
+  const totBoxH = 14;
+  doc.setFillColor(15, 23, 42);
+  doc.roundedRect(totX - 4, y, totBoxW + 4, totBoxH, 2.5, 2.5, "F");
+  doc.setFontSize(10.5);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text("TOTAL", totX, y + 7.5);
-  doc.text(formatCHF(subtotal), totValX, y + 7.5, { align: "right" });
-  y += 20;
+  doc.text("TOTAL", totX, y + 9.5);
+  doc.text(formatCHF(subtotal), totValX, y + 9.5, { align: "right" });
+  y += totBoxH + 14;
 
-  // ── Notes ──
+  // ── Notes ───────────────────────────────────────────────────────────────
   if (quote.notes.trim()) {
-    if (y > pH - 55) { doc.addPage(); y = 20; }
+    const noteLines = doc.splitTextToSize(quote.notes, pW - 2 * mg);
+    ensureSpace(10 + noteLines.length * 4.5);
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(109, 40, 217);
+    doc.setTextColor(50, 50, 50);
     doc.text("NOTES", mg, y);
     y += 5;
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(71, 85, 105);
-    const noteLines = doc.splitTextToSize(quote.notes, pW - 2 * mg);
     doc.text(noteLines, mg, y);
-    y += noteLines.length * 4.5 + 8;
+    y += noteLines.length * 4.5 + 10;
   }
 
-  // ── Terms ──
+  // ── Terms ───────────────────────────────────────────────────────────────
   if (quote.terms.trim()) {
-    if (y > pH - 55) { doc.addPage(); y = 20; }
+    const termLines = doc.splitTextToSize(quote.terms, pW - 2 * mg);
+    ensureSpace(10 + termLines.length * 4.2);
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(109, 40, 217);
+    doc.setTextColor(50, 50, 50);
     doc.text("TERMS & CONDITIONS", mg, y);
     y += 5;
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 116, 139);
-    const termLines = doc.splitTextToSize(quote.terms, pW - 2 * mg);
     doc.text(termLines, mg, y);
-    y += termLines.length * 4 + 10;
+    y += termLines.length * 4.2 + 10;
   }
 
-  // ── Acceptance signature block ──
-  if (y > pH - 50) { doc.addPage(); y = 20; }
-
-  doc.setFillColor(245, 243, 255);
-  doc.setDrawColor(196, 181, 253);
+  // ── Acceptance signature block ───────────────────────────────────────────
+  ensureSpace(38);
+  doc.setFillColor(245, 245, 245);
+  doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.3);
   doc.roundedRect(mg, y, pW - 2 * mg, 34, 3, 3, "FD");
 
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(109, 40, 217);
+  doc.setTextColor(15, 23, 42);
   doc.text("ACCEPTANCE", mg + 5, y + 7);
 
   doc.setFontSize(7.5);
@@ -449,30 +513,20 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
   doc.setTextColor(71, 85, 105);
   doc.text("By signing below, the client agrees to the terms and pricing outlined in this quotation.", mg + 5, y + 13);
 
-  // Signature line left
-  doc.setDrawColor(148, 163, 184);
+  doc.setDrawColor(100, 100, 100);
   doc.setLineWidth(0.4);
   doc.line(mg + 5, y + 28, mg + 75, y + 28);
   doc.setFontSize(7);
-  doc.setTextColor(148, 163, 184);
+  doc.setTextColor(120, 120, 120);
   doc.text("Client Signature & Date", mg + 5, y + 32);
 
-  // Signature line right
   doc.line(pW - mg - 75, y + 28, pW - mg - 5, y + 28);
   doc.text("Authorised by Aliice", pW - mg - 75, y + 32);
 
-  y += 40;
+  y += 38;
 
-  // ── Footer ──
-  doc.setFillColor(109, 40, 217);
-  doc.rect(0, pH - 12, pW, 12, "F");
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(221, 214, 254);
-  doc.text(
-    `${quote.fromName} · hello@aliice.app · aliice.app  |  This quotation is valid for 30 days from issue date.`,
-    pW / 2, pH - 4.5, { align: "center" }
-  );
+  // ── Footer on last page ──────────────────────────────────────────────────
+  addFooter();
 
   return doc;
 }
