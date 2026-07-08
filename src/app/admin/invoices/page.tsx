@@ -281,15 +281,13 @@ export default function InvoicesPage() {
       };
 
       try {
-        const result = await tryLoad("/logos/aliice-logo.png");
+        const result = await tryLoad("/logos/logo-aliice-vector.bleu.png");
         logoBase64 = result.b64;
         logoNaturalW = result.w;
         logoNaturalH = result.h;
       } catch {
         try {
-          const result = await tryLoad(
-            "https://www.aliice.app/_next/image?url=%2Flogos%2Faliice-logo.png&w=128&q=75"
-          );
+          const result = await tryLoad("/logos/aliice-logo.png");
           logoBase64 = result.b64;
           logoNaturalW = result.w;
           logoNaturalH = result.h;

@@ -26,12 +26,14 @@ import jsPDF from "jspdf";
 
 interface LineItem {
   id: string;
-  category: string;
+  section: "onboarding" | "subscription" | "addons" | "other";
   description: string;
   detail: string;
+  includeBullets: string[];
   quantity: number;
   unitPrice: number;
   recurring: "once" | "monthly" | "yearly";
+  optional?: boolean;
 }
 
 interface QuoteData {
@@ -40,14 +42,19 @@ interface QuoteData {
   validUntil: string;
   // Recipient
   clientName: string;
+  clientContactName: string;
   clientEmail: string;
+  clientContactEmail: string;
   clientAddress: string;
   clientCity: string;
+  clientPhone: string;
   // Sender
   fromName: string;
   fromAddress: string;
   fromCity: string;
   fromEmail: string;
+  fromPhone: string;
+  fromWebsite: string;
   // Terms
   notes: string;
   terms: string;
@@ -66,67 +73,92 @@ interface OrgClient {
 
 const RAPPJDERM_ITEMS: Omit<LineItem, "id">[] = [
   {
-    category: "Subscription",
-    description: "Aliice Pro Plan",
-    detail:
-      "The Aliice Pro Plan is the complete clinic management platform designed for modern dermatology practices like Rappjderm. " +
-      "It includes: unlimited appointment scheduling with calendar sync, full patient record management (demographics, history, treatment notes), " +
-      "automated appointment reminders via email and SMS, integrated invoicing and payment tracking, a CRM-style sales pipeline for lead and patient follow-up, " +
-      "multi-user team access with role-based permissions, Gmail and calendar integration, and dedicated priority support. " +
-      "All data is stored securely with GDPR-compliant infrastructure. Billed monthly, cancel with 30 days notice.",
-    quantity: 1,
-    unitPrice: 490,
-    recurring: "monthly",
-  },
-  {
-    category: "Subscription",
+    section: "onboarding",
     description: "Onboarding & Setup",
     detail:
-      "A dedicated onboarding engagement delivered by an Aliice implementation specialist. This covers: " +
-      "initial account configuration and branding setup, migration of existing patient data from your current system, " +
-      "custom workflow design tailored to Rappjderm's clinical processes, staff training session (up to 2 hours, remote), " +
-      "and a 30-day post-launch check-in call to ensure everything is running smoothly. " +
-      "One-time fee payable upon project initiation.",
+      "Fixed one-time fee for the complete implementation of Aliice at Rappjderm. " +
+      "Includes project scoping, data migration, platform configuration, workflow adaptation, and staff training to ensure a smooth go-live.",
+    includeBullets: [
+      "24/7 support",
+      "Team training",
+      "Ongoing customer support & maintenance",
+      "Data migration",
+      "Initial platform setup",
+      "User configuration",
+      "Automation configuration",
+      "Adaptation of existing workflows",
+    ],
     quantity: 1,
-    unitPrice: 350,
+    unitPrice: 2800,
     recurring: "once",
   },
   {
-    category: "Add-on Module",
-    description: "AI Document Scanner — Starter Pack (500 scans/month)",
+    section: "subscription",
+    description: "Aliice Professional Plan — Annual commitment (billed monthly)",
     detail:
-      "The AI Document Scanner module allows clinic staff to upload a photograph, scanned letter, or digital document and have it automatically analysed by Aliice AI. " +
-      "The system reads the content, identifies action items, and converts them into structured tasks assigned to the appropriate team member — eliminating manual data entry. " +
-      "Supported document types include referral letters, insurance pre-authorisation forms, lab results, patient intake forms, and handwritten notes. " +
-      "The Starter Pack includes 500 document scans per calendar month. Unused scans do not roll over.",
+      "12-month subscription commitment, billed monthly in advance. " +
+      "A monthly option without annual commitment is also available at CHF 1,790/month.",
+    includeBullets: [
+      "Patient management",
+      "Appointment booking",
+      "Basic calendar / agenda",
+      "Lead management",
+      "Tasks & reminders",
+      "Email notifications",
+      "Deal pipeline",
+      "Invoicing (TARMED/TARDOC)",
+      "Workflow automation",
+      "Marketing campaigns",
+      "Advanced analytics",
+    ],
     quantity: 1,
-    unitPrice: 149,
+    unitPrice: 1610,
     recurring: "monthly",
   },
   {
-    category: "Add-on Module",
-    description: "AI Custom Workflow Engine",
+    section: "addons",
+    description: "3.a AI Custom Workflow Engine",
     detail:
-      "The AI Custom Workflow Engine enables Rappjderm to define intelligent, rule-based automation sequences that are triggered automatically when a specific document type or image category is scanned. " +
-      "For example: when an insurance pre-authorisation letter is detected, the system can automatically create a follow-up task, send a notification to the billing team, " +
-      "and schedule a patient callback — all without manual intervention. " +
-      "Features include: unlimited custom workflow templates, AI-suggested follow-up actions based on document content, " +
-      "conditional branching logic (if/then rules), multi-step sequences with time delays, and a visual workflow builder accessible from the admin panel. " +
-      "Workflows can be cloned, version-controlled, and deactivated at any time.",
+      "Define intelligent, rule-based automation sequences triggered when a specific document type or image category is scanned. " +
+      "Includes unlimited workflow templates, AI-suggested follow-up actions, conditional branching, multi-step sequences with delays, and a visual builder.",
+    includeBullets: [],
     quantity: 1,
     unitPrice: 99,
     recurring: "monthly",
   },
   {
-    category: "Add-on Module",
-    description: "Additional Scan Volume — 1,000 extra scans/month",
+    section: "addons",
+    description: "3.b AI Document Scanner — Starter Pack (500 scans/month)",
     detail:
-      "For practices with higher document processing needs, this add-on extends the monthly scanning capacity by an additional 1,000 document scans per month beyond the Starter Pack allowance. " +
-      "This brings total monthly scan capacity to 1,500 documents. Each unit of this add-on provides +1,000 scans; multiple units may be added for larger volumes. " +
-      "Scans reset on the 1st of each calendar month.",
+      "Upload photographs, scanned letters, or digital documents and let Aliice AI extract structured tasks automatically. " +
+      "Supports referral letters, insurance pre-authorisations, lab results, intake forms, and handwritten notes. Includes 500 scans per calendar month.",
+    includeBullets: [],
+    quantity: 1,
+    unitPrice: 149,
+    recurring: "monthly",
+  },
+  {
+    section: "addons",
+    description: "3.c Additional Scan Volume — 1,000 extra scans/month",
+    detail:
+      "Optional add-on that extends scanning capacity by an additional 1,000 documents per month beyond the Starter Pack. " +
+      "Activated only if needed; multiple units can be added for larger volumes.",
+    includeBullets: [],
     quantity: 1,
     unitPrice: 79,
     recurring: "monthly",
+    optional: true,
+  },
+  {
+    section: "addons",
+    description: "Optional Cloud Storage",
+    detail:
+      "Additional secure cloud storage for documents, images, and backups beyond the allowance included in the Professional Plan.",
+    includeBullets: [],
+    quantity: 1,
+    unitPrice: 49,
+    recurring: "monthly",
+    optional: true,
   },
 ];
 
@@ -187,34 +219,41 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
     });
 
   try {
-    const r = await tryLoad("/logos/aliice-logo.png");
+    const r = await tryLoad("/logos/logo-aliice-vector.bleu.png");
     logoBase64 = r.b64; logoW = r.w; logoH = r.h;
   } catch {
     try {
-      const r = await tryLoad("https://www.aliice.app/_next/image?url=%2Flogos%2Faliice-logo.png&w=128&q=75");
+      const r = await tryLoad("/logos/aliice-logo.png");
       logoBase64 = r.b64; logoW = r.w; logoH = r.h;
     } catch { /* no logo */ }
   }
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pW = doc.internal.pageSize.getWidth();   // 210
-  const pH = doc.internal.pageSize.getHeight();  // 297
+  const pW = doc.internal.pageSize.getWidth();
+  const pH = doc.internal.pageSize.getHeight();
   const mg = 18;
   const footerH = 14;
-  const safeBottom = pH - footerH - 4;
+  const safeBottom = pH - footerH - 6;
   let y = 0;
   let pageNum = 1;
 
-  // ── helpers that work across pages ──────────────────────────────────────
+  // ── helpers ─────────────────────────────────────────────────────────────
+  const drawLogo = (x: number, yPos: number, maxH: number) => {
+    if (!logoBase64 || !logoW || !logoH) return;
+    const aspect = logoW / logoH;
+    doc.addImage(logoBase64, "PNG", x, yPos, maxH * aspect, maxH);
+  };
+
   const addFooter = () => {
-    doc.setFillColor(15, 23, 42); // black
+    doc.setFillColor(15, 23, 42);
     doc.rect(0, pH - footerH, pW, footerH, "F");
+    drawLogo(mg, pH - footerH + 2.5, 9);
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(148, 163, 184);
     doc.text(
-      `${quote.fromName}  ·  hello@aliice.app  ·  aliice.app`,
-      mg, pH - 5
+      `${quote.fromName}  ·  ${quote.fromEmail}  ·  ${quote.fromWebsite}`,
+      mg + 28, pH - 5
     );
     doc.text(`Page ${pageNum}`, pW - mg, pH - 5, { align: "right" });
   };
@@ -224,33 +263,32 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
     doc.addPage();
     pageNum++;
     y = mg;
-    // Repeat thin header stripe on continuation pages
     doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, pW, 8, "F");
+    doc.rect(0, 0, pW, 10, "F");
+    drawLogo(mg, 1.5, 7);
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(148, 163, 184);
-    doc.text(`${quote.quoteNumber}  —  continued`, mg, 5.5);
-    doc.text("QUOTATION", pW - mg, 5.5, { align: "right" });
-    y = 14;
+    doc.text(`${quote.quoteNumber}  —  continued`, mg + 28, 6.5);
+    doc.text("QUOTATION", pW - mg, 6.5, { align: "right" });
+    y = 15;
   };
 
   const ensureSpace = (needed: number) => {
     if (y + needed > safeBottom) newPage();
   };
 
+  const splitAndHeight = (text: string, width: number, fontSize: number, lineHeight: number) => {
+    doc.setFontSize(fontSize);
+    const lines = doc.splitTextToSize(text, width);
+    return { lines, h: lines.length * lineHeight };
+  };
+
   // ── Page 1 header — black background ────────────────────────────────────
-  doc.setFillColor(15, 23, 42); // slate-900 / near-black
+  doc.setFillColor(15, 23, 42);
   doc.rect(0, 0, pW, 42, "F");
+  drawLogo(mg, (42 - 14) / 2, 14);
 
-  // Logo
-  if (logoBase64 && logoW && logoH) {
-    const maxH = 14;
-    const aspect = logoW / logoH;
-    doc.addImage(logoBase64, "PNG", mg, (42 - maxH) / 2, maxH * aspect, maxH);
-  }
-
-  // QUOTATION label
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(24);
   doc.setFont("helvetica", "bold");
@@ -260,10 +298,18 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
   doc.setTextColor(148, 163, 184);
   doc.text(quote.quoteNumber, pW - mg, 33, { align: "right" });
 
-  y = 52;
+  y = 50;
 
-  // ── From / Quote To ─────────────────────────────────────────────────────
+  // ── From / Quote To — same layout, facing each other ───────────────────
   const col2 = pW / 2 + 5;
+  const colW = pW / 2 - mg - 5;
+
+  const blockH = Math.max(
+    36,
+    8 + splitAndHeight(quote.fromAddress, colW, 8.5, 4.5).h + splitAndHeight(quote.fromCity, colW, 8.5, 4.5).h,
+    8 + splitAndHeight(quote.clientAddress || "", colW, 8.5, 4.5).h + splitAndHeight(quote.clientCity, colW, 8.5, 4.5).h
+  );
+  ensureSpace(blockH + 14);
 
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
@@ -279,22 +325,28 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
-  doc.setTextColor(71, 85, 105);
+  doc.setTextColor(50, 50, 50);
 
-  const fromLines = doc.splitTextToSize(quote.fromAddress, 82);
-  doc.text(fromLines, mg, y + 12);
-  doc.text(quote.fromCity, mg, y + 12 + fromLines.length * 4.5);
-  if (quote.fromEmail) doc.text(quote.fromEmail, mg, y + 12 + fromLines.length * 4.5 + 4.5);
+  const fromAddrLines = doc.splitTextToSize(quote.fromAddress, colW);
+  doc.text(fromAddrLines, mg, y + 12);
+  doc.text(quote.fromCity, mg, y + 12 + fromAddrLines.length * 4.5);
+  doc.text(`Email: ${quote.fromEmail}`, mg, y + 12 + fromAddrLines.length * 4.5 + 4.5);
+  if (quote.fromPhone) doc.text(`Phone: ${quote.fromPhone}`, mg, y + 12 + fromAddrLines.length * 4.5 + 9);
 
-  if (quote.clientEmail) doc.text(quote.clientEmail, col2, y + 12);
-  const addrLines = doc.splitTextToSize(quote.clientAddress || "", 82);
-  if (addrLines.length) doc.text(addrLines, col2, y + 17);
-  if (quote.clientCity) doc.text(quote.clientCity, col2, y + 17 + Math.max(addrLines.length, 1) * 4.5);
+  const clientAddrLines = doc.splitTextToSize(quote.clientAddress || "", colW);
+  let cy = y + 12;
+  if (clientAddrLines.length) { doc.text(clientAddrLines, col2, cy); cy += clientAddrLines.length * 4.5; }
+  if (quote.clientCity) { doc.text(quote.clientCity, col2, cy); cy += 4.5; }
+  if (quote.clientEmail) { doc.text(`Email: ${quote.clientEmail}`, col2, cy); cy += 4.5; }
+  if (quote.clientPhone) { doc.text(`Phone: ${quote.clientPhone}`, col2, cy); cy += 4.5; }
+  if (quote.clientContactName) { doc.text(`Contact: ${quote.clientContactName}`, col2, cy); cy += 4.5; }
+  if (quote.clientContactEmail) { doc.text(`Mgr email: ${quote.clientContactEmail}`, col2, cy); }
 
-  y += 44;
+  y += blockH + 10;
 
-  // ── Meta bar — light grey background ────────────────────────────────────
-  doc.setFillColor(245, 245, 245); // near-white grey
+  // ── Meta bar ────────────────────────────────────────────────────────────
+  ensureSpace(24);
+  doc.setFillColor(245, 245, 245);
   doc.setDrawColor(220, 220, 220);
   doc.setLineWidth(0.3);
   doc.roundedRect(mg, y, pW - 2 * mg, 18, 2, 2, "FD");
@@ -317,152 +369,182 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
     doc.setTextColor(15, 23, 42);
     doc.text(m.value, mx, y + 13);
   });
+  y += 24;
 
-  y += 26;
-
-  // ── Line items table ────────────────────────────────────────────────────
+  // ── Line items by section ───────────────────────────────────────────────
   const tLeft = mg;
   const tRight = pW - mg;
   const tW = tRight - tLeft;
-
-  // Column widths — description gets most of the width
   const cQty = 22;
   const cUnit = 36;
   const cAmt = 34;
   const cDesc = tW - cQty - cUnit - cAmt;
-  const lineH = 4.5; // pt per detail text line
+  const detailLineH = 4.3;
+  const bulletLineH = 4.0;
 
-  // Table header — black
-  doc.setFillColor(15, 23, 42);
-  doc.rect(tLeft, y, tW, 8, "F");
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
+  const sectionOrder: LineItem["section"][] = ["onboarding", "subscription", "addons", "other"];
+  const sectionTitle: Record<LineItem["section"], string> = {
+    onboarding: "1. Onboarding & Setup (One-time fee)",
+    subscription: "2. Subscription — Aliice Professional Plan",
+    addons: "3. Add-on Modules",
+    other: "Additional Items",
+  };
 
-  doc.text("DESCRIPTION", tLeft + 4, y + 5.5);
-  doc.text("QTY", tLeft + cDesc + cQty / 2, y + 5.5, { align: "center" });
-  doc.text("UNIT PRICE", tLeft + cDesc + cQty + cUnit / 2, y + 5.5, { align: "center" });
-  doc.text("AMOUNT", tRight - cAmt / 2, y + 5.5, { align: "center" });
-  y += 8;
+  sectionOrder.forEach((section) => {
+    const sectionItems = items.filter(i => i.section === section && i.description.trim());
+    if (!sectionItems.length) return;
 
-  // Group items by category
-  const categories = Array.from(new Set(items.filter(i => i.description.trim()).map(i => i.category)));
+    const sectionHeaderH = 10;
+    ensureSpace(sectionHeaderH + 10);
 
-  categories.forEach((cat) => {
-    const catItems = items.filter(i => i.category === cat && i.description.trim());
-    if (!catItems.length) return;
-
-    // Category header — light grey
-    ensureSpace(10);
-    doc.setFillColor(230, 230, 230);
-    doc.rect(tLeft, y, tW, 7, "F");
-    doc.setFontSize(7.5);
+    // Section header — dark grey band so it never looks orphaned
+    doc.setFillColor(60, 60, 60);
+    doc.rect(tLeft, y, tW, sectionHeaderH, "F");
+    doc.setFontSize(8.5);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(50, 50, 50);
-    doc.text(cat.toUpperCase(), tLeft + 4, y + 5);
-    y += 7;
+    doc.setTextColor(255, 255, 255);
+    doc.text(sectionTitle[section], tLeft + 4, y + 6.5);
+    y += sectionHeaderH + 3;
 
-    catItems.forEach((item, idx) => {
-      // Pre-compute how many lines the detail takes
-      const detailLines = item.detail.trim()
-        ? doc.splitTextToSize(item.detail, cDesc - 6)
+    // Item-level header row (first item only, reused style)
+    doc.setFillColor(15, 23, 42);
+    doc.rect(tLeft, y, tW, 8, "F");
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("DESCRIPTION", tLeft + 4, y + 5.5);
+    doc.text("QTY", tLeft + cDesc + cQty / 2, y + 5.5, { align: "center" });
+    doc.text("UNIT PRICE", tLeft + cDesc + cQty + cUnit / 2, y + 5.5, { align: "center" });
+    doc.text("AMOUNT", tRight - cAmt / 2, y + 5.5, { align: "center" });
+    y += 8;
+
+    sectionItems.forEach((item, idx) => {
+      const detailLines = item.detail.trim() ? doc.splitTextToSize(item.detail, cDesc - 6) : [];
+      const bullets = item.includeBullets || [];
+      const bulletLines = bullets.length
+        ? doc.splitTextToSize("• " + bullets.join("  • "), cDesc - 10)
         : [];
-      const rowH = 7 + detailLines.length * lineH + (detailLines.length > 0 ? 3 : 0);
+      const rowH = 9 + detailLines.length * detailLineH + bulletLines.length * bulletLineH + (bullets.length ? 2 : 0);
 
       ensureSpace(rowH);
 
-      // Alternate row background — very light grey
       if (idx % 2 === 1) {
         doc.setFillColor(250, 250, 250);
         doc.rect(tLeft, y, tW, rowH, "F");
       }
 
       const lineTotal = item.quantity * item.unitPrice;
-      const midY = y + 5.5; // vertical centre for numbers
 
-      // Description title
+      // Title
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(15, 23, 42);
-      doc.text(item.description, tLeft + 4, midY);
+      doc.text(item.description + (item.optional ? " (optional)" : ""), tLeft + 4, y + 5.5);
 
-      // Detail lines — full text, all wrapped lines
+      // Detail
+      let ly = y + 10;
       if (detailLines.length > 0) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7.2);
         doc.setTextColor(80, 80, 80);
-        doc.text(detailLines, tLeft + 4, midY + 5, { lineHeightFactor: 1.45 });
+        doc.text(detailLines, tLeft + 4, ly, { lineHeightFactor: 1.4 });
+        ly += detailLines.length * detailLineH + 1.5;
       }
 
-      // Qty — right side columns, centred vertically
+      // Includes bullets
+      if (bulletLines.length > 0) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.2);
+        doc.setTextColor(60, 60, 60);
+        doc.text(bulletLines, tLeft + 6, ly, { lineHeightFactor: 1.35 });
+      }
+
+      // Numeric columns centred vertically
       const numY = y + rowH / 2 + 1.5;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
       doc.setTextColor(15, 23, 42);
       doc.text(String(item.quantity), tLeft + cDesc + cQty / 2, numY, { align: "center" });
 
-      // Unit price
       const unitStr = formatCHF(item.unitPrice) + recurringLabel(item.recurring);
       doc.text(unitStr, tLeft + cDesc + cQty + cUnit / 2, numY, { align: "center" });
 
-      // Amount — bold
       doc.setFont("helvetica", "bold");
       doc.text(formatCHF(lineTotal), tRight - 4, numY, { align: "right" });
 
       y += rowH;
 
-      // Thin separator between items
       doc.setDrawColor(220, 220, 220);
       doc.setLineWidth(0.2);
       doc.line(tLeft, y, tRight, y);
     });
+
+    // Section bottom border
+    doc.setDrawColor(100, 100, 100);
+    doc.setLineWidth(0.5);
+    doc.line(tLeft, y, tRight, y);
+    y += 8;
   });
 
-  // Table bottom border — dark
-  doc.setDrawColor(80, 80, 80);
-  doc.setLineWidth(0.5);
-  doc.line(tLeft, y, tRight, y);
-  y += 10;
-
-  // ── Totals ──────────────────────────────────────────────────────────────
+  // ── Payment Summary ─────────────────────────────────────────────────────
   const oneTimeSub = items.filter(i => i.recurring === "once" && i.description.trim()).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-  const monthlySub = items.filter(i => i.recurring === "monthly" && i.description.trim()).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-  const subtotal = items.filter(i => i.description.trim()).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const monthlySub = items.filter(i => i.recurring === "monthly" && i.description.trim() && !i.optional).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const optionalMonthly = items.filter(i => i.recurring === "monthly" && i.description.trim() && i.optional).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const grandTotalWithOptional = items.filter(i => i.description.trim()).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
 
-  // Total box needs ~26mm; ensure it fits
-  const totalsNeeded = (oneTimeSub > 0 ? 7 : 0) + (monthlySub > 0 ? 7 : 0) + 18;
-  ensureSpace(totalsNeeded + 10);
+  const summaryNeeded = 56 + (optionalMonthly > 0 ? 8 : 0);
+  ensureSpace(summaryNeeded + 10);
 
-  // Right-align totals block; give it 90mm width so CHF values have room
-  const totBoxW = 90;
-  const totX = pW - mg - totBoxW;
-  const totValX = pW - mg;
+  const sumBoxW = 96;
+  const sumX = pW - mg - sumBoxW;
+  const sumValX = pW - mg;
 
-  const drawTotalRow = (label: string, value: string) => {
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(71, 85, 105);
-    doc.text(label, totX, y);
+  doc.setFillColor(245, 245, 245);
+  doc.setDrawColor(200, 200, 200);
+  doc.roundedRect(sumX - 4, y, sumBoxW + 4, 10, 2, 2, "FD");
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(50, 50, 50);
+  doc.text("PAYMENT SUMMARY", sumX, y + 6.5);
+  y += 14;
+
+  const drawSummaryRow = (label: string, value: string, bold = false) => {
+    doc.setFontSize(bold ? 9 : 8.5);
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setTextColor(bold ? 15 : 71, bold ? 23 : 85, bold ? 42 : 105);
+    doc.text(label, sumX, y);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(15, 23, 42);
-    doc.text(value, totValX, y, { align: "right" });
+    doc.setTextColor(bold ? 15 : 30, bold ? 23 : 41, bold ? 42 : 59);
+    doc.text(value, sumValX, y, { align: "right" });
     y += 7;
   };
 
-  if (oneTimeSub > 0) drawTotalRow("One-time fees", formatCHF(oneTimeSub));
-  if (monthlySub > 0) drawTotalRow("Monthly recurring", formatCHF(monthlySub) + "/mo");
+  drawSummaryRow("One-time onboarding payment", formatCHF(oneTimeSub));
+  drawSummaryRow("Monthly subscription payment", formatCHF(monthlySub) + "/mo");
+  if (optionalMonthly > 0) drawSummaryRow("Optional add-ons (monthly)", formatCHF(optionalMonthly) + "/mo");
   y += 2;
 
-  // Total box — black, fixed width so nothing clips
-  const totBoxH = 14;
+  // Monthly committed total line (not mixed with one-time)
   doc.setFillColor(15, 23, 42);
-  doc.roundedRect(totX - 4, y, totBoxW + 4, totBoxH, 2.5, 2.5, "F");
+  doc.roundedRect(sumX - 4, y, sumBoxW + 4, 14, 2.5, 2.5, "F");
   doc.setFontSize(10.5);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text("TOTAL", totX, y + 9.5);
-  doc.text(formatCHF(subtotal), totValX, y + 9.5, { align: "right" });
-  y += totBoxH + 14;
+  doc.text("MONTHLY TOTAL", sumX, y + 9.5);
+  doc.text(formatCHF(monthlySub) + "/mo", sumValX, y + 9.5, { align: "right" });
+  y += 18;
+
+  if (optionalMonthly > 0) {
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      `With optional add-ons activated: ${formatCHF(grandTotalWithOptional)}/mo`,
+      sumValX, y, { align: "right" }
+    );
+    y += 6;
+  }
+  y += 10;
 
   // ── Notes ───────────────────────────────────────────────────────────────
   if (quote.notes.trim()) {
@@ -535,11 +617,12 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
 
 const DEFAULT_TERMS =
   "1. This quotation is valid for 30 days from the issue date.\n" +
-  "2. Prices are quoted in Swiss Francs (CHF) and exclude any applicable taxes.\n" +
-  "3. Monthly subscription fees are billed on the 1st of each month.\n" +
-  "4. One-time fees are invoiced upon project initiation.\n" +
-  "5. Aliice reserves the right to adjust recurring pricing with 30 days written notice.\n" +
-  "6. Cancellation requires 30 days written notice before the next billing cycle.";
+  "2. The subscription is based on a 12-month commitment and is billed monthly in advance on the 1st of each month.\n" +
+  "3. Cancellation of the annual subscription must be submitted at least one month before the end of the current annual term.\n" +
+  "4. If a monthly cancellation option is available, it will be explicitly stated in the signed agreement.\n" +
+  "5. One-time onboarding fees are invoiced upon project initiation and are non-refundable once work has begun.\n" +
+  "6. Prices are quoted in Swiss Francs (CHF) and exclude any applicable taxes.\n" +
+  "7. Aliice reserves the right to adjust recurring pricing with 30 days written notice.";
 
 function seedRappjderm(): { quote: QuoteData; items: LineItem[] } {
   return {
@@ -548,22 +631,32 @@ function seedRappjderm(): { quote: QuoteData; items: LineItem[] } {
       issueDate: "2026-07-07",
       validUntil: "2026-08-06",
       clientName: "Rappjderm",
+      clientContactName: "Practice Manager",
       clientEmail: "contact@rappjderm.ch",
+      clientContactEmail: "manager@rappjderm.ch",
       clientAddress: "",
       clientCity: "Switzerland",
+      clientPhone: "",
       fromName: "Aliice Computer Software Trading",
       fromAddress: "Arabian Sky Business Center, Um Hurrair Second, Plot 38-0 Office OF09-263",
       fromCity: "Dubai, United Arab Emirates",
       fromEmail: "hello@aliice.app",
+      fromPhone: "+971 4 XXX XXXX",
+      fromWebsite: "www.aliice.app",
       notes:
-        "Thank you for your interest in Aliice. This quotation covers the Aliice Pro subscription plan and the AI Document Scanner & Custom Workflow Engine add-on modules. We look forward to partnering with Rappjderm to streamline your clinic operations.",
+        "Thank you for your interest in Aliice. This quotation covers the Aliice Professional Plan, onboarding services, and the AI Document Scanner & Custom Workflow Engine add-on modules. We look forward to partnering with Rappjderm.",
       terms: DEFAULT_TERMS,
     },
     items: RAPPJDERM_ITEMS.map((i) => ({ ...i, id: crypto.randomUUID() })),
   };
 }
 
-const CATEGORIES = ["Subscription", "Add-on Module", "Professional Services", "Other"];
+const SECTIONS: { value: LineItem["section"]; label: string }[] = [
+  { value: "onboarding", label: "Onboarding & Setup" },
+  { value: "subscription", label: "Subscription" },
+  { value: "addons", label: "Add-on Modules" },
+  { value: "other", label: "Other" },
+];
 
 export default function QuotationsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -637,9 +730,10 @@ export default function QuotationsPage() {
   const addItem = () => {
     setItems((prev) => [...prev, {
       id: crypto.randomUUID(),
-      category: "Subscription",
+      section: "addons",
       description: "",
       detail: "",
+      includeBullets: [],
       quantity: 1,
       unitPrice: 0,
       recurring: "monthly",
@@ -648,14 +742,14 @@ export default function QuotationsPage() {
 
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
 
-  const updateItem = (id: string, field: keyof Omit<LineItem, "id">, value: string | number) => {
+  const updateItem = (id: string, field: keyof Omit<LineItem, "id">, value: string | number | boolean | string[]) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
   };
 
   const filledItems = items.filter((i) => i.description.trim());
-  const oneTime = filledItems.filter(i => i.recurring === "once").reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-  const monthly = filledItems.filter(i => i.recurring === "monthly").reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-  const total = filledItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const oneTime = filledItems.filter(i => i.recurring === "once" && !i.optional).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const monthly = filledItems.filter(i => i.recurring === "monthly" && !i.optional).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const optionalMonthly = filledItems.filter(i => i.recurring === "monthly" && i.optional).reduce((s, i) => s + i.quantity * i.unitPrice, 0);
 
   const validate = () => {
     if (!quote.clientName) { alert("Please enter a client name."); return false; }
@@ -813,9 +907,19 @@ export default function QuotationsPage() {
                   <input className={inputCls} value={quote.fromCity} onChange={(e) => updateQuote("fromCity", e.target.value)} />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Email</label>
+                  <input type="email" className={inputCls} value={quote.fromEmail} onChange={(e) => updateQuote("fromEmail", e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>Phone</label>
+                  <input className={inputCls} value={quote.fromPhone} onChange={(e) => updateQuote("fromPhone", e.target.value)} />
+                </div>
+              </div>
               <div>
-                <label className={labelCls}>Email</label>
-                <input type="email" className={inputCls} value={quote.fromEmail} onChange={(e) => updateQuote("fromEmail", e.target.value)} />
+                <label className={labelCls}>Website</label>
+                <input className={inputCls} value={quote.fromWebsite} onChange={(e) => updateQuote("fromWebsite", e.target.value)} />
               </div>
             </div>
           </div>
@@ -876,8 +980,18 @@ export default function QuotationsPage() {
                 <input className={inputCls} value={quote.clientName} onChange={(e) => updateQuote("clientName", e.target.value)} placeholder="e.g. Rappjderm" />
               </div>
               <div>
-                <label className={labelCls}>Email</label>
-                <input type="email" className={inputCls} value={quote.clientEmail} onChange={(e) => updateQuote("clientEmail", e.target.value)} />
+                <label className={labelCls}>Contact Name</label>
+                <input className={inputCls} value={quote.clientContactName} onChange={(e) => updateQuote("clientContactName", e.target.value)} placeholder="e.g. Practice Manager" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Email</label>
+                  <input type="email" className={inputCls} value={quote.clientEmail} onChange={(e) => updateQuote("clientEmail", e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>Practice Manager Email</label>
+                  <input type="email" className={inputCls} value={quote.clientContactEmail} onChange={(e) => updateQuote("clientContactEmail", e.target.value)} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -888,6 +1002,10 @@ export default function QuotationsPage() {
                   <label className={labelCls}>City / Country</label>
                   <input className={inputCls} value={quote.clientCity} onChange={(e) => updateQuote("clientCity", e.target.value)} />
                 </div>
+              </div>
+              <div>
+                <label className={labelCls}>Phone</label>
+                <input className={inputCls} value={quote.clientPhone} onChange={(e) => updateQuote("clientPhone", e.target.value)} />
               </div>
             </div>
           </div>
@@ -918,8 +1036,8 @@ export default function QuotationsPage() {
             </div>
 
             {/* Headers */}
-            <div className="grid grid-cols-[100px_1fr_52px_72px_80px_32px] gap-1.5 mb-2 px-1">
-              {["Category", "Description", "Qty", "Unit Price", "Billing", ""].map((h) => (
+            <div className="grid grid-cols-[120px_1fr_52px_72px_80px_32px] gap-1.5 mb-2 px-1">
+              {["Section", "Description", "Qty", "Unit Price", "Billing", ""].map((h) => (
                 <span key={h} className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{h}</span>
               ))}
             </div>
@@ -928,15 +1046,15 @@ export default function QuotationsPage() {
               {items.map((item) => {
                 const lineTotal = item.quantity * item.unitPrice;
                 return (
-                  <div key={item.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-2">
-                    {/* Row 1: category + description + controls */}
-                    <div className="grid grid-cols-[110px_1fr_52px_80px_32px] gap-2 items-start">
+                  <div key={item.id} className={`rounded-xl border border-slate-100 p-3 space-y-2 ${item.optional ? "bg-amber-50/50" : "bg-slate-50"}`}>
+                    {/* Row 1: section + description + controls */}
+                    <div className="grid grid-cols-[130px_1fr_52px_80px_32px] gap-2 items-start">
                       <select
                         className={inputCls + " text-xs"}
-                        value={item.category}
-                        onChange={(e) => updateItem(item.id, "category", e.target.value)}
+                        value={item.section}
+                        onChange={(e) => updateItem(item.id, "section", e.target.value as LineItem["section"])}
                       >
-                        {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        {SECTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                       </select>
                       <input
                         className={inputCls}
@@ -970,7 +1088,7 @@ export default function QuotationsPage() {
                         className={inputCls + " text-xs text-slate-500"}
                         value={item.detail}
                         onChange={(e) => updateItem(item.id, "detail", e.target.value)}
-                        placeholder="Optional detail / description line"
+                        placeholder="Detail / description line"
                       />
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">CHF</span>
@@ -981,6 +1099,24 @@ export default function QuotationsPage() {
                           onChange={(e) => updateItem(item.id, "unitPrice", Number(e.target.value))}
                         />
                       </div>
+                    </div>
+                    {/* Row 3: includes bullets + optional flag */}
+                    <div className="grid grid-cols-[1fr_90px] gap-2 items-start">
+                      <input
+                        className={inputCls + " text-xs text-slate-500"}
+                        value={item.includeBullets.join(" | ")}
+                        onChange={(e) => updateItem(item.id, "includeBullets", e.target.value.split("|").map((b) => b.trim()).filter(Boolean))}
+                        placeholder="Includes: bullet 1 | bullet 2 | bullet 3"
+                      />
+                      <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!item.optional}
+                          onChange={(e) => updateItem(item.id, "optional", e.target.checked)}
+                          className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                        />
+                        Optional
+                      </label>
                     </div>
                     {/* Line total */}
                     <div className="flex justify-end">
@@ -1001,26 +1137,32 @@ export default function QuotationsPage() {
 
             {oneTime > 0 && (
               <div className="flex justify-between text-sm text-slate-500">
-                <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />One-time fees</span>
+                <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />One-time onboarding</span>
                 <span className="font-semibold text-slate-700">{formatCHF(oneTime)}</span>
               </div>
             )}
             {monthly > 0 && (
               <div className="flex justify-between text-sm text-slate-500">
-                <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />Monthly recurring</span>
+                <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />Monthly subscription</span>
                 <span className="font-semibold text-slate-700">{formatCHF(monthly)}<span className="text-violet-500 text-xs">/mo</span></span>
+              </div>
+            )}
+            {optionalMonthly > 0 && (
+              <div className="flex justify-between text-sm text-slate-500">
+                <span className="flex items-center gap-1.5"><Info className="w-3.5 h-3.5 text-amber-500" />Optional add-ons</span>
+                <span className="font-semibold text-slate-700">{formatCHF(optionalMonthly)}<span className="text-violet-500 text-xs">/mo</span></span>
               </div>
             )}
 
             <div className="flex justify-between items-center bg-violet-700 text-white rounded-xl px-4 py-3">
-              <span className="font-bold text-sm">Total Quoted</span>
-              <span className="font-bold text-base">{formatCHF(total)}</span>
+              <span className="font-bold text-sm">Quoted Payments</span>
+              <span className="font-bold text-base">{formatCHF(oneTime)} + {formatCHF(monthly)}/mo</span>
             </div>
 
             {monthly > 0 && oneTime > 0 && (
               <p className="text-xs text-slate-400 flex items-start gap-1.5 mt-1">
                 <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-violet-400" />
-                Total includes {formatCHF(oneTime)} in one-time fees + {formatCHF(monthly)}/mo recurring.
+                One-time onboarding and monthly subscription are billed separately. Optional add-ons are shown separately.
               </p>
             )}
           </div>
@@ -1030,7 +1172,7 @@ export default function QuotationsPage() {
             <Sparkles className="w-8 h-8 text-violet-400 mx-auto mb-2" />
             <p className="text-sm font-semibold text-violet-700">Professional Quotation PDF</p>
             <p className="text-xs text-violet-500 mt-1">
-              Exports with Aliice branding, itemized pricing, signature acceptance block, and CHF totals broken down by one-time vs recurring.
+              Exports with the Aliice logo, three numbered sections, detailed include lists, clear payment summary, and black/white layout.
             </p>
           </div>
         </div>
