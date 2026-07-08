@@ -21,6 +21,26 @@ import {
   Info,
 } from "lucide-react";
 import jsPDF from "jspdf";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  Table,
+  TableCell,
+  TableRow,
+  WidthType,
+  AlignmentType,
+  HeadingLevel,
+  BorderStyle,
+  convertInchesToTwip,
+  ImageRun,
+  Header,
+  Footer,
+  PageNumber,
+  VerticalAlign,
+  ShadingType,
+} from "docx";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -613,6 +633,464 @@ async function buildQuoteDoc(quote: QuoteData, items: LineItem[]): Promise<jsPDF
   return doc;
 }
 
+// ─── Word (.docx) export builder ─────────────────────────────────────────────
+
+async function loadLogoBuffer(src: string): Promise<{ buffer: Uint8Array; width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return resolve(null);
+      ctx.drawImage(img, 0, 0);
+      try {
+        const dataUrl = canvas.toDataURL("image/png");
+        const base64 = dataUrl.split(",")[1] || "";
+        const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        resolve({ buffer, width: img.width, height: img.height });
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+async function buildQuoteDocx(quote: QuoteData, items: LineItem[]): Promise<Blob> {
+  const logo = await loadLogoBuffer("/logos/logo-aliice-vector.bleu.png");
+
+  const EMU_PER_MM = 36000;
+  const headerLogoH = 14 * EMU_PER_MM;
+  const footerLogoH = 9 * EMU_PER_MM;
+
+  const logoImage =
+    logo && logo.width && logo.height
+      ? new ImageRun({
+          data: logo.buffer,
+          transformation: {
+            width: Math.round(headerLogoH * (logo.width / logo.height)),
+            height: headerLogoH,
+          },
+          type: "png",
+        })
+      : new TextRun({ text: "Aliice", bold: true, color: "FFFFFF", size: 28 });
+
+  const footerLogo =
+    logo && logo.width && logo.height
+      ? new ImageRun({
+          data: logo.buffer,
+          transformation: {
+            width: Math.round(footerLogoH * (logo.width / logo.height)),
+            height: footerLogoH,
+          },
+          type: "png",
+        })
+      : new TextRun({ text: "Aliice", color: "FFFFFF", size: 18 });
+
+  const sectionTitle: Record<LineItem["section"], string> = {
+    onboarding: "1. Onboarding & Setup (One-time fee)",
+    subscription: "2. Subscription — Aliice Professional Plan",
+    addons: "3. Add-on Modules",
+    other: "Additional Items",
+  };
+
+  const sectionOrder: LineItem["section"][] = ["onboarding", "subscription", "addons", "other"];
+
+  const darkCell = {
+    shading: { fill: "0F172A", type: ShadingType.CLEAR },
+    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+    verticalAlign: VerticalAlign.CENTER,
+  };
+
+  const greyCell = {
+    shading: { fill: "3C3C3C", type: ShadingType.CLEAR },
+    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+    verticalAlign: VerticalAlign.CENTER,
+  };
+
+  const headerTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            ...darkCell,
+            width: { size: 40, type: WidthType.PERCENTAGE },
+            children: [new Paragraph({ children: [logoImage] })],
+          }),
+          new TableCell({
+            ...darkCell,
+            width: { size: 60, type: WidthType.PERCENTAGE },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: "QUOTATION", bold: true, size: 32, color: "FFFFFF" })],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: `Quote #: ${quote.quoteNumber}`, size: 18, color: "E2E8F0" })],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: `Issue Date: ${quote.issueDate}`, size: 18, color: "E2E8F0" })],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: `Valid Until: ${quote.validUntil}`, size: 18, color: "E2E8F0" })],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+
+  const fromCell = new TableCell({
+    width: { size: 50, type: WidthType.PERCENTAGE },
+    margins: { top: 120, bottom: 120, left: 120, right: 120 },
+    children: [
+      new Paragraph({ children: [new TextRun({ text: "FROM", bold: true, color: "0F172A", size: 20 })] }),
+      new Paragraph({ children: [new TextRun({ text: quote.fromName, bold: true, size: 22 })] }),
+      new Paragraph({ children: [new TextRun({ text: quote.fromAddress, size: 20 })] }),
+      new Paragraph({ children: [new TextRun({ text: quote.fromCity, size: 20 })] }),
+      new Paragraph({ children: [new TextRun({ text: `Email: ${quote.fromEmail}`, size: 20 })] }),
+      new Paragraph({ children: [new TextRun({ text: `Phone: ${quote.fromPhone || "—"}`, size: 20 })] }),
+    ],
+  });
+
+  const toCell = new TableCell({
+    width: { size: 50, type: WidthType.PERCENTAGE },
+    margins: { top: 120, bottom: 120, left: 120, right: 120 },
+    children: [
+      new Paragraph({ children: [new TextRun({ text: "QUOTE TO", bold: true, color: "0F172A", size: 20 })] }),
+      new Paragraph({ children: [new TextRun({ text: quote.clientName || "—", bold: true, size: 22 })] }),
+      new Paragraph({ children: [new TextRun({ text: quote.clientContactName, size: 20 })] }),
+      new Paragraph({ children: [new TextRun({ text: quote.clientAddress, size: 20 })] }),
+      new Paragraph({ children: [new TextRun({ text: quote.clientCity, size: 20 })] }),
+      new Paragraph({ children: [new TextRun({ text: `Email: ${quote.clientEmail}`, size: 20 })] }),
+      new Paragraph({ children: [new TextRun({ text: `Phone: ${quote.clientPhone || "—"}`, size: 20 })] }),
+    ],
+  });
+
+  const addressTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [new TableRow({ children: [fromCell, toCell] })],
+  });
+
+  const notesPara = quote.notes.trim()
+    ? new Paragraph({
+        spacing: { before: 200, after: 120 },
+        children: [new TextRun({ text: quote.notes, size: 20 })],
+      })
+    : null;
+
+  const bodyContent: (Paragraph | Table)[] = [];
+
+  sectionOrder.forEach((section) => {
+    const sectionItems = items.filter((i) => i.section === section && i.description.trim());
+    if (!sectionItems.length) return;
+
+    bodyContent.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                ...greyCell,
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: sectionTitle[section], bold: true, color: "FFFFFF", size: 22 })],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+
+    sectionItems.forEach((item) => {
+      const descChildren: Paragraph[] = [
+        new Paragraph({ children: [new TextRun({ text: item.description, bold: true, size: 21 })] }),
+      ];
+      if (item.detail.trim()) {
+        descChildren.push(new Paragraph({ children: [new TextRun({ text: item.detail, size: 20, color: "475569" })] }));
+      }
+      if (item.includeBullets?.length) {
+        item.includeBullets.forEach((b) => {
+          descChildren.push(
+            new Paragraph({
+              indent: { left: 360 },
+              spacing: { before: 40, after: 40 },
+              children: [new TextRun({ text: `• ${b}`, size: 20 })],
+            })
+          );
+        });
+      }
+      if (item.optional) {
+        descChildren.push(
+          new Paragraph({
+            spacing: { before: 60 },
+            children: [new TextRun({ text: "Optional add-on", italics: true, color: "B45309", size: 20 })],
+          })
+        );
+      }
+
+      const lineTotal = item.quantity * item.unitPrice;
+      const priceCell = new TableCell({
+        width: { size: 30, type: WidthType.PERCENTAGE },
+        margins: { top: 80, bottom: 80, left: 80, right: 80 },
+        verticalAlign: VerticalAlign.CENTER,
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [new TextRun({ text: `Qty: ${item.quantity}`, size: 20 })],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [new TextRun({ text: formatCHF(item.unitPrice), size: 20 })],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [new TextRun({ text: formatCHF(lineTotal), bold: true, size: 21 })],
+          }),
+          item.recurring !== "once"
+            ? new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: item.recurring, size: 18, color: "64748B" })],
+              })
+            : new Paragraph({ text: "" }),
+        ],
+      });
+
+      bodyContent.push(
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            bottom: { style: BorderStyle.SINGLE, size: 6, color: "CBD5E1" },
+          },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  width: { size: 70, type: WidthType.PERCENTAGE },
+                  margins: { top: 80, bottom: 80, left: 80, right: 80 },
+                  children: descChildren,
+                }),
+                priceCell,
+              ],
+            }),
+          ],
+        })
+      );
+    });
+  });
+
+  const oneTimeSub = items
+    .filter((i) => i.recurring === "once" && i.description.trim())
+    .reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const monthlySub = items
+    .filter((i) => i.recurring === "monthly" && i.description.trim() && !i.optional)
+    .reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const optionalMonthly = items
+    .filter((i) => i.recurring === "monthly" && i.description.trim() && i.optional)
+    .reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+
+  const summaryRows: { label: string; value: string }[] = [
+    { label: "One-time onboarding payment", value: formatCHF(oneTimeSub) },
+    { label: "Monthly subscription payment", value: `${formatCHF(monthlySub)}/mo` },
+  ];
+  if (optionalMonthly > 0) {
+    summaryRows.push({ label: "Optional add-ons (monthly)", value: `${formatCHF(optionalMonthly)}/mo` });
+  }
+
+  const summaryTable = new Table({
+    width: { size: 70, type: WidthType.PERCENTAGE },
+    alignment: AlignmentType.RIGHT,
+    rows: [
+      ...summaryRows.map(
+        (row) =>
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: 70, type: WidthType.PERCENTAGE },
+                margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                children: [new Paragraph({ children: [new TextRun({ text: row.label, size: 20 })] })],
+              }),
+              new TableCell({
+                width: { size: 30, type: WidthType.PERCENTAGE },
+                margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.RIGHT,
+                    children: [new TextRun({ text: row.value, bold: true, size: 21 })],
+                  }),
+                ],
+              }),
+            ],
+          })
+      ),
+      new TableRow({
+        children: [
+          new TableCell({
+            ...darkCell,
+            width: { size: 70, type: WidthType.PERCENTAGE },
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: "MONTHLY TOTAL", bold: true, color: "FFFFFF", size: 22 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            ...darkCell,
+            width: { size: 30, type: WidthType.PERCENTAGE },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [
+                  new TextRun({ text: `${formatCHF(monthlySub)}/mo`, bold: true, color: "FFFFFF", size: 22 }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+
+  const termParas = quote.terms
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => new Paragraph({ spacing: { before: 60, after: 60 }, children: [new TextRun({ text: line, size: 19 })] }));
+
+  const signatureTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            children: [
+              new Paragraph({ children: [new TextRun({ text: "Client Signature & Date", bold: true, size: 20 })] }),
+              new Paragraph({
+                spacing: { before: 240 },
+                children: [new TextRun({ text: "_____________________________", color: "94A3B8" })],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: "Authorised by Aliice", bold: true, size: 20 })],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                spacing: { before: 240 },
+                children: [new TextRun({ text: "_____________________________", color: "94A3B8" })],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            size: {
+              width: convertInchesToTwip(8.27),
+              height: convertInchesToTwip(11.69),
+            },
+            margin: {
+              top: convertInchesToTwip(0.79),
+              right: convertInchesToTwip(0.79),
+              bottom: convertInchesToTwip(0.79),
+              left: convertInchesToTwip(0.79),
+            },
+          },
+        },
+        headers: {
+          default: new Header({
+            children: [headerTable],
+          }),
+        },
+        footers: {
+          default: new Footer({
+            children: [
+              new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: [
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        ...darkCell,
+                        width: { size: 12, type: WidthType.PERCENTAGE },
+                        children: [new Paragraph({ children: [footerLogo] })],
+                      }),
+                      new TableCell({
+                        ...darkCell,
+                        width: { size: 58, type: WidthType.PERCENTAGE },
+                        children: [
+                          new Paragraph({
+                            children: [new TextRun({ text: "Aliice Computer Software Trading", color: "FFFFFF", size: 16 })],
+                          }),
+                          new Paragraph({
+                            children: [new TextRun({ text: "hello@aliice.app · www.aliice.app", color: "CBD5E1", size: 16 })],
+                          }),
+                        ],
+                      }),
+                      new TableCell({
+                        ...darkCell,
+                        width: { size: 30, type: WidthType.PERCENTAGE },
+                        children: [
+                          new Paragraph({
+                            alignment: AlignmentType.RIGHT,
+                            children: [
+                              new TextRun({ text: "Page ", color: "FFFFFF", size: 16 }),
+                              new TextRun({ children: [PageNumber.CURRENT], color: "FFFFFF", size: 16 }),
+                            ],
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        },
+        children: [
+          new Paragraph({ spacing: { before: 220 } }),
+          addressTable,
+          ...(notesPara ? [notesPara] : []),
+          ...bodyContent,
+          new Paragraph({ spacing: { before: 240 } }),
+          summaryTable,
+          new Paragraph({
+            spacing: { before: 280, after: 120 },
+            children: [new TextRun({ text: "Terms & Conditions", bold: true, size: 24, color: "0F172A" })],
+          }),
+          ...termParas,
+          new Paragraph({ spacing: { before: 280 } }),
+          signatureTable,
+        ],
+      },
+    ],
+  });
+
+  return Packer.toBlob(doc);
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const DEFAULT_TERMS =
@@ -660,6 +1138,7 @@ const SECTIONS: { value: LineItem["section"]; label: string }[] = [
 
 export default function QuotationsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingDocx, setIsGeneratingDocx] = useState(false);
   const [sending, setSending] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -772,6 +1251,28 @@ export default function QuotationsPage() {
     }
   };
 
+  const exportWord = async () => {
+    if (!validate()) return;
+    setIsGeneratingDocx(true);
+    setActionError(null);
+    try {
+      const blob = await buildQuoteDocx(quote, items);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${quote.quoteNumber}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setActionMsg("Word document exported successfully.");
+    } catch {
+      setActionError("Failed to generate Word document. Please try again.");
+    } finally {
+      setIsGeneratingDocx(false);
+    }
+  };
+
   const sendToClient = async () => {
     if (!validate()) return;
     if (!quote.clientEmail.trim()) { alert("Please enter the client email first."); return; }
@@ -836,6 +1337,14 @@ export default function QuotationsPage() {
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {sending ? "Sending…" : "Send to Client"}
+          </button>
+          <button
+            onClick={exportWord}
+            disabled={isGeneratingDocx}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition disabled:opacity-50"
+          >
+            {isGeneratingDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            {isGeneratingDocx ? "Generating…" : "Export Word"}
           </button>
           <button
             onClick={exportPDF}
