@@ -87,6 +87,13 @@ const CURRENCIES = [
   { code: "CHF", symbol: "CHF " },
 ];
 
+const CHF_TO_EUR_RATE = 1.05;
+
+function displayPrice(chfAmount: number, currency: "EUR" | "CHF"): number {
+  if (currency === "CHF") return chfAmount;
+  return Math.round(chfAmount * CHF_TO_EUR_RATE);
+}
+
 export default function PricingPage() {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const [currency, setCurrency] = useState<"EUR" | "CHF">("EUR");
@@ -182,13 +189,13 @@ export default function PricingPage() {
                 
                 <div className="mt-6">
                   <span className={`text-4xl font-bold ${tier.popular ? "text-white" : "text-slate-900"}`}>
-                    {sym}{tier.monthlyPrice.toLocaleString()}
+                    {sym}{displayPrice(tier.monthlyPrice, currency).toLocaleString()}
                   </span>
                   <span className={tier.popular ? "text-sky-200" : "text-slate-500"}>/month</span>
                 </div>
                 
                 <div className={`text-sm mt-2 ${tier.popular ? "text-sky-200" : "text-slate-500"}`}>
-                  + {sym}{tier.onboarding.toLocaleString()} one-time onboarding
+                  + {sym}{displayPrice(tier.onboarding, currency).toLocaleString()} one-time onboarding
                 </div>
 
                 <ul className="mt-8 space-y-3">
@@ -241,15 +248,15 @@ export default function PricingPage() {
                   <th className="text-left p-4 text-sm font-semibold text-slate-900">Feature</th>
                   <th className="text-center p-4 text-sm font-semibold text-slate-900">
                     <div>Starter</div>
-                    <div className="text-sky-600 font-bold">{sym}1,490/mo</div>
+                    <div className="text-sky-600 font-bold">{sym}{displayPrice(1490, currency).toLocaleString()}/mo</div>
                   </th>
                   <th className="text-center p-4 text-sm font-semibold text-slate-900 bg-sky-50">
                     <div>Professional</div>
-                    <div className="text-sky-600 font-bold">{sym}2,240/mo</div>
+                    <div className="text-sky-600 font-bold">{sym}{displayPrice(2240, currency).toLocaleString()}/mo</div>
                   </th>
                   <th className="text-center p-4 text-sm font-semibold text-slate-900">
                     <div>Enterprise</div>
-                    <div className="text-sky-600 font-bold">{sym}3,200/mo</div>
+                    <div className="text-sky-600 font-bold">{sym}{displayPrice(3200, currency).toLocaleString()}/mo</div>
                   </th>
                 </tr>
               </thead>
@@ -331,7 +338,7 @@ export default function PricingPage() {
               <div className="text-3xl font-bold text-slate-900">+1 TB</div>
               <div className="text-slate-600 mt-1">Additional storage</div>
               <div className="mt-4 inline-block bg-slate-100 text-slate-700 text-sm font-medium px-3 py-1 rounded-full">
-                {sym}50/month
+                {sym}{displayPrice(50, currency).toLocaleString()}/month
               </div>
             </div>
           </div>

@@ -91,6 +91,13 @@ const CURRENCIES = [
   { code: "CHF", symbol: "CHF" },
 ];
 
+const CHF_TO_EUR_RATE = 1.05;
+
+function displayPrice(chfAmount: number, currency: "EUR" | "CHF"): number {
+  if (currency === "CHF") return chfAmount;
+  return Math.round(chfAmount * CHF_TO_EUR_RATE);
+}
+
 export default function LandingPageClient() {
   const [activeDemo, setActiveDemo] = useState<"patient" | "calendar" | "ai" | "analytics">("patient");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -493,18 +500,18 @@ export default function LandingPageClient() {
             <div className="mt-6 grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
               <div className="bg-slate-800 rounded-2xl p-6 text-left border border-slate-700">
                 <div className="text-slate-400 text-sm font-medium mb-2">Starter</div>
-                <div className="text-3xl font-bold text-white">{sym}1,490<span className="text-lg text-slate-500">/mo</span></div>
+                <div className="text-3xl font-bold text-white">{sym}{displayPrice(1490, currency).toLocaleString()}<span className="text-lg text-slate-500">/mo</span></div>
                 <div className="text-sm text-slate-400 mt-1">Essential CRM & Booking</div>
               </div>
               <div className="bg-white rounded-2xl p-6 text-left scale-105 shadow-xl">
                 <div className="text-slate-500 text-sm font-medium mb-2">Professional</div>
-                <div className="text-3xl font-bold text-slate-900">{sym}2,240<span className="text-lg text-slate-400">/mo</span></div>
+                <div className="text-3xl font-bold text-slate-900">{sym}{displayPrice(2240, currency).toLocaleString()}<span className="text-lg text-slate-400">/mo</span></div>
                 <div className="text-sm text-slate-600 mt-1">Full CRM + ERP + Booking</div>
                 <div className="mt-3 text-xs bg-slate-900 text-white rounded-full px-3 py-1 inline-block">Most Popular</div>
               </div>
               <div className="bg-slate-800 rounded-2xl p-6 text-left border border-slate-700">
                 <div className="text-slate-400 text-sm font-medium mb-2">Enterprise</div>
-                <div className="text-3xl font-bold text-white">{sym}3,200<span className="text-lg text-slate-500">/mo</span></div>
+                <div className="text-3xl font-bold text-white">{sym}{displayPrice(3200, currency).toLocaleString()}<span className="text-lg text-slate-500">/mo</span></div>
                 <div className="text-sm text-slate-400 mt-1">Everything + AI & Custom</div>
               </div>
             </div>
