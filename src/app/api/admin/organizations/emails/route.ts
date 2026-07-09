@@ -54,9 +54,9 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("emails")
-    .select("id, direction, status, subject, to_address, from_address, body, sent_at, read_at, created_at, provider, gmail_thread_id, rfc822_message_id")
+    .select("id, direction, status, subject, to_address, cc_addresses, bcc_addresses, from_address, body, attachments, scheduled_for, sent_at, read_at, created_at, provider, gmail_thread_id, rfc822_message_id")
     .eq("organization_id", orgId)
-    .order("sent_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
     .limit(500);
 
   if (direction) query = query.eq("direction", direction);
@@ -98,14 +98,22 @@ export async function POST(request: Request) {
   const {
     organization_id,
     to,
+    cc,
+    bcc,
     subject,
     html,
+    attachments,
+    scheduledFor,
     inReplyToEmailId,
   } = body as {
     organization_id?: string;
     to?: string;
+    cc?: string | string[];
+    bcc?: string | string[];
     subject?: string;
     html?: string;
+    attachments?: Array<{ filename: string; content: string; contentType: string }>;
+    scheduledFor?: string;
     inReplyToEmailId?: string;
   };
 
@@ -126,6 +134,14 @@ export async function POST(request: Request) {
   const trimmedSubject = (subject || "").trim();
   const trimmedHtml = (html || "").trim();
 
+  const normalizeList = (e?: string | string[]) => {
+    if (!e) return [] as string[];
+    return (Array.isArray(e) ? e : [e]).map((s) => s.trim()).filter(Boolean);
+  };
+  const ccList = normalizeList(cc);
+  const bccList = normalizeList(bcc);
+  const attachmentList = attachments || [];
+
   if (!recipient) {
     return NextResponse.json({ error: "No recipient — set an email on the organization or provide one" }, { status: 400 });
   }
@@ -135,6 +151,8 @@ export async function POST(request: Request) {
 
   const bodyHtml = sanitizeTelLinks(toHtml(trimmedHtml));
   const nowIso = new Date().toISOString();
+  const scheduleTime = scheduledFor ? new Date(scheduledFor).toISOString() : null;
+  const isScheduled = !!scheduleTime && new Date(scheduleTime).getTime() > Date.now();
 
   // Thread context when this is a reply.
   let threadId: string | null = null;
@@ -151,6 +169,7 @@ export async function POST(request: Request) {
 
   // Prefer the logged-in admin's connected Gmail; fall back to Resend.
   const gmail = await getValidAccessToken(session.email);
+  const fromAddress = gmail?.googleEmail || FROM_ADDRESS;
 
   // 1. Log the email first so we have an id for the open-tracking pixel.
   const { data: inserted, error: insertError } = await supabase
@@ -158,12 +177,17 @@ export async function POST(request: Request) {
     .insert({
       organization_id,
       to_address: recipient,
-      from_address: gmail?.googleEmail || FROM_ADDRESS,
+      cc_addresses: ccList,
+      bcc_addresses: bccList,
+      from_address: fromAddress,
+      admin_email: session.email,
       subject: trimmedSubject,
       body: bodyHtml,
+      attachments: attachmentList,
       direction: "outbound",
-      status: "sending",
-      sent_at: nowIso,
+      status: isScheduled ? "scheduled" : "sending",
+      scheduled_for: isScheduled ? scheduleTime : null,
+      sent_at: isScheduled ? null : nowIso,
       provider: gmail ? "gmail" : "resend",
     })
     .select("id")
@@ -175,6 +199,12 @@ export async function POST(request: Request) {
   }
 
   const emailId = inserted.id as string;
+
+  // Scheduled emails are queued for the cron job; nothing to send now.
+  if (isScheduled) {
+    return NextResponse.json({ ok: true, emailId, status: "scheduled", scheduledFor: scheduleTime });
+  }
+
   const trackedHtml = addTrackingPixel(bodyHtml, emailId, APP_URL);
 
   // ── Gmail path (from the admin's real address) ──
@@ -182,8 +212,16 @@ export async function POST(request: Request) {
     const sendResult = await sendGmailMessage(gmail.accessToken, {
       from: gmail.googleEmail,
       to: recipient,
+      cc: ccList,
+      bcc: bccList,
       subject: trimmedSubject,
       html: trackedHtml,
+      attachments: attachmentList.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        encoding: "base64" as const,
+        contentType: a.contentType || "application/octet-stream",
+      })),
       threadId,
       inReplyTo: inReplyToRfc,
     });
@@ -218,11 +256,18 @@ export async function POST(request: Request) {
   const replyTo = `reply+${emailId}@${REPLY_DOMAIN}`;
   const result = await sendEmail({
     to: recipient,
+    cc: ccList,
+    bcc: bccList,
     subject: trimmedSubject,
     html: trackedHtml,
     from: FROM_ADDRESS,
     fromName: FROM_NAME,
     replyTo,
+    attachments: attachmentList.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      contentType: a.contentType || "application/octet-stream",
+    })),
     tags: [{ name: "email_id", value: emailId }, { name: "organization_id", value: organization_id }],
   });
 

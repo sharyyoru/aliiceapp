@@ -29,6 +29,8 @@ export type EmailAttachment = {
 
 export type SendEmailOptions = {
   to: string | string[];
+  cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   html: string;
   from?: string;
@@ -73,6 +75,8 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 
   const {
     to,
+    cc,
+    bcc,
     subject,
     html,
     from,
@@ -88,6 +92,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   const senderName = fromName || DEFAULT_FROM_NAME;
   const fromField = `${senderName} <${fromAddress}>`;
 
+  const normalizeEmails = (e?: string | string[]) => {
+    if (!e) return undefined;
+    const arr = Array.isArray(e) ? e : [e];
+    return arr.filter(Boolean).map((s) => s.trim());
+  };
+
   // Build request body
   const body: Record<string, unknown> = {
     from: fromField,
@@ -95,6 +105,11 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     subject,
     html,
   };
+
+  const ccList = normalizeEmails(cc);
+  const bccList = normalizeEmails(bcc);
+  if (ccList && ccList.length > 0) body.cc = ccList;
+  if (bccList && bccList.length > 0) body.bcc = bccList;
 
   if (replyTo) {
     body.reply_to = replyTo;

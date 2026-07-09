@@ -15,6 +15,9 @@ import {
   Video,
   CalendarPlus,
   Check,
+  Paperclip,
+  Clock,
+  Trash2,
 } from "lucide-react";
 import { toDatetimeLocal, datetimeLocalToISO, localTimeZone } from "@/app/admin/agenda/lib";
 import TaskModal from "@/components/admin/TaskModal";
@@ -25,8 +28,12 @@ interface OrgEmail {
   status: string;
   subject: string;
   to_address: string | null;
+  cc_addresses: string[] | null;
+  bcc_addresses: string[] | null;
   from_address: string | null;
   body: string;
+  attachments: { filename: string; contentType?: string }[] | null;
+  scheduled_for: string | null;
   sent_at: string | null;
   read_at: string | null;
   created_at: string;
@@ -53,6 +60,7 @@ function fmtDateTime(iso: string | null) {
 function statusBadge(email: OrgEmail): { label: string; cls: string } {
   if (email.direction === "inbound") return { label: "Received", cls: "bg-violet-50 text-violet-700" };
   if (email.status === "failed") return { label: "Failed", cls: "bg-rose-50 text-rose-600" };
+  if (email.status === "scheduled") return { label: "Scheduled", cls: "bg-indigo-50 text-indigo-700" };
   if (email.status === "read" || email.read_at) return { label: "Read", cls: "bg-emerald-50 text-emerald-700" };
   if (email.status === "queued" || email.status === "sending") return { label: "Queued", cls: "bg-amber-50 text-amber-700" };
   return { label: "Sent", cls: "bg-sky-50 text-sky-700" };
@@ -80,7 +88,17 @@ export default function OrgEmailsTab({
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [sending, setSending] = useState(false);
-  const [form, setForm] = useState({ to: orgEmail || "", subject: "", body: "" });
+  const [form, setForm] = useState({
+    to: orgEmail || "",
+    cc: "",
+    bcc: "",
+    subject: "",
+    body: "",
+  });
+  const [showCcBcc, setShowCcBcc] = useState(false);
+  const [attachments, setAttachments] = useState<{ filename: string; contentType: string; content: string; size: number }[]>([]);
+  const [scheduleMode, setScheduleMode] = useState(false);
+  const [scheduledFor, setScheduledFor] = useState("");
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [composeError, setComposeError] = useState<string | null>(null);
 
@@ -221,16 +239,22 @@ export default function OrgEmailsTab({
 
   const openCompose = (replyTo?: OrgEmail) => {
     setComposeError(null);
+    setShowCcBcc(false);
+    setAttachments([]);
+    setScheduleMode(false);
+    setScheduledFor("");
     if (replyTo) {
       const target = replyTo.direction === "inbound" ? replyTo.from_address : replyTo.to_address;
       setForm({
         to: target || orgEmail || "",
+        cc: "",
+        bcc: "",
         subject: replyTo.subject.startsWith("Re:") ? replyTo.subject : `Re: ${replyTo.subject}`,
         body: "",
       });
       setReplyToId(replyTo.id);
     } else {
-      setForm({ to: orgEmail || "", subject: "", body: "" });
+      setForm({ to: orgEmail || "", cc: "", bcc: "", subject: "", body: "" });
       setReplyToId(null);
     }
     setMeeting(defaultMeeting());
@@ -250,22 +274,74 @@ export default function OrgEmailsTab({
     }
   };
 
+  const parseEmails = (input: string) =>
+    input
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && s.includes("@"));
+
+  const handleAttachmentSelect = async (files: FileList | null) => {
+    if (!files) return;
+    const newAttachments = await Promise.all(
+      Array.from(files).map(async (file) => {
+        const content = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            resolve(result.split(",").pop() || "");
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        return {
+          filename: file.name,
+          contentType: file.type || "application/octet-stream",
+          content,
+          size: file.size,
+        };
+      })
+    );
+    setAttachments((prev) => [...prev, ...newAttachments]);
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const send = async () => {
     setComposeError(null);
     if (!form.subject.trim() || !form.body.trim()) {
       setComposeError("Subject and message are required.");
       return;
     }
+    const to = form.to.trim() || orgEmail || "";
+    if (!to) {
+      setComposeError("Please enter a recipient.");
+      return;
+    }
+
+    const scheduleTime = scheduleMode && scheduledFor ? new Date(scheduledFor).toISOString() : null;
+    if (scheduleMode && scheduledFor && new Date(scheduledFor).getTime() <= Date.now()) {
+      setComposeError("Schedule time must be in the future.");
+      return;
+    }
+
     setSending(true);
     try {
+      const cc = parseEmails(form.cc);
+      const bcc = parseEmails(form.bcc);
       const res = await fetch("/api/admin/organizations/emails", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           organization_id: orgId,
-          to: form.to.trim() || undefined,
+          to,
+          cc: cc.length ? cc : undefined,
+          bcc: bcc.length ? bcc : undefined,
           subject: form.subject,
           html: form.body,
+          attachments: attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType })),
+          scheduledFor: scheduleTime || undefined,
           inReplyToEmailId: replyToId || undefined,
         }),
       });
@@ -275,7 +351,11 @@ export default function OrgEmailsTab({
         return;
       }
       setComposeOpen(false);
-      setForm({ to: orgEmail || "", subject: "", body: "" });
+      setForm({ to: orgEmail || "", cc: "", bcc: "", subject: "", body: "" });
+      setAttachments([]);
+      setScheduleMode(false);
+      setScheduledFor("");
+      setShowCcBcc(false);
       setMeeting(defaultMeeting());
       setMeetingAdded(null);
       await fetchData();
@@ -431,10 +511,17 @@ export default function OrgEmailsTab({
                       </span>
                     </div>
                     <p className="text-xs text-slate-400 truncate">
-                      {inbound ? `From ${email.from_address || "unknown"}` : `To ${email.to_address || "unknown"}`}
+                      {inbound
+                        ? `From ${email.from_address || "unknown"}`
+                        : `To ${email.to_address || "unknown"}${email.cc_addresses?.length ? ` · Cc ${email.cc_addresses.length}` : ""}${email.bcc_addresses?.length ? ` · Bcc ${email.bcc_addresses.length}` : ""}`}
                     </p>
                   </div>
-                  <span className="shrink-0 text-xs text-slate-400">{fmtDateTime(email.sent_at || email.created_at)}</span>
+                  <div className="shrink-0 flex items-center gap-2">
+                    {(email.attachments?.length ?? 0) > 0 && <Paperclip className="w-3.5 h-3.5 text-slate-400" />}
+                    <span className="text-xs text-slate-400">
+                      {email.status === "scheduled" ? `Scheduled ${fmtDateTime(email.scheduled_for)}` : fmtDateTime(email.sent_at || email.created_at)}
+                    </span>
+                  </div>
                 </li>
               );
             })}
@@ -454,7 +541,15 @@ export default function OrgEmailsTab({
                     ? `From ${selected.from_address || "unknown"}`
                     : `To ${selected.to_address || "unknown"}`}
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">{fmtDateTime(selected.sent_at || selected.created_at)}</p>
+                {selected.cc_addresses && selected.cc_addresses.length > 0 && (
+                  <p className="text-xs text-slate-400 mt-0.5">Cc: {selected.cc_addresses.join(", ")}</p>
+                )}
+                {selected.bcc_addresses && selected.bcc_addresses.length > 0 && (
+                  <p className="text-xs text-slate-400 mt-0.5">Bcc: {selected.bcc_addresses.join(", ")}</p>
+                )}
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {selected.status === "scheduled" ? `Scheduled ${fmtDateTime(selected.scheduled_for)}` : fmtDateTime(selected.sent_at || selected.created_at)}
+                </p>
               </div>
               <button onClick={() => setSelected(null)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
                 <X className="w-5 h-5" />
@@ -516,7 +611,43 @@ export default function OrgEmailsTab({
                   placeholder={orgEmail || "recipient@example.com"}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 />
+                <div className="mt-1.5 flex items-center gap-3 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setShowCcBcc((s) => !s)}
+                    className="text-sky-600 hover:text-sky-700 font-medium"
+                  >
+                    {showCcBcc ? "Hide Cc/Bcc" : "Cc / Bcc"}
+                  </button>
+                  <span className="text-slate-400">Separate multiple emails with commas</span>
+                </div>
               </div>
+
+              {showCcBcc && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Cc</label>
+                    <input
+                      type="text"
+                      value={form.cc}
+                      onChange={(e) => setForm({ ...form, cc: e.target.value })}
+                      placeholder="cc@example.com, another@example.com"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Bcc</label>
+                    <input
+                      type="text"
+                      value={form.bcc}
+                      onChange={(e) => setForm({ ...form, bcc: e.target.value })}
+                      placeholder="bcc@example.com"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
                 <input
@@ -539,6 +670,73 @@ export default function OrgEmailsTab({
                 <p className="mt-1 text-xs text-slate-400">
                   A tracking pixel is added automatically so you can see when it&apos;s read. Replies are captured in this mailbox.
                 </p>
+              </div>
+
+              {/* Attachments */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    <Paperclip className="h-4 w-4 text-slate-500" />
+                    Attach files
+                    <input
+                      type="file"
+                      multiple
+                      className="sr-only"
+                      onChange={(e) => handleAttachmentSelect(e.target.files)}
+                    />
+                  </label>
+                  <span className="text-xs text-slate-400">
+                    {attachments.length > 0 ? `${attachments.length} file${attachments.length === 1 ? "" : "s"} attached` : "No attachments"}
+                  </span>
+                </div>
+                {attachments.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {attachments.map((att, idx) => (
+                      <li key={idx} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Paperclip className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate text-slate-700">{att.filename}</span>
+                          <span className="text-xs text-slate-400 shrink-0">({(att.size / 1024).toFixed(1)} KB)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(idx)}
+                          className="text-slate-400 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Schedule send */}
+              <div className="rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode((s) => !s)}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-700"
+                >
+                  <Clock className="h-4 w-4 text-sky-600" />
+                  Schedule send
+                  <span className="ml-auto text-xs text-slate-400">{scheduleMode ? "Hide" : "Show"}</span>
+                </button>
+                {scheduleMode && (
+                  <div className="border-t px-3 py-3">
+                    <label className="mb-1 block text-xs font-medium text-slate-500">Send at</label>
+                    <input
+                      type="datetime-local"
+                      value={scheduledFor}
+                      onChange={(e) => setScheduledFor(e.target.value)}
+                      min={toDatetimeLocal(new Date())}
+                      className="w-full rounded-lg border px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                    <p className="mt-1.5 text-xs text-slate-400">
+                      Your local timezone is used. The email will sit as Scheduled and be sent by the hourly cron job.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Meeting / Google Meet */}
@@ -659,7 +857,7 @@ export default function OrgEmailsTab({
                   className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
                 >
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {sending ? "Sending…" : "Send email"}
+                  {sending ? (scheduleMode ? "Scheduling…" : "Sending…") : scheduleMode ? "Schedule email" : "Send email"}
                 </button>
               </div>
             </div>

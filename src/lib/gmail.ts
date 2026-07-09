@@ -184,26 +184,70 @@ function encodeHeaderValue(value: string): string {
 export function buildRawEmail(opts: {
   from: string;
   to: string;
+  cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   html: string;
+  replyTo?: string;
   inReplyTo?: string | null;
   references?: string | null;
+  attachments?: Array<{ filename: string; content: string; encoding: "base64"; contentType: string }>;
 }): string {
-  const headers = [
-    `From: ${opts.from}`,
-    `To: ${opts.to}`,
-    `Subject: ${encodeHeaderValue(opts.subject)}`,
-    "MIME-Version: 1.0",
-    'Content-Type: text/html; charset="UTF-8"',
-    "Content-Transfer-Encoding: base64",
-  ];
+  const hasAttachments = opts.attachments && opts.attachments.length > 0;
+  const boundary = hasAttachments
+    ? `boundary_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
+    : null;
+
+  const headers = [`From: ${opts.from}`, `To: ${opts.to}`];
+  if (opts.cc) {
+    const cc = Array.isArray(opts.cc) ? opts.cc.join(", ") : opts.cc;
+    if (cc.trim()) headers.push(`Cc: ${cc}`);
+  }
+  if (opts.bcc) {
+    const bcc = Array.isArray(opts.bcc) ? opts.bcc.join(", ") : opts.bcc;
+    if (bcc.trim()) headers.push(`Bcc: ${bcc}`);
+  }
+  headers.push(`Subject: ${encodeHeaderValue(opts.subject)}`);
+  headers.push("MIME-Version: 1.0");
+  if (hasAttachments && boundary) {
+    headers.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+  } else {
+    headers.push('Content-Type: text/html; charset="UTF-8"');
+    headers.push("Content-Transfer-Encoding: base64");
+  }
+  if (opts.replyTo) headers.push(`Reply-To: ${opts.replyTo}`);
   if (opts.inReplyTo) {
     headers.push(`In-Reply-To: ${opts.inReplyTo}`);
     headers.push(`References: ${opts.references || opts.inReplyTo}`);
   }
-  // Body base64 (not url-safe) per MIME, wrapped for safety.
-  const bodyB64 = Buffer.from(opts.html, "utf-8").toString("base64").replace(/(.{76})/g, "$1\r\n");
-  const raw = `${headers.join("\r\n")}\r\n\r\n${bodyB64}`;
+
+  const htmlB64 = Buffer.from(opts.html, "utf-8").toString("base64").replace(/(.{76})/g, "$1\r\n");
+
+  if (!hasAttachments || !boundary) {
+    const raw = `${headers.join("\r\n")}\r\n\r\n${htmlB64}`;
+    return base64UrlEncode(raw);
+  }
+
+  const htmlPart = [
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    htmlB64,
+  ].join("\r\n");
+
+  const attachParts = (opts.attachments || []).map((att) =>
+    [
+      `--${boundary}`,
+      `Content-Type: ${att.contentType}; name="${att.filename}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="${att.filename}"`,
+      "",
+      att.content.replace(/(.{76})/g, "$1\r\n"),
+    ].join("\r\n")
+  );
+
+  const raw = [headers.join("\r\n"), "", htmlPart, ...attachParts, `--${boundary}--`].join("\r\n");
   return base64UrlEncode(raw);
 }
 
@@ -220,8 +264,12 @@ export async function sendGmailMessage(
   opts: {
     from: string;
     to: string;
+    cc?: string | string[];
+    bcc?: string | string[];
     subject: string;
     html: string;
+    replyTo?: string;
+    attachments?: Array<{ filename: string; content: string; encoding: "base64"; contentType: string }>;
     threadId?: string | null;
     inReplyTo?: string | null;
     references?: string | null;
@@ -361,47 +409,14 @@ export async function getThreadMessages(accessToken: string, threadId: string): 
 function buildRawEmailWithAttachments(opts: {
   from: string;
   to: string;
+  cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   html: string;
   replyTo?: string;
   attachments?: Array<{ filename: string; content: string; encoding: "base64"; contentType: string }>;
 }): string {
-  const boundary = `boundary_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
-  const headers = [
-    `From: ${opts.from}`,
-    `To: ${opts.to}`,
-    `Subject: ${encodeHeaderValue(opts.subject)}`,
-    "MIME-Version: 1.0",
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-  ];
-  if (opts.replyTo) headers.push(`Reply-To: ${opts.replyTo}`);
-
-  const htmlPart = [
-    `--${boundary}`,
-    'Content-Type: text/html; charset="UTF-8"',
-    "Content-Transfer-Encoding: base64",
-    "",
-    Buffer.from(opts.html, "utf-8").toString("base64").replace(/(.{76})/g, "$1\r\n"),
-  ].join("\r\n");
-
-  const attachParts = (opts.attachments || []).map((att) => [
-    `--${boundary}`,
-    `Content-Type: ${att.contentType}; name="${att.filename}"`,
-    "Content-Transfer-Encoding: base64",
-    `Content-Disposition: attachment; filename="${att.filename}"`,
-    "",
-    att.content.replace(/(.{76})/g, "$1\r\n"),
-  ].join("\r\n"));
-
-  const raw = [
-    headers.join("\r\n"),
-    "",
-    htmlPart,
-    ...attachParts,
-    `--${boundary}--`,
-  ].join("\r\n");
-
-  return base64UrlEncode(raw);
+  return buildRawEmail(opts);
 }
 
 // ─── System Email Sending ─────────────────────────────────────────────────────
@@ -412,6 +427,8 @@ function buildRawEmailWithAttachments(opts: {
  */
 export async function sendSystemEmail(opts: {
   to: string;
+  cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   html: string;
   replyTo?: string;
@@ -425,31 +442,14 @@ export async function sendSystemEmail(opts: {
     return { ok: false, error: "Gmail not configured for system emails" };
   }
 
-  const from = tokenData.googleEmail;
-
-  if (opts.attachments && opts.attachments.length > 0) {
-    const raw = buildRawEmailWithAttachments({
-      from,
-      to: opts.to,
-      subject: opts.subject,
-      html: opts.html,
-      replyTo: opts.replyTo,
-      attachments: opts.attachments,
-    });
-    const res = await fetch(`${GMAIL_API}/messages/send`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${tokenData.accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ raw }),
-    });
-    const data = (await res.json()) as { id?: string; threadId?: string; error?: { message?: string } };
-    if (!res.ok || !data.id) return { ok: false, error: data.error?.message || `Gmail send failed (${res.status})` };
-    return { ok: true, messageId: data.id, threadId: data.threadId };
-  }
-
   return sendGmailMessage(tokenData.accessToken, {
-    from,
+    from: tokenData.googleEmail,
     to: opts.to,
+    cc: opts.cc,
+    bcc: opts.bcc,
     subject: opts.subject,
     html: opts.html,
+    replyTo: opts.replyTo,
+    attachments: opts.attachments,
   });
 }
