@@ -3,8 +3,9 @@
 import { useState, Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check, Download, ArrowRight } from "lucide-react";
+import { Check, Download, ArrowRight, Building2, User, MapPin, Mail, Phone } from "lucide-react";
 import { buildProposalPdf } from "@/lib/buildProposalPdf";
+import type { ProposalClientData, AliiceCompanyData } from "@/lib/buildProposalPdf";
 
 interface TierConfig {
   name: string;
@@ -23,6 +24,11 @@ interface FeatureRow {
 interface FeatureGroup {
   category: string;
   rows: FeatureRow[];
+}
+
+interface DetailSection {
+  title: string;
+  items: string[];
 }
 
 const tiers: TierConfig[] = [
@@ -84,21 +90,162 @@ const featureGroups: FeatureGroup[] = [
   },
 ];
 
+const objectives = [
+  "Centralize medical, administrative, marketing, and billing information",
+  "Structure and optimize the patient journey",
+  "Reduce administrative workload",
+  "Automate repetitive tasks",
+  "Improve team organization and communication",
+  "Enhance pre- and post-treatment follow-up",
+];
+
+const detailSections: DetailSection[] = [
+  {
+    title: "1. Patient Management & Medical Records",
+    items: [
+      "Centralized patient profile",
+      "Medical history",
+      "Complete interaction history with patients (emails, messages, etc.)",
+      "Medical photography management",
+      "3D simulations",
+      "Laboratory results and insurance correspondence",
+      "Documents, consent forms, and questionnaires",
+      "Treatment records",
+      "Medications and prescriptions",
+      "Clinical notes",
+      "Billing and invoicing",
+    ],
+  },
+  {
+    title: "2. Consultation Management",
+    items: [
+      "Integrated scheduling system (unlimited calendars)",
+      "Appointment management",
+      "Automated appointment confirmations",
+      "Consultation planning",
+      "Practitioner availability management",
+      "Appointment history",
+      "AI-powered phone appointment booking available 24/7",
+      "Online appointment scheduling",
+    ],
+  },
+  {
+    title: "3. Centralized Communication",
+    items: [
+      "Email",
+      "SMS",
+      "WhatsApp",
+      "Phone calls",
+      "Communication history",
+      "All communications directly linked to the patient record",
+    ],
+  },
+  {
+    title: "4. Automated Patient Follow-Up",
+    items: [
+      "Before the Consultation: appointment confirmations, automated reminders, pre-consultation information, pre-consultation forms, informed consent forms, anesthesia questionnaires",
+      "After Treatment or Surgery: post-operative instructions, scheduled follow-up appointments, appointment reminders",
+    ],
+  },
+  {
+    title: "5. Patient Retention & Long-Term Follow-Up",
+    items: [
+      "Botox, Filler, Laser… reminders",
+      "Periodic check-ups",
+      "Post-operative follow-ups",
+      "Targeted patient information campaigns",
+    ],
+  },
+  {
+    title: "6. Business & Performance Management",
+    items: [
+      "Operational statistics",
+      "Consultation tracking",
+      "Treatment tracking",
+      "Management dashboards",
+      "Patient journey analytics",
+      "Accounting management",
+      "Sales, staff, and revenue analysis",
+    ],
+  },
+  {
+    title: "7. Multi-Site Management (If Applicable)",
+    items: [
+      "Centralized management of multiple practices or clinics",
+      "Secure access based on user roles and permissions",
+      "Shared database across locations",
+    ],
+  },
+];
+
+const implementationSteps = [
+  "Data migration",
+  "Initial platform setup",
+  "User and automation configuration",
+  "Adaptation to existing workflows",
+  "Team training",
+  "Go-live support",
+  "Ongoing customer support and maintenance",
+];
+
+const provenBenefits = [
+  "Improved internal organization",
+  "Full centralization of data and billing",
+  "Enhanced patient follow-up",
+  "Reduced administrative workload",
+  "Improved patient experience",
+  "A measurable increase in revenue following implementation",
+];
+
+const nextSteps = [
+  "Answer any questions you may have",
+  "Assess your specific needs and requirements",
+  "Organize an additional demonstration for your team",
+  "Prepare a customized proposal tailored to your organization",
+];
+
 const aliiceLogoUrl =
   "https://www.aliice.app/_next/image?url=%2Flogos%2Faliice-logo.png&w=128&q=75";
 
+const defaultAliiceData: AliiceCompanyData = {
+  name: "Aliice",
+  address: "Switzerland",
+  email: "contact@aliice.app",
+  phone: "+41 (0) 00 000 00 00",
+  website: "www.aliice.app",
+};
+
 export default function ProposalPage() {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [client, setClient] = useState<ProposalClientData>({
+    company: "",
+    name: "",
+    address: "",
+    email: "",
+    phone: "",
+  });
+  const [aliice, setAliice] = useState<AliiceCompanyData>(defaultAliiceData);
+
+  const updateClient = (field: keyof ProposalClientData, value: string) => {
+    setClient((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateAliice = (field: keyof AliiceCompanyData, value: string) => {
+    setAliice((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleDownload = async () => {
     setIsGenerating(true);
     try {
-      const doc = await buildProposalPdf();
+      const doc = await buildProposalPdf(client, aliice);
       doc.save("aliice-proposal.pdf");
     } finally {
       setIsGenerating(false);
     }
   };
+
+  const inputBase =
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700/20";
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -162,6 +309,239 @@ export default function ProposalPage() {
               storage.
             </p>
           </div>
+
+          {/* Client details form */}
+          <section className="mb-14 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8">
+            <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-blue-700">
+              <Building2 className="h-5 w-5" />
+              Proposal To
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <Building2 className="h-4 w-4 text-slate-400" />
+                  Client Company
+                </label>
+                <input
+                  type="text"
+                  value={client.company}
+                  onChange={(e) => updateClient("company", e.target.value)}
+                  placeholder="Company name"
+                  className={inputBase}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <User className="h-4 w-4 text-slate-400" />
+                  Contact Name
+                </label>
+                <input
+                  type="text"
+                  value={client.name}
+                  onChange={(e) => updateClient("name", e.target.value)}
+                  placeholder="Contact person"
+                  className={inputBase}
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <MapPin className="h-4 w-4 text-slate-400" />
+                  Address
+                </label>
+                <textarea
+                  value={client.address}
+                  onChange={(e) => updateClient("address", e.target.value)}
+                  placeholder="Street address, city, country"
+                  rows={2}
+                  className={inputBase}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={client.email}
+                  onChange={(e) => updateClient("email", e.target.value)}
+                  placeholder="contact@company.com"
+                  className={inputBase}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <Phone className="h-4 w-4 text-slate-400" />
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={client.phone}
+                  onChange={(e) => updateClient("phone", e.target.value)}
+                  placeholder="+41 00 000 00 00"
+                  className={inputBase}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Aliice details form */}
+          <section className="mb-14 rounded-2xl border border-blue-200 bg-blue-50 p-6 sm:p-8">
+            <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-blue-700">
+              <Building2 className="h-5 w-5" />
+              Aliice Company Details
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <Building2 className="h-4 w-4 text-slate-400" />
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  value={aliice.name}
+                  onChange={(e) => updateAliice("name", e.target.value)}
+                  placeholder="Aliice"
+                  className={inputBase}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <MapPin className="h-4 w-4 text-slate-400" />
+                  Website
+                </label>
+                <input
+                  type="text"
+                  value={aliice.website}
+                  onChange={(e) => updateAliice("website", e.target.value)}
+                  placeholder="www.aliice.app"
+                  className={inputBase}
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <MapPin className="h-4 w-4 text-slate-400" />
+                  Address
+                </label>
+                <textarea
+                  value={aliice.address}
+                  onChange={(e) => updateAliice("address", e.target.value)}
+                  placeholder="Street address, city, country"
+                  rows={2}
+                  className={inputBase}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={aliice.email}
+                  onChange={(e) => updateAliice("email", e.target.value)}
+                  placeholder="contact@aliice.app"
+                  className={inputBase}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <Phone className="h-4 w-4 text-slate-400" />
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={aliice.phone}
+                  onChange={(e) => updateAliice("phone", e.target.value)}
+                  placeholder="+41 (0) 00 000 00 00"
+                  className={inputBase}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Intro */}
+          <section className="mb-14">
+            <p className="text-lg leading-relaxed text-slate-600">
+              Alice is an all-in-one medical practice management platform developed by Dr.
+              Temoro, plastic surgeon and founder of Aesthetics Clinic. Designed around the
+              real-world needs of healthcare professionals, Alice centralizes the entire
+              patient journey within a single secure and intuitive platform. The platform
+              enables healthcare providers to manage medical records, consultations,
+              patient communications, and pre- and post-treatment follow-up. Through advanced
+              automation tools, Alice streamlines clinical operations, enhances the patient
+              experience, and reduces administrative workload.
+            </p>
+          </section>
+
+          {/* Objectives */}
+          <section className="mb-14">
+            <h2 className="mb-5 text-2xl font-bold text-blue-700">Alice Objectives</h2>
+            <p className="mb-4 text-slate-600">Alice enables healthcare providers to:</p>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {objectives.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-slate-700">
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-700" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {/* Core Features */}
+          <section className="mb-14">
+            <h2 className="mb-6 text-2xl font-bold text-blue-700">Core Features</h2>
+            <div className="grid gap-6 md:grid-cols-2">
+              {detailSections.map((section) => (
+                <div
+                  key={section.title}
+                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                  <h3 className="mb-4 text-lg font-bold text-slate-900">{section.title}</h3>
+                  <ul className="space-y-2">
+                    {section.items.map((item) => (
+                      <li key={item} className="flex items-start gap-2 text-sm text-slate-600">
+                        <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-700" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Implementation */}
+          <section className="mb-14 rounded-2xl bg-blue-50 p-6 sm:p-8">
+            <h2 className="mb-4 text-2xl font-bold text-blue-700">
+              Implementation & Onboarding Support
+            </h2>
+            <p className="mb-4 text-slate-600">The implementation process includes:</p>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {implementationSteps.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-slate-700">
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-700" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {/* Proven Benefits */}
+          <section className="mb-14">
+            <h2 className="mb-4 text-2xl font-bold text-blue-700">Proven Benefits</h2>
+            <p className="mb-4 text-slate-600">
+              At Aesthetics Clinic, the implementation of Alice has resulted in:
+            </p>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {provenBenefits.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-slate-700">
+                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-700" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
 
           {/* Pricing table */}
           <section className="mb-14">
@@ -324,22 +704,12 @@ export default function ProposalPage() {
           <section className="mb-14">
             <h2 className="mb-4 text-2xl font-bold text-blue-700">Next Steps</h2>
             <ul className="space-y-2 text-slate-700">
-              <li className="flex items-start gap-2">
-                <span className="text-blue-700">•</span>
-                <span>Answer any questions you may have</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-700">•</span>
-                <span>Assess your specific needs and requirements</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-700">•</span>
-                <span>Organize an additional demonstration for your team</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-700">•</span>
-                <span>Prepare a customized proposal tailored to your organization</span>
-              </li>
+              {nextSteps.map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <span className="text-blue-700">•</span>
+                  <span>{item}</span>
+                </li>
+              ))}
             </ul>
           </section>
 

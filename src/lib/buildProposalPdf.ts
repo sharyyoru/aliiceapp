@@ -1,10 +1,26 @@
 import jsPDF from "jspdf";
 
+export interface ProposalClientData {
+  company?: string;
+  name?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface AliiceCompanyData {
+  name: string;
+  address: string;
+  email: string;
+  phone: string;
+  website: string;
+}
+
 interface TierConfig {
   name: string;
-  setup: number;
-  monthly: number;
-  annual: number;
+  setup: string;
+  monthly: string;
+  annual: string;
 }
 
 interface FeatureRow {
@@ -19,10 +35,15 @@ interface FeatureGroup {
   rows: FeatureRow[];
 }
 
+interface DetailSection {
+  title: string;
+  items: string[];
+}
+
 const tiers: TierConfig[] = [
-  { name: "Basic Package", setup: 2000, monthly: 1190, annual: 1070 },
-  { name: "Professional", setup: 2800, monthly: 1790, annual: 1610 },
-  { name: "Enterprise", setup: 4400, monthly: 2560, annual: 2300 },
+  { name: "Basic Package", setup: "CHF 2'000", monthly: "CHF 1'190 / month", annual: "CHF 1'070 / month" },
+  { name: "Professional", setup: "CHF 2'800", monthly: "CHF 1'790 / month", annual: "CHF 1'610 / month" },
+  { name: "Enterprise", setup: "CHF 4'400", monthly: "CHF 2'560 / month", annual: "CHF 2'300 / month" },
 ];
 
 const pricingTable = [
@@ -70,16 +91,126 @@ const featureGroups: FeatureGroup[] = [
   },
   {
     category: "Integrations",
-    rows: [
-      { name: "WhatsApp Integration", basic: true, pro: true, ent: true },
-    ],
+    rows: [{ name: "WhatsApp Integration", basic: true, pro: true, ent: true }],
   },
   {
     category: "Analytics",
-    rows: [
-      { name: "Advanced Analytics", basic: true, pro: true, ent: true },
+    rows: [{ name: "Advanced Analytics", basic: true, pro: true, ent: true }],
+  },
+];
+
+const objectives = [
+  "Centralize medical, administrative, marketing, and billing information",
+  "Structure and optimize the patient journey",
+  "Reduce administrative workload",
+  "Automate repetitive tasks",
+  "Improve team organization and communication",
+  "Enhance pre- and post-treatment follow-up",
+];
+
+const detailSections: DetailSection[] = [
+  {
+    title: "1. Patient Management & Medical Records",
+    items: [
+      "Centralized patient profile",
+      "Medical history",
+      "Complete interaction history with patients (emails, messages, etc.)",
+      "Medical photography management",
+      "3D simulations",
+      "Laboratory results and insurance correspondence",
+      "Documents, consent forms, and questionnaires",
+      "Treatment records",
+      "Medications and prescriptions",
+      "Clinical notes",
+      "Billing and invoicing",
     ],
   },
+  {
+    title: "2. Consultation Management",
+    items: [
+      "Integrated scheduling system (unlimited calendars)",
+      "Appointment management",
+      "Automated appointment confirmations",
+      "Consultation planning",
+      "Practitioner availability management",
+      "Appointment history",
+      "AI-powered phone appointment booking available 24/7",
+      "Online appointment scheduling",
+    ],
+  },
+  {
+    title: "3. Centralized Communication",
+    items: [
+      "Email",
+      "SMS",
+      "WhatsApp",
+      "Phone calls",
+      "Communication history",
+      "All communications directly linked to the patient record",
+    ],
+  },
+  {
+    title: "4. Automated Patient Follow-Up",
+    items: [
+      "Before the Consultation: appointment confirmations, automated reminders, pre-consultation information, pre-consultation forms, informed consent forms, anesthesia questionnaires",
+      "After Treatment or Surgery: post-operative instructions, scheduled follow-up appointments, appointment reminders",
+    ],
+  },
+  {
+    title: "5. Patient Retention & Long-Term Follow-Up",
+    items: [
+      "Botox, Filler, Laser… reminders",
+      "Periodic check-ups",
+      "Post-operative follow-ups",
+      "Targeted patient information campaigns",
+    ],
+  },
+  {
+    title: "6. Business & Performance Management",
+    items: [
+      "Operational statistics",
+      "Consultation tracking",
+      "Treatment tracking",
+      "Management dashboards",
+      "Patient journey analytics",
+      "Accounting management",
+      "Sales, staff, and revenue analysis",
+    ],
+  },
+  {
+    title: "7. Multi-Site Management (If Applicable)",
+    items: [
+      "Centralized management of multiple practices or clinics",
+      "Secure access based on user roles and permissions",
+      "Shared database across locations",
+    ],
+  },
+];
+
+const implementationSteps = [
+  "Data migration",
+  "Initial platform setup",
+  "User and automation configuration",
+  "Adaptation to existing workflows",
+  "Team training",
+  "Go-live support",
+  "Ongoing customer support and maintenance",
+];
+
+const provenBenefits = [
+  "Improved internal organization",
+  "Full centralization of data and billing",
+  "Enhanced patient follow-up",
+  "Reduced administrative workload",
+  "Improved patient experience",
+  "A measurable increase in revenue following implementation",
+];
+
+const nextSteps = [
+  "Answer any questions you may have",
+  "Assess your specific needs and requirements",
+  "Organize an additional demonstration for your team",
+  "Prepare a customized proposal tailored to your organization",
 ];
 
 const brandBlue = { r: 29, g: 78, b: 216 };
@@ -119,7 +250,15 @@ async function loadLogo(): Promise<{ b64: string; w: number; h: number } | null>
   return null;
 }
 
-export async function buildProposalPdf(): Promise<jsPDF> {
+const defaultAliiceData: AliiceCompanyData = {
+  name: "Aliice",
+  address: "Switzerland",
+  email: "contact@aliice.app",
+  phone: "+41 (0) 00 000 00 00",
+  website: "www.aliice.app",
+};
+
+export async function buildProposalPdf(client: ProposalClientData = {}, aliice: AliiceCompanyData = defaultAliiceData): Promise<jsPDF> {
   const logo = await loadLogo();
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
@@ -160,6 +299,8 @@ export async function buildProposalPdf(): Promise<jsPDF> {
     doc.setFont("helvetica", "normal");
     doc.setTextColor(slate400.r, slate400.g, slate400.b);
     doc.text("Aliice Proposal — continued", ml, 10);
+    doc.setDrawColor(brandBlue.r, brandBlue.g, brandBlue.b);
+    doc.setLineWidth(0.3);
     doc.line(ml, 12, pw - mr, 12);
   };
 
@@ -183,6 +324,31 @@ export async function buildProposalPdf(): Promise<jsPDF> {
     doc.line(cx - width / 2, cy, cx + width / 2, cy);
   };
 
+  const bulletList = (items: string[], indent: number, maxWidth: number, fontSize: number, lineHeight: number) => {
+    doc.setFontSize(fontSize);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(slate900.r, slate900.g, slate900.b);
+    items.forEach((item) => {
+      const lines = doc.splitTextToSize(item, maxWidth - indent);
+      ensureSpace(lines.length * lineHeight + 2);
+      doc.text("•", ml, y + fontSize * 0.35);
+      doc.text(lines, ml + indent, y + fontSize * 0.35);
+      y += lines.length * lineHeight + 1.5;
+    });
+  };
+
+  const sectionTitle = (title: string) => {
+    ensureSpace(12);
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(brandBlue.r, brandBlue.g, brandBlue.b);
+    doc.text(title, ml, y);
+    y += 8;
+    doc.setDrawColor(brandBlue.r, brandBlue.g, brandBlue.b);
+    doc.setLineWidth(0.4);
+    doc.line(ml, y - 3, ml + 55, y - 3);
+  };
+
   // ── Header ───────────────────────────────────────────────────────────────
   drawLogo(ml, y, 12);
   doc.setTextColor(brandBlue.r, brandBlue.g, brandBlue.b);
@@ -196,24 +362,131 @@ export async function buildProposalPdf(): Promise<jsPDF> {
   doc.line(ml, y, pw - mr, y);
   y += 8;
 
-  // ── Intro ───────────────────────────────────────────────────────────────
+  // ── Client info & Aliice details ────────────────────────────────────────
+  const hasClient = client.company || client.name || client.address || client.email || client.phone;
+  if (hasClient) {
+    ensureSpace(80);
+    const colWidth = (pw - ml - mr) / 2 - 2;
+
+    // Left column: Proposal To
+    doc.setFillColor(slate50.r, slate50.g, slate50.b);
+    doc.setDrawColor(220, 220, 220);
+    doc.roundedRect(ml, y, colWidth, 36, 2, 2, "FD");
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(slate500.r, slate500.g, slate500.b);
+    doc.text("PROPOSAL TO", ml + 5, y + 6);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(slate900.r, slate900.g, slate900.b);
+    const clientName = client.company || client.name || "";
+    if (clientName) {
+      doc.text(clientName, ml + 5, y + 13);
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(slate500.r, slate500.g, slate500.b);
+    let cy = y + 20;
+    if (client.name && client.company) {
+      doc.text(`Contact: ${client.name}`, ml + 5, cy);
+      cy += 4;
+    }
+    if (client.address) {
+      const addrLines = doc.splitTextToSize(client.address, colWidth - 10);
+      doc.text(addrLines, ml + 5, cy);
+      cy += addrLines.length * 3.5;
+    }
+    if (client.email) {
+      doc.text(`Email: ${client.email}`, ml + 5, cy);
+      cy += 4;
+    }
+    if (client.phone) {
+      doc.text(`Phone: ${client.phone}`, ml + 5, cy);
+    }
+
+    // Right column: Aliice Details
+    doc.setFillColor(blue100.r, blue100.g, blue100.b);
+    doc.setDrawColor(brandBlue.r, brandBlue.g, brandBlue.b);
+    doc.roundedRect(ml + colWidth + 4, y, colWidth, 36, 2, 2, "FD");
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(brandBlue.r, brandBlue.g, brandBlue.b);
+    doc.text("FROM", ml + colWidth + 9, y + 6);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(brandBlue.r, brandBlue.g, brandBlue.b);
+    doc.text(aliice.name, ml + colWidth + 9, y + 13);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(slate500.r, slate500.g, slate500.b);
+    cy = y + 20;
+    if (aliice.address) {
+      const addrLines = doc.splitTextToSize(aliice.address, colWidth - 10);
+      doc.text(addrLines, ml + colWidth + 9, cy);
+      cy += addrLines.length * 3.5;
+    }
+    if (aliice.email) {
+      doc.text(`Email: ${aliice.email}`, ml + colWidth + 9, cy);
+      cy += 4;
+    }
+    if (aliice.phone) {
+      doc.text(`Phone: ${aliice.phone}`, ml + colWidth + 9, cy);
+      cy += 4;
+    }
+    if (aliice.website) {
+      doc.text(`Web: ${aliice.website}`, ml + colWidth + 9, cy);
+    }
+
+    y += 44;
+  }
+
+  // ── Intro ─────────────────────────────────────────────────────────────────
+  ensureSpace(30);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(slate500.r, slate500.g, slate500.b);
+  doc.setTextColor(slate900.r, slate900.g, slate900.b);
   const intro =
-    "Aliice is an all-in-one medical practice management platform. All plans include core patient management, scheduling, communications, and 1 TB of storage.";
+    "Alice is an all-in-one medical practice management platform developed by Dr. Temoro, plastic surgeon and founder of Aesthetics Clinic. Designed around the real-world needs of healthcare professionals, Alice centralizes the entire patient journey within a single secure and intuitive platform. The platform enables healthcare providers to manage medical records, consultations, patient communications, and pre- and post-treatment follow-up. Through advanced automation tools, Alice streamlines clinical operations, enhances the patient experience, and reduces administrative workload.";
   const introLines = doc.splitTextToSize(intro, pw - ml - mr);
   doc.text(introLines, ml, y);
-  y += introLines.length * 4.5 + 8;
+  y += introLines.length * 4.7 + 8;
 
-  // ── Pricing table ─────────────────────────────────────────────────────────
-  ensureSpace(70);
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(slate900.r, slate900.g, slate900.b);
-  doc.text("Tarification Alice", ml, y);
+  // ── Objectives ──────────────────────────────────────────────────────────
+  sectionTitle("Alice Objectives");
+  bulletList(objectives, 4, pw - ml - mr, 9.5, 4.5);
+  y += 4;
+
+  // ── Core Features detail ───────────────────────────────────────────────
+  sectionTitle("Core Features");
+  detailSections.forEach((section) => {
+    ensureSpace(10);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(slate900.r, slate900.g, slate900.b);
+    doc.text(section.title, ml, y);
+    y += 6;
+    bulletList(section.items, 4, pw - ml - mr, 9, 4);
+    y += 3;
+  });
+
+  // ── Implementation ───────────────────────────────────────────────────────
+  sectionTitle("Implementation & Onboarding Support");
+  bulletList(implementationSteps, 4, pw - ml - mr, 9.5, 4.5);
+  y += 4;
+
+  // ── Proven Benefits ──────────────────────────────────────────────────────
+  sectionTitle("Proven Benefits");
+  bulletList(provenBenefits, 4, pw - ml - mr, 9.5, 4.5);
   y += 8;
 
+  // ── Pricing table ────────────────────────────────────────────────────────
+  sectionTitle("Tarification Alice");
   const colCount = 4;
   const col1W = 55;
   const colW = (pw - ml - mr - col1W) / (colCount - 1);
@@ -259,14 +532,8 @@ export async function buildProposalPdf(): Promise<jsPDF> {
 
   y += 10;
 
-  // ── Storage table ──────────────────────────────────────────────────────────
-  ensureSpace(62);
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(slate900.r, slate900.g, slate900.b);
-  doc.text("Additional Storage Space", ml, y);
-  y += 8;
-
+  // ── Storage table ───────────────────────────────────────────────────────
+  sectionTitle("Additional Storage Space");
   const storageCol1W = 70;
   const storageCol2W = pw - ml - mr - storageCol1W;
 
@@ -302,14 +569,8 @@ export async function buildProposalPdf(): Promise<jsPDF> {
 
   y += 10;
 
-  // ── Feature comparison table ────────────────────────────────────────────
-  ensureSpace(18);
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(slate900.r, slate900.g, slate900.b);
-  doc.text("Package Comparison: Alice", ml, y);
-  y += 8;
-
+  // ── Feature comparison table ───────────────────────────────────────────
+  sectionTitle("Package Comparison: Alice");
   const compRowH = 8;
 
   // Top header
@@ -379,28 +640,11 @@ export async function buildProposalPdf(): Promise<jsPDF> {
     "We are confident that Aliice can become a powerful driver of efficiency, organization, and growth for your practice. We remain at your disposal to answer any questions and to support you in implementing a solution perfectly tailored to your practice and your objectives.";
   const closingLines = doc.splitTextToSize(closing, pw - ml - mr);
   doc.text(closingLines, ml, y);
-  y += closingLines.length * 4.5 + 10;
+  y += closingLines.length * 4.7 + 10;
 
   // ── Next steps ──────────────────────────────────────────────────────────
-  ensureSpace(25);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(brandBlue.r, brandBlue.g, brandBlue.b);
-  doc.text("Next Steps", ml, y);
-  y += 7;
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(slate900.r, slate900.g, slate900.b);
-  const nextSteps = [
-    "Answer any questions you may have",
-    "Assess your specific needs and requirements",
-    "Organize an additional demonstration for your team",
-    "Prepare a customized proposal tailored to your organization",
-  ];
-  nextSteps.forEach((step) => {
-    doc.text("• " + step, ml + 3, y);
-    y += 5;
-  });
+  sectionTitle("Next Steps");
+  bulletList(nextSteps, 4, pw - ml - mr, 9.5, 4.5);
 
   addFooter();
 
