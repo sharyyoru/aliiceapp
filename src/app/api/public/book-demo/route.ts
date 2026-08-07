@@ -11,7 +11,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createDemoCalendarEvent } from "@/lib/googleCalendar";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -167,13 +167,11 @@ export async function POST(req: Request) {
       calendarLink: calendarLink,
     });
 
-    await sendEmail({
+    await sendSystemEmailUnified({
       to:       booking.org_email,
       subject:  `Your Aliice demo is confirmed – ${fmtDate(booking.slot_start)}`,
       html:     confirmHtml,
-      from:     fromAddress,
-      fromName: fromName,
-    }).catch((e) => console.error("[book-demo] Email send failed:", e));
+    }).catch((e: Error) => console.error("[book-demo] Email send failed:", e));
   }
 
   return NextResponse.json({

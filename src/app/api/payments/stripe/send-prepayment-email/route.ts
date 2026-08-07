@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { brandedEmail, infoRow, infoTable, LOGO_URL } from "@/utils/emailTemplate";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   const { patientEmail, patientFirstName, patientLastName, stripeUrl, invoiceNumber, serviceName, depositAmount } = await req.json();
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     </div>
   `);
 
-  const result = await sendEmail({
+  const result = await sendSystemEmailUnified({
     to: patientEmail,
     subject: `Acompte de consultation – Maison Tóā`,
     html,

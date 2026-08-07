@@ -31,9 +31,9 @@ export default function EmailShareModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+      <div className="w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-4">
+        <div className="flex-none bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-white">
@@ -57,7 +57,8 @@ export default function EmailShareModal({
         </div>
 
         {/* Content */}
-        <form onSubmit={onSend} className="px-6 py-5">
+        <form onSubmit={onSend} className="flex flex-col min-h-0 flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
           {error && (
             <div className="mb-4 flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
               <svg className="h-5 w-5 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -108,15 +109,16 @@ export default function EmailShareModal({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div className="text-sm text-sky-700">
-              <p className="font-medium">Email will be sent to patient's registered email address</p>
+              <p className="font-medium">Email will be sent to patient&apos;s registered email address</p>
               <p className="text-xs text-sky-600 mt-0.5">
                 {selectedFileCount} document{selectedFileCount > 1 ? 's' : ''} will be shared as download links
               </p>
             </div>
           </div>
 
+          </div>
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex-none flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
             <button
               type="button"
               onClick={onClose}

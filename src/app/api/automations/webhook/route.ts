@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendEmail } from "@/lib/email";
+import { sendSystemEmailUnified } from "@/lib/email";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         html = html.replace(/\{\{org\.phone\}\}/g, org.phone || "");
         html = html.replace(/\{\{org\.slug\}\}/g, org.slug || "");
 
-        const result = await sendEmail({
+        const result = await sendSystemEmailUnified({
           to: recipientEmail,
           subject,
           html,

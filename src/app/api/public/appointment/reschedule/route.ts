@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { parseSwissDateTimeLocal, formatSwissDateWithWeekday, formatSwissTimeAmPm } from "@/lib/swissTimezone";
 import { brandedEmail, infoRow, infoTable, LOGO_URL } from "@/utils/emailTemplate";
-import { sendEmail as sendEmailViaResend, isEmailConfigured } from "@/lib/email";
+import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
@@ -14,9 +14,9 @@ const ADMIN_NOTIFICATION_EMAIL = "louise.goerig@maisontoa.com.";
 async function sendEmail(to: string, subject: string, html: string) {
   if (!isEmailConfigured()) return;
   
-  const result = await sendEmailViaResend({ to, subject, html });
+  const result = await sendSystemEmailUnified({ to, subject, html });
   if (!result.success) {
-    console.error("Error sending email via Resend:", result.error);
+    console.error("Error sending email:", result.error);
   }
 }
 

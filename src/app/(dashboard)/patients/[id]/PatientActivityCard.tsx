@@ -2276,7 +2276,9 @@ export default function PatientActivityCard({
                        [authUser.user_metadata?.first_name, authUser.user_metadata?.last_name].filter(Boolean).join(" ") ||
                        null;
 
-      let resolvedStatus: EmailStatus = "sent";
+      // Insert as "queued" first; the row is only promoted to "sent" after the
+      // email provider confirms delivery (or set to "failed" if it doesn't).
+      let resolvedStatus: EmailStatus = "queued";
       let resolvedSentAt: string | null = null;
 
       if (emailScheduleEnabled) {
@@ -2285,9 +2287,8 @@ export default function PatientActivityCard({
         resolvedStatus = "queued";
         resolvedSentAt = iso;
       } else {
-        const nowIso = new Date().toISOString();
-        resolvedStatus = "sent";
-        resolvedSentAt = nowIso;
+        resolvedStatus = "queued";
+        resolvedSentAt = null;
       }
 
       // The body is now HTML from the rich text editor, so we use it directly.
@@ -2369,6 +2370,11 @@ export default function PatientActivityCard({
         setEmailAttachmentsError(null);
       }
 
+      // Track the final delivery status so the local timeline reflects reality
+      // (not just the initial "queued" snapshot).
+      let deliveredStatus: EmailStatus = insertedEmail.status;
+      let deliveredSentAt: string | null = insertedEmail.sent_at;
+
       try {
         const response = await fetch("/api/emails/send", {
           method: "POST",
@@ -2386,7 +2392,7 @@ export default function PatientActivityCard({
           }),
         });
 
-        let payload: { ok?: boolean; messageId?: string } | null = null;
+        let payload: { ok?: boolean; messageId?: string; error?: string } | null = null;
         try {
           payload = await response.json();
         } catch {
@@ -2394,23 +2400,48 @@ export default function PatientActivityCard({
 
         console.log("/api/emails/send response", response.status, payload);
 
-        // Store Message-ID from email provider for reply tracking
-        if (payload?.messageId) {
+        if (response.ok) {
+          // Provider accepted the email: promote the row to "sent".
+          // Scheduled emails stay "queued" (delivered at their scheduled time).
+          const updates: Record<string, unknown> = {};
+          if (payload?.messageId) {
+            updates.message_id = payload.messageId;
+          }
+          if (!emailScheduleEnabled) {
+            updates.status = "sent";
+            updates.sent_at = new Date().toISOString();
+            deliveredStatus = "sent";
+            deliveredSentAt = updates.sent_at as string;
+          }
+          if (Object.keys(updates).length > 0) {
+            await supabaseClient
+              .from("emails")
+              .update(updates)
+              .eq("id", insertedEmail.id);
+          }
+        } else {
+          // Provider rejected the send: mark the row as failed and surface the
+          // real error so the user knows the email was NOT delivered.
           await supabaseClient
             .from("emails")
-            .update({ message_id: payload.messageId })
+            .update({ status: "failed" })
             .eq("id", insertedEmail.id);
-        }
-
-        if (!response.ok) {
+          deliveredStatus = "failed";
           setEmailSaveError(
-            "Email saved internally but failed to send via email provider.",
+            payload?.error
+              ? `Email was not sent: ${payload.error}`
+              : "Email was not sent: the email provider rejected the request.",
           );
         }
       } catch (error) {
         console.error("Network error calling /api/emails/send", error);
+        await supabaseClient
+          .from("emails")
+          .update({ status: "failed" })
+          .eq("id", insertedEmail.id);
+        deliveredStatus = "failed";
         setEmailSaveError(
-          "Email saved internally but failed to send via email provider.",
+          "Email was not sent: could not reach the email provider. Please try again.",
         );
       }
 
@@ -2454,7 +2485,20 @@ export default function PatientActivityCard({
         }
       }
 
-      setEmails((prev) => [insertedEmail, ...prev.filter(e => e.id !== insertedEmail.id)]);
+      const finalEmail: PatientEmail = {
+        ...insertedEmail,
+        status: deliveredStatus,
+        sent_at: deliveredSentAt,
+      };
+      setEmails((prev) => [finalEmail, ...prev.filter(e => e.id !== insertedEmail.id)]);
+
+      // If delivery failed, keep the composer open so the user can see the
+      // error and retry, and do not clear their draft.
+      if (deliveredStatus === "failed") {
+        setEmailSaving(false);
+        return;
+      }
+
       setEmailTo(defaultEmailTo);
       setEmailSubject("");
       setEmailBody("");
@@ -4774,8 +4818,8 @@ export default function PatientActivityCard({
             }
           }}
         >
-          <div className={`w-full ${emailFullscreen ? "max-w-none m-0 h-full rounded-none" : "max-w-2xl mx-4"} max-h-[calc(100vh-3rem)] overflow-y-auto rounded-2xl border border-slate-200/80 bg-white p-5 text-xs shadow-[0_24px_60px_rgba(15,23,42,0.65)]`}>
-            <div className="flex items-start justify-between gap-3 mb-3">
+          <div className={`w-full ${emailFullscreen ? "max-w-none m-0 h-full rounded-none" : "max-w-2xl mx-4"} max-h-[calc(100vh-3rem)] flex flex-col rounded-2xl border border-slate-200/80 bg-white text-xs shadow-[0_24px_60px_rgba(15,23,42,0.65)]`}>
+            <div className="flex-none flex items-start justify-between gap-3 p-5 pb-3">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">{t("composeEmailTitle")}</h2>
                 <p className="mt-1 text-[11px] text-slate-500">
@@ -4824,7 +4868,8 @@ export default function PatientActivityCard({
                 </button>
               </div>
             </div>
-            <form onSubmit={handleEmailSubmit} className="mt-3 space-y-3">
+            <form onSubmit={handleEmailSubmit} className="flex-1 min-h-0 flex flex-col">
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-3 px-5 pb-2">
               <div className="space-y-1">
                 <label htmlFor="email_to" className="block text-[11px] font-medium text-slate-700">
                   {t("to")}
@@ -5115,6 +5160,8 @@ export default function PatientActivityCard({
                 )}
               </div>
               
+              </div>
+              <div className="flex-none border-t border-slate-200 bg-white px-5 py-3 space-y-2">
               {emailSaveError ? (
                 <p className="text-[11px] text-red-600">{emailSaveError}</p>
               ) : null}
@@ -5146,6 +5193,7 @@ export default function PatientActivityCard({
                 >
                   {emailSaving ? t("sending") : t("sendEmail")}
                 </button>
+              </div>
               </div>
             </form>
           </div>

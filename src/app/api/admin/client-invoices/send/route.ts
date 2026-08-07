@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
 import { buildInvoiceEmailHtml } from "@/lib/payButton";
 
 async function verifyAdmin() {
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
   // Strip a data-URI prefix if the client accidentally sent one.
   const cleanBase64 = pdfBase64.includes(",") ? pdfBase64.split(",").pop()! : pdfBase64;
 
-  const result = await sendEmail({
+  const result = await sendSystemEmailUnified({
     to: recipient,
     subject: `Invoice ${invoice.invoice_number} — ${amountLabel}`,
     html,
@@ -104,7 +104,6 @@ export async function POST(request: Request) {
         contentType: "application/pdf",
       },
     ],
-    tags: [{ name: "type", value: "client_invoice" }],
   });
 
   if (!result.success) {

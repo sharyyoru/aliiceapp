@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { parseSwissDateTimeLocal } from "@/lib/swissTimezone";
 import { brandedEmail, infoRow, infoTable } from "@/utils/emailTemplate";
-import { sendEmail as sendEmailViaResend, isEmailConfigured } from "@/lib/email";
+import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
@@ -22,45 +22,29 @@ type CreateAppointmentPayload = {
   appointmentType?: "appointment" | "operation";
 };
 
-// Resend allows scheduling emails up to 72 hours in advance
-const RESEND_MAX_SCHEDULE_HOURS = 72;
-
 async function sendEmail(
   to: string,
   subject: string,
   html: string,
-  scheduledFor?: Date | null
+  _scheduledFor?: Date | null
 ): Promise<{ sent: boolean; scheduled: boolean; reason?: string }> {
   if (!isEmailConfigured()) {
-    console.log("Resend not configured, skipping email send");
+    console.log("Email service not configured, skipping email send");
     return { sent: false, scheduled: false, reason: "Email service not configured" };
   }
 
-  // Check if we can use Resend's scheduled delivery (must be within 72 hours)
-  const now = Date.now();
-  const maxScheduleTime = now + RESEND_MAX_SCHEDULE_HOURS * 60 * 60 * 1000;
-  
-  if (scheduledFor && scheduledFor.getTime() > now) {
-    if (scheduledFor.getTime() > maxScheduleTime) {
-      // Beyond 72 hours - don't send now, will be handled by cron job from scheduled_emails table
-      console.log(`Email scheduled for ${scheduledFor.toISOString()} is beyond Resend's 72-hour limit. Will be sent by cron job.`);
-      return { sent: false, scheduled: true, reason: "Beyond 72-hour limit, stored for cron job" };
-    }
-  }
-
-  const result = await sendEmailViaResend({
+  const result = await sendSystemEmailUnified({
     to,
     subject,
     html,
-    scheduledAt: scheduledFor && scheduledFor.getTime() > now ? scheduledFor : undefined,
   });
 
   if (!result.success) {
-    console.error("Error sending email via Resend:", result.error);
+    console.error("Error sending email:", result.error);
     throw new Error(`Failed to send email: ${result.error}`);
   }
   
-  return { sent: true, scheduled: !!scheduledFor };
+  return { sent: true, scheduled: false };
 }
 
 function formatAppointmentDate(date: Date): string {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createPayrexxGateway } from "@/lib/payrexx";
-import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
 import { addPayButtonToPdf, buildInvoiceEmailHtml } from "@/lib/payButton";
 
 /**
@@ -150,14 +150,13 @@ export async function POST(request: NextRequest) {
       senderName: "Aesthetics Clinic",
     });
 
-    const result = await sendEmail({
+    const result = await sendSystemEmailUnified({
       to: recipient,
       subject: `Invoice ${invoice.invoice_number} — ${amountLabel}`,
       html,
       attachments: [
         { filename: `invoice-${invoice.invoice_number}.pdf`, content: base64, contentType: "application/pdf" },
       ],
-      tags: [{ name: "type", value: "medical_invoice" }],
     });
 
     if (!result.success) {

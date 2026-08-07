@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendEmail, isEmailConfigured, sanitizeTelLinks, addTrackingPixel, type EmailAttachment } from "@/lib/email";
+import { sendUnifiedEmail, isEmailConfigured, sanitizeTelLinks, addTrackingPixel, type EmailAttachment } from "@/lib/email";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://maison-toa-dk99.vercel.app";
-const replyDomain = process.env.EMAIL_REPLY_DOMAIN || "maisontoa.com";
+// Guard the reply domain: strip any accidental protocol/whitespace and fall
+// back to a known-good domain so the generated reply-to is always valid.
+const replyDomain =
+  (process.env.EMAIL_REPLY_DOMAIN || "").trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "") ||
+  "maisontoa.com";
 
 type EmailAttachmentRow = {
   id: string;
@@ -84,11 +88,11 @@ export async function POST(request: Request) {
       processedHtml = addTrackingPixel(processedHtml, emailId, appUrl);
     }
 
-    // Create reply-to address for tracking
+    // Create reply-to address for tracking. Use a single "+" delimiter so the
+    // address is always a valid email and the inbound parser can recover the
+    // original email id (patient/deal are looked up from that record).
     let replyToAddress = `clinic@${replyDomain}`;
-    if (emailId && patientId) {
-      replyToAddress = `reply+${emailId}+${patientId}@${replyDomain}`;
-    } else if (emailId) {
+    if (emailId) {
       replyToAddress = `reply+${emailId}@${replyDomain}`;
     }
 
@@ -185,8 +189,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Send email via Resend
-    const result = await sendEmail({
+    // Send email via Gmail (primary) or Resend (fallback)
+    const result = await sendUnifiedEmail({
       to: trimmedTo,
       subject: trimmedSubject,
       html: processedHtml,
@@ -194,12 +198,31 @@ export async function POST(request: Request) {
       fromName,
       replyTo: replyToAddress,
       attachments: attachments.length > 0 ? attachments : undefined,
+      adminEmail: fromUserEmail || undefined, // Use sender's Gmail account if available
       tags: [
         ...(emailId ? [{ name: "email_id", value: emailId }] : []),
         ...(patientId ? [{ name: "patient_id", value: patientId }] : []),
         ...(fromUserEmail ? [{ name: "sent_by", value: fromUserEmail }] : []),
       ],
     });
+
+    // Update email record with Gmail threading info if available
+    if (result.success && (result.threadId || result.rfc822MessageId) && (emailId || createdEmailId)) {
+      const targetEmailId = emailId || createdEmailId;
+      try {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        await supabase
+          .from("emails")
+          .update({
+            gmail_thread_id: result.threadId || null,
+            rfc822_message_id: result.rfc822MessageId || null,
+            provider: result.provider || null,
+          })
+          .eq("id", targetEmailId);
+      } catch (updateError) {
+        console.error("Error updating email with Gmail info:", updateError);
+      }
+    }
 
     if (!result.success) {
       // If we created an email record, mark it as failed
@@ -223,7 +246,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       ok: true, 
-      messageId: result.messageId, 
+      messageId: result.messageId,
+      threadId: result.threadId,
+      provider: result.provider,
       emailId: createdEmailId || emailId 
     });
   } catch (error) {

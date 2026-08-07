@@ -1,18 +1,20 @@
 /**
- * Centralized Email Service using Resend
+ * Centralized Email Service
  * 
- * Resend is a modern email API designed for developers.
- * Key benefits:
- * - Simple REST API
- * - Built-in deliverability
- * - React Email support
- * - Detailed analytics
+ * This module provides a unified email sending interface that:
+ * 1. Uses Gmail API as the PRIMARY method (via connected admin accounts)
+ * 2. Falls back to Resend API if Gmail is not available
  * 
  * Environment variables:
- * - RESEND_API_KEY: Your Resend API key
- * - EMAIL_FROM_ADDRESS: Default from address (must be verified domain)
+ * - GOOGLE_CLIENT_ID: Gmail OAuth client ID
+ * - GOOGLE_CLIENT_SECRET: Gmail OAuth client secret
+ * - SYSTEM_GMAIL_ADMIN_EMAIL: Default admin email for system emails
+ * - RESEND_API_KEY: (Optional) Resend API key for fallback
+ * - EMAIL_FROM_ADDRESS: Default from address
  * - EMAIL_FROM_NAME: Default from name
  */
+
+import { getValidAccessToken, sendGmailMessage, sendSystemEmail as sendGmailSystemEmail, isGmailConfigured } from "@/lib/gmail";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_API_URL = "https://api.resend.com/emails";
@@ -44,15 +46,47 @@ export type SendEmailOptions = {
 export type SendEmailResult = {
   success: boolean;
   messageId?: string;
+  threadId?: string;
+  rfc822MessageId?: string;
   error?: string;
   scheduled?: boolean;
+  provider?: "gmail" | "resend";
 };
 
 /**
- * Check if email service is configured
+ * Check if email service is configured (Gmail or Resend)
  */
 export function isEmailConfigured(): boolean {
+  return isGmailConfigured() || !!RESEND_API_KEY;
+}
+
+/**
+ * Check if Resend is configured (for fallback)
+ */
+export function isResendConfigured(): boolean {
   return !!RESEND_API_KEY;
+}
+
+/**
+ * Basic RFC-5322-style email validation used to guard against sending
+ * malformed addresses to Resend (which rejects the whole request).
+ */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(value: unknown): value is string {
+  return typeof value === "string" && EMAIL_REGEX.test(value.trim());
+}
+
+/**
+ * Keep only valid, trimmed email addresses from a string or array.
+ */
+function filterValidEmails(e?: string | string[]): string[] {
+  if (!e) return [];
+  const arr = Array.isArray(e) ? e : [e];
+  return arr
+    .filter(Boolean)
+    .map((s) => s.trim())
+    .filter((s) => isValidEmail(s));
 }
 
 /**
@@ -87,32 +121,42 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     scheduledAt,
   } = options;
 
-  // Build the from address
-  const fromAddress = from || DEFAULT_FROM_EMAIL;
+  // Build the from address, falling back to the verified default if invalid
+  let fromAddress = (from || DEFAULT_FROM_EMAIL).trim();
+  if (!isValidEmail(fromAddress)) {
+    console.warn(`[Email] Invalid from address "${fromAddress}", falling back to default`);
+    fromAddress = DEFAULT_FROM_EMAIL;
+  }
   const senderName = fromName || DEFAULT_FROM_NAME;
   const fromField = `${senderName} <${fromAddress}>`;
 
-  const normalizeEmails = (e?: string | string[]) => {
-    if (!e) return undefined;
-    const arr = Array.isArray(e) ? e : [e];
-    return arr.filter(Boolean).map((s) => s.trim());
-  };
+  // Validate recipients: drop malformed addresses so one bad entry does not
+  // cause Resend to reject the entire request.
+  const toList = filterValidEmails(to);
+  if (toList.length === 0) {
+    return { success: false, error: "No valid recipient email address provided" };
+  }
 
   // Build request body
   const body: Record<string, unknown> = {
     from: fromField,
-    to: Array.isArray(to) ? to : [to],
+    to: toList,
     subject,
     html,
   };
 
-  const ccList = normalizeEmails(cc);
-  const bccList = normalizeEmails(bcc);
-  if (ccList && ccList.length > 0) body.cc = ccList;
-  if (bccList && bccList.length > 0) body.bcc = bccList;
+  const ccList = filterValidEmails(cc);
+  const bccList = filterValidEmails(bcc);
+  if (ccList.length > 0) body.cc = ccList;
+  if (bccList.length > 0) body.bcc = bccList;
 
+  // Only attach reply_to when it is a valid email; never fail the send over it.
   if (replyTo) {
-    body.reply_to = replyTo;
+    if (isValidEmail(replyTo)) {
+      body.reply_to = replyTo.trim();
+    } else {
+      console.warn(`[Email] Invalid replyTo "${replyTo}" omitted from send`);
+    }
   }
 
   if (attachments && attachments.length > 0) {
@@ -274,3 +318,218 @@ export function sanitizeTelLinks(html: string): string {
   
   return result;
 }
+
+/**
+ * Extended options for unified email sending
+ */
+export type UnifiedEmailOptions = SendEmailOptions & {
+  adminEmail?: string;  // Admin email to look up Gmail account
+  threadId?: string;    // Gmail thread ID for replies
+  inReplyTo?: string;   // RFC822 Message-ID for threading
+  references?: string;  // References header for threading
+};
+
+/**
+ * Unified email sending - Gmail first, Resend fallback
+ * 
+ * This is the PRIMARY method for sending emails. It:
+ * 1. Tries to send via Gmail if an admin account is available
+ * 2. Falls back to Resend if Gmail is not configured or fails
+ * 
+ * @param options - Email options including optional adminEmail for Gmail lookup
+ */
+export async function sendUnifiedEmail(options: UnifiedEmailOptions): Promise<SendEmailResult> {
+  const {
+    to,
+    cc,
+    bcc,
+    subject,
+    html,
+    from,
+    fromName,
+    replyTo,
+    attachments,
+    adminEmail,
+    threadId,
+    inReplyTo,
+    references,
+    scheduledAt,
+  } = options;
+
+  // Validate recipient
+  const toList = filterValidEmails(to);
+  if (toList.length === 0) {
+    return { success: false, error: "No valid recipient email address provided" };
+  }
+  const recipient = toList[0]; // Gmail API expects single recipient for primary
+
+  // Normalize CC/BCC
+  const ccList = filterValidEmails(cc);
+  const bccList = filterValidEmails(bcc);
+
+  // Convert attachments to Gmail format
+  const gmailAttachments = attachments?.map((att) => ({
+    filename: att.filename,
+    content: att.content,
+    encoding: "base64" as const,
+    contentType: att.contentType || "application/octet-stream",
+  }));
+
+  // Try Gmail first if admin email is provided
+  if (adminEmail) {
+    const gmailToken = await getValidAccessToken(adminEmail);
+    if (gmailToken) {
+      console.log(`[Email] Sending via Gmail (${gmailToken.googleEmail})`);
+      
+      const gmailResult = await sendGmailMessage(gmailToken.accessToken, {
+        from: gmailToken.googleEmail,
+        to: recipient,
+        cc: ccList,
+        bcc: bccList,
+        subject,
+        html,
+        replyTo,
+        attachments: gmailAttachments,
+        threadId: threadId || null,
+        inReplyTo: inReplyTo || null,
+        references: references || null,
+      });
+
+      if (gmailResult.ok) {
+        return {
+          success: true,
+          messageId: gmailResult.messageId,
+          threadId: gmailResult.threadId,
+          rfc822MessageId: gmailResult.rfc822MessageId,
+          provider: "gmail",
+        };
+      }
+
+      console.warn(`[Email] Gmail send failed: ${gmailResult.error}, trying fallback...`);
+    }
+  }
+
+  // Try system Gmail account as fallback
+  if (isGmailConfigured()) {
+    console.log("[Email] Trying system Gmail account...");
+    const systemResult = await sendGmailSystemEmail({
+      to: recipient,
+      cc: ccList,
+      bcc: bccList,
+      subject,
+      html,
+      replyTo,
+      attachments: gmailAttachments,
+    });
+
+    if (systemResult.ok) {
+      return {
+        success: true,
+        messageId: systemResult.messageId,
+        threadId: systemResult.threadId,
+        rfc822MessageId: systemResult.rfc822MessageId,
+        provider: "gmail",
+      };
+    }
+
+    console.warn(`[Email] System Gmail send failed: ${systemResult.error}`);
+  }
+
+  // Fall back to Resend
+  if (RESEND_API_KEY) {
+    console.log("[Email] Falling back to Resend...");
+    const resendResult = await sendEmail(options);
+    return {
+      ...resendResult,
+      provider: resendResult.success ? "resend" : undefined,
+    };
+  }
+
+  return {
+    success: false,
+    error: "No email provider available. Connect Gmail or configure Resend.",
+  };
+}
+
+/**
+ * Send a system email (no user context) - uses system Gmail account
+ * 
+ * Use this for automated emails like:
+ * - Appointment confirmations
+ * - Booking notifications
+ * - System alerts
+ */
+export async function sendSystemEmailUnified(options: Omit<SendEmailOptions, "from" | "fromName">): Promise<SendEmailResult> {
+  const { to, cc, bcc, subject, html, replyTo, attachments } = options;
+
+  // Validate recipient
+  const toList = filterValidEmails(to);
+  if (toList.length === 0) {
+    return { success: false, error: "No valid recipient email address provided" };
+  }
+  const recipient = toList[0];
+
+  const ccList = filterValidEmails(cc);
+  const bccList = filterValidEmails(bcc);
+
+  // Convert attachments to Gmail format
+  const gmailAttachments = attachments?.map((att) => ({
+    filename: att.filename,
+    content: att.content,
+    encoding: "base64" as const,
+    contentType: att.contentType || "application/octet-stream",
+  }));
+
+  // Try system Gmail first
+  if (isGmailConfigured()) {
+    const result = await sendGmailSystemEmail({
+      to: recipient,
+      cc: ccList,
+      bcc: bccList,
+      subject,
+      html,
+      replyTo,
+      attachments: gmailAttachments,
+    });
+
+    if (result.ok) {
+      return {
+        success: true,
+        messageId: result.messageId,
+        threadId: result.threadId,
+        rfc822MessageId: result.rfc822MessageId,
+        provider: "gmail",
+      };
+    }
+
+    console.warn(`[Email] System Gmail failed: ${result.error}`);
+  }
+
+  // Fall back to Resend
+  if (RESEND_API_KEY) {
+    const result = await sendEmail({
+      to: recipient,
+      cc: ccList,
+      bcc: bccList,
+      subject,
+      html,
+      from: DEFAULT_FROM_EMAIL,
+      fromName: DEFAULT_FROM_NAME,
+      replyTo,
+      attachments,
+    });
+
+    return {
+      ...result,
+      provider: result.success ? "resend" : undefined,
+    };
+  }
+
+  return {
+    success: false,
+    error: "No email provider available. Connect Gmail or configure Resend.",
+  };
+}
+
+// Re-export filterValidEmails for use in other modules
+export { filterValidEmails };

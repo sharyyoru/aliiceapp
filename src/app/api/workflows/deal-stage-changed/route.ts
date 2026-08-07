@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendEmail as sendEmailViaResend, isEmailConfigured } from "@/lib/email";
+import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -853,28 +853,24 @@ export async function POST(request: Request) {
               const emailId = (inserted as any).id as string;
               const replyAlias = emailId ? `reply+${emailId}@${replyDomain}` : undefined;
 
-              const result = await sendEmailViaResend({
+              const result = await sendSystemEmailUnified({
                 to: recipientEmail as string,
                 subject,
                 html: bodyHtml,
-                from: emailFromAddress,
-                fromName: emailFromName,
                 replyTo: replyAlias,
-                scheduledAt: isFuture ? effectiveDate : undefined,
-                tags: emailId ? [{ name: "email_id", value: emailId }] : undefined,
               });
 
               if (!result.success) {
                 console.error(
-                  "Error sending workflow email via Resend",
+                  "Error sending workflow email",
                   result.error,
                 );
-              } else if (isFuture) {
-                console.log(`Email scheduled via Resend for ${effectiveDate.toISOString()}`);
+              } else {
+                console.log(`Workflow email sent via ${result.provider}`);
               }
             } catch (sendError) {
               console.error(
-                "Unexpected error sending workflow email via Resend",
+                "Unexpected error sending workflow email",
                 sendError,
               );
             }

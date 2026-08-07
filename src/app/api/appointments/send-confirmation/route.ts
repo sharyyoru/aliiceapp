@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { formatSwissDateWithWeekday, formatSwissTimeAmPm } from "@/lib/swissTimezone";
 import { brandedEmail, infoRow, infoTable, LOGO_URL } from "@/utils/emailTemplate";
-import { sendEmail as sendEmailViaResend, isEmailConfigured } from "@/lib/email";
+import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
@@ -24,18 +24,18 @@ type SendConfirmationPayload = {
 
 async function sendEmail(to: string, subject: string, html: string) {
   if (!isEmailConfigured()) {
-    console.log("Resend not configured, skipping email send");
+    console.log("Email service not configured, skipping email send");
     return;
   }
 
-  const result = await sendEmailViaResend({
+  const result = await sendSystemEmailUnified({
     to,
     subject,
     html,
   });
 
   if (!result.success) {
-    console.error("Error sending email via Resend:", result.error);
+    console.error("Error sending email:", result.error);
     throw new Error(`Failed to send email: ${result.error}`);
   }
 }

@@ -7,7 +7,7 @@ import {
   type PatientRow,
   MAX_CAMPAIGN_RECIPIENTS,
 } from "@/lib/marketingFilters";
-import { sendEmail as sendEmailViaResend, isEmailConfigured, addTrackingPixel } from "@/lib/email";
+import { sendSystemEmailUnified, isEmailConfigured, addTrackingPixel } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -23,22 +23,18 @@ type SendRequestBody = {
 };
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://maisontoa.vercel.app";
-
-// Marketing emails ALWAYS come from the clinic's branded address for
-// deliverability (DKIM/SPF alignment) and consistent branding.
 const MARKETING_FROM_EMAIL = process.env.EMAIL_FROM_ADDRESS || "info@mail.maisontoa.com";
-const MARKETING_FROM_NAME = process.env.EMAIL_FROM_NAME || "Maison Toa";
 
-type ResendSendArgs = {
+type EmailSendArgs = {
   to: string;
   subject: string;
   html: string;
   emailIdForTracking?: string | null;
 };
 
-async function sendViaResend(args: ResendSendArgs): Promise<{ ok: boolean; error?: string; messageId?: string }> {
+async function sendEmailForCampaign(args: EmailSendArgs): Promise<{ ok: boolean; error?: string; messageId?: string }> {
   if (!isEmailConfigured()) {
-    return { ok: false, error: "Resend not configured (missing RESEND_API_KEY)" };
+    return { ok: false, error: "Email service not configured" };
   }
 
   let html = args.html;
@@ -47,16 +43,10 @@ async function sendViaResend(args: ResendSendArgs): Promise<{ ok: boolean; error
   }
 
   try {
-    const result = await sendEmailViaResend({
+    const result = await sendSystemEmailUnified({
       to: args.to,
       subject: args.subject,
       html,
-      from: MARKETING_FROM_EMAIL,
-      fromName: MARKETING_FROM_NAME,
-      tags: [
-        ...(args.emailIdForTracking ? [{ name: "email_id", value: args.emailIdForTracking }] : []),
-        { name: "source", value: "marketing_campaign" },
-      ],
     });
 
     if (!result.success) {
@@ -142,7 +132,7 @@ export async function POST(request: Request) {
         subject: `[TEST] ${subject}`,
         samplePatient: samplePatient.id,
       });
-      const result = await sendViaResend({
+      const result = await sendEmailForCampaign({
         to: body.testEmail.trim(),
         subject: `[TEST] ${subject}`,
         html,
@@ -251,7 +241,7 @@ export async function POST(request: Request) {
             console.warn("[marketing/send] emails row insert threw", err);
           }
 
-          const result = await sendViaResend({
+          const result = await sendEmailForCampaign({
             to: patient.email,
             subject: substitutePatientVariables(subjectToUse, patient),
             html: substitutePatientVariables(template.html, patient),

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendEmail as sendEmailViaResend, isEmailConfigured } from "@/lib/email";
+import { sendEmail as sendEmailViaResend, isEmailConfigured, isResendConfigured } from "@/lib/email";
 import { getValidAccessToken, sendGmailMessage } from "@/lib/gmail";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";

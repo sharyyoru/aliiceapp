@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendEmail } from "@/lib/email";
+import { sendSystemEmailUnified } from "@/lib/email";
 
 const NOTIFY_EMAIL = "info@aliice.app";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://aliice.app";
@@ -55,7 +55,7 @@ async function sendSessionEndEmail(session: {
   const headerColor = session.stale ? "linear-gradient(135deg,#f59e0b,#d97706)" : "linear-gradient(135deg,#10b981,#059669)";
   const headerTextColor = session.stale ? "#fef3c7" : "#d1fae5";
 
-  await sendEmail({
+  await sendSystemEmailUnified({
     to: NOTIFY_EMAIL,
     subject: `${icon} Chat ${session.stale ? "Expired" : "Ended"}${orgLabel} — ${session.user_name || session.user_email || "Unknown"} (${mc} msg${mc !== 1 ? "s" : ""})`,
     html: `
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       const orgLabel = organization_name ? ` (${organization_name})` : "";
       const chatUrl = `${APP_URL}/admin/organizations${organization_id ? `/${organization_id}` : ""}`;
 
-      await sendEmail({
+      await sendSystemEmailUnified({
         to: NOTIFY_EMAIL,
         subject: `💬 Live Chat Started${orgLabel} — ${user_name || user_email || "Unknown user"}`,
         html: `
