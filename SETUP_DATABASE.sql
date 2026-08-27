@@ -955,3 +955,21 @@ GRANT EXECUTE ON FUNCTION generate_invoice_number() TO authenticated;
 
 -- DONE! Your database is ready for ALiice
 -- ============================================
+
+-- ============================================
+-- NEXT STEP: Run scripts/seed-demo-data.sql to populate demo data
+-- This will add:
+-- - 4 Doctors/Providers
+-- - 20 Patients with complete profiles
+-- - 15 Deals at various pipeline stages  
+-- - 20 Appointments (past, current, future)
+-- - 12 Email conversations
+-- - 10 Patient clinical notes
+-- - 10 Tasks for team members
+-- - 6 Email templates
+-- - 6 Automated workflows
+-- - 6 Marketing audience lists
+-- - 5 Marketing campaigns
+-- - 8 Consultation records with invoices
+-- - 7 Patient insurance records
+-- ============================================
