@@ -3,28 +3,42 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  Check,
-  X,
-  ArrowRight,
-  Building2,
-  Users,
-  Calendar,
-  FileText,
-  MessageSquare,
-  Bot,
-  BarChart3,
-  Shield,
-  Zap,
-  HardDrive,
-} from "lucide-react";
+import { Check, X, ArrowRight, HardDrive } from "lucide-react";
+
+type Currency = "EUR" | "CHF" | "USD";
+
+type Money = {
+  amount: number;
+  currency: Currency;
+};
 
 const tiers = [
   {
+    name: "Basic",
+    description: "Core clinic platform",
+    monthlyPrice: { amount: 700, currency: "USD" },
+    onboarding: { amount: 1000, currency: "USD" },
+    features: [
+      { name: "Patient Management", included: true },
+      { name: "Appointment Scheduling", included: true },
+      { name: "Calendar Management", included: true },
+      { name: "Basic Reporting", included: true },
+      { name: "Email Support", included: true },
+      { name: "1 TB Storage", included: true },
+      { name: "Billing & Invoicing", included: false },
+      { name: "AI Medical Scribe", included: false },
+      { name: "WhatsApp Integration", included: false },
+      { name: "Custom Workflows", included: false },
+      { name: "API Access", included: false },
+    ],
+    color: "slate",
+    popular: false,
+  },
+  {
     name: "Starter",
     description: "Essential CRM & Booking",
-    monthlyPrice: 1490,
-    onboarding: 2500,
+    monthlyPrice: { amount: 1490, currency: "CHF" },
+    onboarding: { amount: 2500, currency: "CHF" },
     features: [
       { name: "Patient Management", included: true },
       { name: "Appointment Scheduling", included: true },
@@ -43,8 +57,8 @@ const tiers = [
   {
     name: "Professional",
     description: "Full CRM + ERP + Booking",
-    monthlyPrice: 2240,
-    onboarding: 3500,
+    monthlyPrice: { amount: 2240, currency: "CHF" },
+    onboarding: { amount: 3500, currency: "CHF" },
     features: [
       { name: "Patient Management", included: true },
       { name: "Appointment Scheduling", included: true },
@@ -63,8 +77,8 @@ const tiers = [
   {
     name: "Enterprise",
     description: "Everything + AI & Integrations",
-    monthlyPrice: 3200,
-    onboarding: 5500,
+    monthlyPrice: { amount: 3200, currency: "CHF" },
+    onboarding: { amount: 5500, currency: "CHF" },
     features: [
       { name: "Patient Management", included: true },
       { name: "Appointment Scheduling", included: true },
@@ -80,24 +94,32 @@ const tiers = [
     color: "violet",
     popular: false,
   },
-];
+] as const;
 
-const CURRENCIES = [
-  { code: "EUR", symbol: "€" },
-  { code: "CHF", symbol: "CHF " },
-];
+const CURRENCIES: Currency[] = ["EUR", "CHF", "USD"];
 
-const CHF_TO_EUR_RATE = 1.05;
+const EUR_REFERENCE_RATES: Record<Currency, number> = {
+  EUR: 1,
+  CHF: 0.9359,
+  USD: 1.1269,
+};
 
-function displayPrice(chfAmount: number, currency: "EUR" | "CHF"): number {
-  if (currency === "CHF") return chfAmount;
-  return Math.round(chfAmount * CHF_TO_EUR_RATE);
+function convertPrice(money: Money, currency: Currency): number {
+  const amountInEuros = money.amount / EUR_REFERENCE_RATES[money.currency];
+  return Math.round(amountInEuros * EUR_REFERENCE_RATES[currency]);
+}
+
+function formatPrice(money: Money, currency: Currency): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    currencyDisplay: "narrowSymbol",
+    maximumFractionDigits: 0,
+  }).format(convertPrice(money, currency));
 }
 
 export default function PricingPage() {
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
-  const [currency, setCurrency] = useState<"EUR" | "CHF">("EUR");
-  const sym = currency === "EUR" ? "€" : "CHF ";
+  const [currency, setCurrency] = useState<Currency>("EUR");
 
   return (
     <div className="min-h-screen bg-white">
@@ -128,20 +150,23 @@ export default function PricingPage() {
 
           {/* Currency toggle */}
           <div className="mt-8 inline-flex items-center gap-1 bg-slate-100 rounded-full p-1">
-            {CURRENCIES.map((c) => (
+            {CURRENCIES.map((currencyCode) => (
               <button
-                key={c.code}
-                onClick={() => setCurrency(c.code as "EUR" | "CHF")}
+                key={currencyCode}
+                onClick={() => setCurrency(currencyCode)}
                 className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-all ${
-                  currency === c.code
+                  currency === currencyCode
                     ? "bg-white text-slate-900 shadow"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                {c.code}
+                {currencyCode}
               </button>
             ))}
           </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Converted prices use fixed ECB reference rates from 6 October 2026. Base prices are USD for Basic and CHF for all other plans.
+          </p>
 
           {/* Stats */}
           <div className="mt-10 grid grid-cols-3 gap-6 max-w-3xl mx-auto">
@@ -164,13 +189,13 @@ export default function PricingPage() {
       {/* Pricing Tiers */}
       <section className="py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-4">
             {tiers.map((tier) => (
               <div
                 key={tier.name}
-                className={`relative rounded-3xl p-8 ${
+                className={`relative flex flex-col rounded-3xl p-6 xl:p-7 ${
                   tier.popular
-                    ? "bg-gradient-to-br from-sky-600 to-violet-600 text-white shadow-xl scale-105"
+                    ? "bg-gradient-to-br from-sky-600 to-violet-600 text-white shadow-xl xl:scale-105"
                     : "bg-white border-2 border-slate-100"
                 }`}
               >
@@ -188,17 +213,17 @@ export default function PricingPage() {
                 </h3>
                 
                 <div className="mt-6">
-                  <span className={`text-4xl font-bold ${tier.popular ? "text-white" : "text-slate-900"}`}>
-                    {sym}{displayPrice(tier.monthlyPrice, currency).toLocaleString()}
+                  <span className={`text-3xl font-bold 2xl:text-4xl ${tier.popular ? "text-white" : "text-slate-900"}`}>
+                    {formatPrice(tier.monthlyPrice, currency)}
                   </span>
                   <span className={tier.popular ? "text-sky-200" : "text-slate-500"}>/month</span>
                 </div>
                 
                 <div className={`text-sm mt-2 ${tier.popular ? "text-sky-200" : "text-slate-500"}`}>
-                  + {sym}{displayPrice(tier.onboarding, currency).toLocaleString()} one-time onboarding
+                  + {formatPrice(tier.onboarding, currency)} one-time onboarding
                 </div>
 
-                <ul className="mt-8 space-y-3">
+                <ul className="mt-8 flex-1 space-y-3">
                   {tier.features.map((feature) => (
                     <li key={feature.name} className="flex items-center gap-3">
                       {feature.included ? (
@@ -242,47 +267,51 @@ export default function PricingPage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden max-w-5xl mx-auto overflow-x-auto">
-            <table className="w-full min-w-[600px]">
+            <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="text-left p-4 text-sm font-semibold text-slate-900">Feature</th>
-                  <th className="text-center p-4 text-sm font-semibold text-slate-900">
-                    <div>Starter</div>
-                    <div className="text-sky-600 font-bold">{sym}{displayPrice(1490, currency).toLocaleString()}/mo</div>
-                  </th>
-                  <th className="text-center p-4 text-sm font-semibold text-slate-900 bg-sky-50">
-                    <div>Professional</div>
-                    <div className="text-sky-600 font-bold">{sym}{displayPrice(2240, currency).toLocaleString()}/mo</div>
-                  </th>
-                  <th className="text-center p-4 text-sm font-semibold text-slate-900">
-                    <div>Enterprise</div>
-                    <div className="text-sky-600 font-bold">{sym}{displayPrice(3200, currency).toLocaleString()}/mo</div>
-                  </th>
+                  {tiers.map((tier) => (
+                    <th
+                      key={tier.name}
+                      className={`text-center p-4 text-sm font-semibold text-slate-900 ${tier.popular ? "bg-sky-50" : ""}`}
+                    >
+                      <div>{tier.name}</div>
+                      <div className="text-sky-600 font-bold">{formatPrice(tier.monthlyPrice, currency)}/mo</div>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {[
-                  { feature: "Patient Management", starter: true, pro: true, enterprise: true },
-                  { feature: "Appointment Scheduling", starter: true, pro: true, enterprise: true },
-                  { feature: "Calendar Management", starter: true, pro: true, enterprise: true },
-                  { feature: "Email Support", starter: true, pro: true, enterprise: true },
-                  { feature: "1 TB Storage Included", starter: true, pro: true, enterprise: true },
-                  { feature: "Basic Reporting", starter: true, pro: true, enterprise: true },
-                  { feature: "Billing & Invoicing", starter: false, pro: true, enterprise: true },
-                  { feature: "AI Medical Scribe", starter: false, pro: true, enterprise: true },
-                  { feature: "WhatsApp Integration", starter: false, pro: true, enterprise: true },
-                  { feature: "Document Generation", starter: false, pro: true, enterprise: true },
-                  { feature: "Advanced Analytics", starter: false, pro: true, enterprise: true },
-                  { feature: "Priority Support", starter: false, pro: true, enterprise: true },
-                  { feature: "Custom Workflows", starter: false, pro: false, enterprise: true },
-                  { feature: "API Access", starter: false, pro: false, enterprise: true },
-                  { feature: "Custom Integrations", starter: false, pro: false, enterprise: true },
-                  { feature: "24/7 Dedicated Support", starter: false, pro: false, enterprise: true },
-                  { feature: "White-label Options", starter: false, pro: false, enterprise: true },
-                  { feature: "Custom Booking Pages", starter: false, pro: false, enterprise: true },
+                  { feature: "Patient Management", basic: true, starter: true, pro: true, enterprise: true },
+                  { feature: "Appointment Scheduling", basic: true, starter: true, pro: true, enterprise: true },
+                  { feature: "Calendar Management", basic: true, starter: true, pro: true, enterprise: true },
+                  { feature: "Email Support", basic: true, starter: true, pro: true, enterprise: true },
+                  { feature: "1 TB Storage Included", basic: true, starter: true, pro: true, enterprise: true },
+                  { feature: "Basic Reporting", basic: true, starter: true, pro: true, enterprise: true },
+                  { feature: "Billing & Invoicing", basic: false, starter: false, pro: true, enterprise: true },
+                  { feature: "AI Medical Scribe", basic: false, starter: false, pro: true, enterprise: true },
+                  { feature: "WhatsApp Integration", basic: false, starter: false, pro: true, enterprise: true },
+                  { feature: "Document Generation", basic: false, starter: false, pro: true, enterprise: true },
+                  { feature: "Advanced Analytics", basic: false, starter: false, pro: true, enterprise: true },
+                  { feature: "Priority Support", basic: false, starter: false, pro: true, enterprise: true },
+                  { feature: "Custom Workflows", basic: false, starter: false, pro: false, enterprise: true },
+                  { feature: "API Access", basic: false, starter: false, pro: false, enterprise: true },
+                  { feature: "Custom Integrations", basic: false, starter: false, pro: false, enterprise: true },
+                  { feature: "24/7 Dedicated Support", basic: false, starter: false, pro: false, enterprise: true },
+                  { feature: "White-label Options", basic: false, starter: false, pro: false, enterprise: true },
+                  { feature: "Custom Booking Pages", basic: false, starter: false, pro: false, enterprise: true },
                 ].map((row, idx) => (
                   <tr key={row.feature} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
                     <td className="p-4 text-sm font-medium text-slate-700">{row.feature}</td>
+                    <td className="p-4 text-center">
+                      {row.basic ? (
+                        <Check className="h-5 w-5 text-emerald-500 mx-auto" />
+                      ) : (
+                        <X className="h-5 w-5 text-slate-300 mx-auto" />
+                      )}
+                    </td>
                     <td className="p-4 text-center">
                       {row.starter ? (
                         <Check className="h-5 w-5 text-emerald-500 mx-auto" />
@@ -338,7 +367,7 @@ export default function PricingPage() {
               <div className="text-3xl font-bold text-slate-900">+1 TB</div>
               <div className="text-slate-600 mt-1">Additional storage</div>
               <div className="mt-4 inline-block bg-slate-100 text-slate-700 text-sm font-medium px-3 py-1 rounded-full">
-                {sym}{displayPrice(50, currency).toLocaleString()}/month
+                {formatPrice({ amount: 50, currency: "CHF" }, currency)}/month
               </div>
             </div>
           </div>
