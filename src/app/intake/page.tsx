@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabaseClient } from "@/lib/supabaseClient";
+import { intakeApiClient } from "@/lib/intakeApi";
 import Image from "next/image";
 import { Language, getTranslation } from "@/lib/intakeTranslations";
 import { pushToDataLayer } from "@/components/GoogleTagManager";
@@ -53,25 +53,15 @@ export default function IntakePage() {
 
     try {
       // Check if patient exists
-      const { data: patient } = await supabaseClient
-        .from("patients")
-        .select("id, first_name, last_name, email")
-        .ilike("email", email.trim())
-        .maybeSingle();
+      const { patient } = await intakeApiClient.lookupPatient(email.trim());
 
       if (patient) {
         // Patient exists - create submission and go to steps
-        const { data: submission, error: subError } = await supabaseClient
-          .from("patient_intake_submissions")
-          .insert({
-            patient_id: patient.id,
-            status: "in_progress",
-            current_step: 1,
-          })
-          .select("id")
-          .single();
-
-        if (subError) throw subError;
+        const submission = await intakeApiClient.createSubmission({
+          patient_id: patient.id,
+          status: "in_progress",
+          current_step: 1,
+        });
 
         // Push GTM event for form submission
         pushToDataLayer("aliice_form_submit");
@@ -103,33 +93,21 @@ export default function IntakePage() {
 
     try {
       // Create new patient
-      const { data: newPatient, error: patientError } = await supabaseClient
-        .from("patients")
-        .insert({
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          email: regEmail.trim().toLowerCase(),
-          phone: `${countryCode}${phone.trim().replace(/^0+/, "")}`,
-          country_code: countryCode,
-          source: "intake_form",
-        })
-        .select("id")
-        .single();
-
-      if (patientError) throw patientError;
+      const newPatient = await intakeApiClient.createPatient({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        email: regEmail.trim().toLowerCase(),
+        phone: `${countryCode}${phone.trim().replace(/^0+/, "")}`,
+        country_code: countryCode,
+        source: "intake_form",
+      });
 
       // Create intake submission
-      const { data: submission, error: subError } = await supabaseClient
-        .from("patient_intake_submissions")
-        .insert({
-          patient_id: newPatient?.id,
-          status: "in_progress",
-          current_step: 1,
-        })
-        .select("id")
-        .single();
-
-      if (subError) throw subError;
+      const submission = await intakeApiClient.createSubmission({
+        patient_id: newPatient?.id,
+        status: "in_progress",
+        current_step: 1,
+      });
 
       // Trigger patient_created workflow
       try {
