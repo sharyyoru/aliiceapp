@@ -157,6 +157,63 @@ export async function POST(request: NextRequest) {
 
     // ── Detect insurance (Tiers Payant / Tiers Garant) invoice and generate specialized PDF ──
     // Only treat as insurance if there's an actual insurer OR payment method is Insurance
+    // ── Local PDF fallback (native mode — Sumex print template unavailable) ──
+    const generateFallbackPdf = async () => {
+      const { generateTiersPayantPdf } = await import("@/lib/generateTiersPayantPdf");
+      let insurer: any = null;
+      if (invoiceData.insurer_id) {
+        const { data: ins } = await supabaseAdmin
+          .from("swiss_insurers")
+          .select("name, gln, street, zip_code, city, pobox")
+          .eq("id", invoiceData.insurer_id)
+          .single();
+        insurer = ins;
+      }
+      const providerForPdf = {
+        name: billingEntityData?.name || invoiceData.provider_name || "TOA SA",
+        gln: billingEntityData?.gln || invoiceData.provider_gln || null,
+        zsr: billingEntityData?.zsr || invoiceData.provider_zsr || null,
+        street: billingEntityData?.street || null,
+        street_no: billingEntityData?.street_no || null,
+        zip_code: billingEntityData?.zip_code || null,
+        city: billingEntityData?.city || null,
+        canton: billingEntityData?.canton || invoiceData.treatment_canton || null,
+        phone: billingEntityData?.phone || null,
+        iban: billingEntityData?.iban || invoiceData.provider_iban || null,
+        salutation: billingEntityData?.salutation || null,
+        title: billingEntityData?.title || null,
+      };
+      const pdfBuffer = await generateTiersPayantPdf(
+        invoiceData,
+        lineItems,
+        { ...patientData, avs_number: null } as any,
+        providerForPdf,
+        insurer,
+      );
+      const typePrefix = invoiceType === "tg" ? "invoice" : invoiceType === "tp" ? "invoice-tp" : invoiceType === "reminder" ? "reminder" : "receipt";
+      const filePath = `${invoiceData.patient_id}/${typePrefix}-${invoiceData.invoice_number}-local-${Date.now()}.pdf`;
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("invoice-pdfs")
+        .upload(filePath, pdfBuffer, { contentType: "application/pdf", cacheControl: "3600", upsert: true });
+      if (uploadError) throw uploadError;
+      const pdfCol = invoiceType === "tg" ? "pdf_path_tg" : invoiceType === "tp" ? "pdf_path_tp" : invoiceType === "reminder" ? "pdf_path_reminder" : "pdf_path_receipt";
+      await supabaseAdmin.from("invoices").update({ pdf_path: filePath, [pdfCol]: filePath, pdf_generated_at: new Date().toISOString() }).eq("id", invoiceId);
+      const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
+        .from("invoice-pdfs")
+        .createSignedUrl(filePath, 3600);
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        return NextResponse.json({ error: "PDF generated but failed to create download URL", pdfPath: filePath }, { status: 500 });
+      }
+      return NextResponse.json({
+        success: true,
+        pdfUrl: signedUrlData.signedUrl,
+        pdfPath: filePath,
+        qrCodeType: "local-fallback",
+        degradedMode: true,
+        warning: "The Sumex billing service is unavailable. A local PDF was generated instead.",
+      });
+    };
+
     const isInsuranceInvoice = !!invoiceData.insurer_id || invoiceData.payment_method === "Insurance";
     if (isInsuranceInvoice) {
       console.log(`[GeneratePDF] Insurance invoice detected (${invoiceData.billing_type || "TP"}) — using Sumex1 Print for PDF`);
@@ -349,13 +406,11 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
-      // Use Sumex1-generated PDF
+      // Use Sumex1-generated PDF; native XML path has no server print
+      // template, so fall back to the local generator.
       if (!sumexResult.pdfContent) {
-        console.error(`[GeneratePDF] Sumex1 XML OK but PDF not available`);
-        return NextResponse.json({ 
-          error: "Sumex1 PDF generation failed - no PDF content returned",
-          xmlGenerated: true
-        }, { status: 500 });
+        console.warn(`[GeneratePDF] XML generated natively — no server print; using local fallback PDF`);
+        return generateFallbackPdf();
       }
 
       const pdfBuffer = sumexResult.pdfContent;
@@ -571,10 +626,14 @@ export async function POST(request: NextRequest) {
             });
           }
         } else {
+          if (sumexResult2.success && !sumexResult2.pdfContent) {
+            console.warn(`[GeneratePDF] XML generated natively — using local fallback PDF`);
+            return generateFallbackPdf();
+          }
           console.error(`[GeneratePDF] Sumex1 unified failed: ${sumexResult2.error}`);
-          return NextResponse.json({ 
-            error: "Sumex1 PDF generation failed", 
-            details: sumexResult2.error 
+          return NextResponse.json({
+            error: "Sumex1 PDF generation failed",
+            details: sumexResult2.error
           }, { status: 500 });
         }
       } catch (sumex2Err) {
