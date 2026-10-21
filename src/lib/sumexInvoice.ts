@@ -292,9 +292,14 @@ export type InvoiceServiceInput = {
   responsibleGln: string;
   side?: SideType;
   serviceName?: string;  // auto-expanded if validator installed
-  unit?: number;         // tax points — auto-expanded if 0
-  unitFactor?: number;   // tax point value
+  unit?: number;         // tax points MT (medical/physician) — auto-expanded if 0
+  unitFactor?: number;   // tax point value MT
+  unitTT?: number;       // tax points TT (technical) — for TARDOC
+  unitFactorTT?: number; // tax point value TT — for TARDOC
   externalFactor?: number;
+  // External scaling factor for the TT component (TARDOC). A factor of 0 is
+  // the official way to supply a charge-free service.
+  externalFactorTT?: number;
   amount?: number;       // auto-expanded if 0
   vatRate?: number;
   remark?: string;
@@ -782,6 +787,30 @@ export async function buildInvoiceRequest(
     printTemplate?: string;
   },
 ): Promise<SumexBuildResult> {
+  // Native path (default): generate the generalInvoiceRequest_500 XML locally
+  // without the Sumex1 server. Set SUMEX_USE_SERVER=1 to force the legacy
+  // server path (e.g. if a Sumex1 REST server is ever restored). PDF printing
+  // stays on the local fallback in the callers.
+  if (process.env.SUMEX_USE_SERVER !== "1") {
+    try {
+      const { generateInvoiceXml } = await import("./invoiceXmlNative");
+      const native = generateInvoiceXml(input);
+      console.log(
+        `${LOG_PREFIX} [native] XML generated locally: ${native.xmlContent.length} chars, ${native.servicesCount} services, total=${native.totalAmount}`,
+      );
+      return {
+        success: true,
+        xmlContent: native.xmlContent,
+        usedSchema: "generalInvoiceRequest_500 (native)",
+        timestamp: native.timestamp,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`${LOG_PREFIX} [native] XML generation failed:`, msg);
+      return { success: false, error: `Native XML generation failed: ${msg}` };
+    }
+  }
+
   // Always create a fresh session for each invoice build
   console.log(`${LOG_PREFIX} buildInvoiceRequest starting — invoiceId=${input.invoiceId}`);
   const session = await createRequestSession();
@@ -1614,6 +1643,60 @@ export async function parseInvoiceResponse(
   xmlContent: string,
   fileName: string = "response.xml",
 ): Promise<ParsedInvoiceResponse> {
+  // Native path (default): parse the response XML locally. Set
+  // SUMEX_USE_SERVER=1 to use the Sumex1 response manager again.
+  if (process.env.SUMEX_USE_SERVER !== "1") {
+    try {
+      const { parseInvoiceResponseXml } = await import("./invoiceXmlNative");
+      const p = parseInvoiceResponseXml(xmlContent);
+      const result: ParsedInvoiceResponse = {
+        success: true,
+        responseTimestamp: p.responseTimestamp,
+        guid: p.guid,
+        billerGln: p.billerGln,
+        providerGln: p.providerGln,
+        insuranceGln: p.insuranceGln,
+        notifications: p.notifications.map((n) => ({
+          code: n.code || "",
+          text: n.text || "",
+          isError: n.isError,
+          recordId: 0,
+          errorValue: "",
+          validValue: "",
+        })),
+      };
+      if (p.invoiceId) {
+        result.invoiceRef = {
+          requestInvoiceId: p.invoiceId,
+          requestInvoiceDate: p.invoiceDate || "",
+          requestInvoiceTimestamp: 0,
+        };
+      }
+      if (p.responseType === "accepted") {
+        result.responseType = ResponseType.Accepted;
+        result.acceptExplanation = p.explanation;
+        if (p.balance) {
+          result.balance = {
+            amount: p.balance.amount ?? 0,
+            amountDue: p.balance.amountDue ?? 0,
+            amountPaid: p.balance.amountPaid ?? 0,
+            currency: p.balance.currency || "CHF",
+          } as ParsedInvoiceResponse["balance"];
+        }
+      } else if (p.responseType === "rejected") {
+        result.responseType = ResponseType.Rejected;
+        result.rejectExplanation = p.explanation;
+      } else if (p.responseType === "pending") {
+        result.responseType = ResponseType.Pending;
+        result.pendingExplanation = p.explanation;
+      }
+      return result;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `Native response parse failed: ${msg}` };
+    }
+  }
+
   // Create manager
   const factory = await resGet<{ pIGeneralInvoiceResponseManager: number }>(
     "IGeneralInvoiceResponseManager/GetCreateGeneralInvoiceResponseManager",
@@ -1943,6 +2026,11 @@ export async function printInvoiceResponse(
   xmlContent: string,
   fileName: string = "response.xml",
 ): Promise<{ success: boolean; pdfContent?: Buffer; pdfFilePath?: string; error?: string }> {
+  // The official response print template only exists inside the Sumex1
+  // toolkit — there is no local equivalent. Fail fast when running natively.
+  if (process.env.SUMEX_USE_SERVER !== "1") {
+    return { success: false, error: "Response PDF printing requires the Sumex1 print template (server offline)" };
+  }
   const factory = await resGet<{ pIGeneralInvoiceResponseManager: number }>(
     "IGeneralInvoiceResponseManager/GetCreateGeneralInvoiceResponseManager",
   );
