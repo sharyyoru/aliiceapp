@@ -9,6 +9,7 @@ export async function GET() {
       method: "PATCH",
       headers: {
         "x-cron-secret": CRON_SECRET,
+        "x-internal-api-secret": process.env.INTERNAL_API_SECRET || "",
         "Content-Type": "application/json",
       },
     });

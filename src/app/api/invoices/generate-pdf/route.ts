@@ -19,6 +19,7 @@ import {
   type InvoiceServiceInput as SumexServiceInput,
   type InvoiceDiagnosis as SumexDiagnosis,
 } from "@/lib/sumexInvoice";
+import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 type PatientData = {
   first_name: string;
@@ -51,6 +52,11 @@ type ProviderData = {
 };
 
 export async function POST(request: NextRequest) {
+    try {
+      await requireStaff(request);
+    } catch (err) {
+      return authErrorResponse(err);
+    }
   try {
     const { invoiceId, invoiceType = "tp", reminderLevel = 1 } = await request.json();
     console.log("PDF generation request received for invoice ID:", invoiceId, "type:", invoiceType);

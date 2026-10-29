@@ -16,6 +16,7 @@ import {
   type InvoiceServiceInput as SumexServiceInput,
   type InvoiceDiagnosis as SumexDiagnosis,
 } from "@/lib/sumexInvoice";
+import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 // Default QR-IBAN fallback (IID 30000-31999 required for QR type)
 const FALLBACK_QR_IBAN = "CH0930788000050249289";
@@ -42,6 +43,11 @@ function sanitizeIban(raw: string | null | undefined): string | null {
  * Accepts { invoiceId } — queries the `invoices` table.
  */
 export async function POST(request: NextRequest) {
+    try {
+      await requireStaff(request);
+    } catch (err) {
+      return authErrorResponse(err);
+    }
   try {
     const body = await request.json();
     const {

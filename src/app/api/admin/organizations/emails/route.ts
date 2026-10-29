@@ -8,6 +8,7 @@ import {
   addTrackingPixel,
 } from "@/lib/email";
 import { getValidAccessToken, sendGmailMessage } from "@/lib/gmail";
+import { verifyAdminSession } from "@/lib/adminSession";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://maison-toa-dk99.vercel.app";
 const REPLY_DOMAIN = process.env.EMAIL_REPLY_DOMAIN || "aliice.app";
@@ -36,6 +37,9 @@ function toHtml(input: string): string {
 }
 
 export async function GET(request: Request) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   if (!(await getAdminSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -89,6 +93,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const session = await getAdminSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

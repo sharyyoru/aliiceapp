@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/adminSession";
 import { getValidAccessToken, getThreadMessages } from "@/lib/gmail";
+import { verifyAdminSession } from "@/lib/adminSession";
 
 function getSupabaseAdmin() {
   return createClient(
@@ -21,6 +22,9 @@ function extractEmail(input: string): string {
  * recorded (by gmail_message_id) are skipped.
  */
 export async function POST(request: Request) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const session = await getAdminSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

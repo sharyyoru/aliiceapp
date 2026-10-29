@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { getAdminSession } from "@/lib/adminSession";
+import { verifyAdminSession } from "@/lib/adminSession";
 
 // GET /api/admin/tasks/[id]/comments
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const s = await getAdminSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -21,6 +25,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 // POST /api/admin/tasks/[id]/comments
 // Body: { body: string }  — @mentions parsed from body text
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const s = await getAdminSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

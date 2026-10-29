@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
+import { headers } from "next/headers";
 
 const SOAP_SYSTEM_PROMPT = `You are an AI medical scribe assistant specializing in converting doctor-patient consultation transcripts into structured SOAP notes. You work for aesthetics and medical clinics.
 
@@ -66,6 +68,11 @@ type SOAPNotes = {
 };
 
 export async function POST(request: NextRequest) {
+    try {
+      await requireStaff(request);
+    } catch (err) {
+      return authErrorResponse(err);
+    }
   try {
     const { transcript, patientId, patientName } = await request.json();
 
@@ -178,6 +185,11 @@ Analyze this consultation transcript and generate SOAP notes. Return ONLY valid 
 }
 
 export async function GET() {
+    try {
+      await requireStaff((await headers()));
+    } catch (err) {
+      return authErrorResponse(err);
+    }
   return NextResponse.json({
     status: "ok",
     endpoint: "/api/consultations/generate-soap",

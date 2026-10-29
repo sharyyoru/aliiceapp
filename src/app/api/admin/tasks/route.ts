@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { getAdminSession } from "@/lib/adminSession";
+import { verifyAdminSession } from "@/lib/adminSession";
 
 // GET /api/admin/tasks?org_id=&assignee=me&status=&q=&sort=
 export async function GET(req: NextRequest) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const s = await getAdminSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -52,6 +56,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/admin/tasks
 export async function POST(req: NextRequest) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const s = await getAdminSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -104,6 +111,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/admin/tasks?id=
 export async function PATCH(req: NextRequest) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const s = await getAdminSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -143,6 +153,9 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/admin/tasks?id=
 export async function DELETE(req: NextRequest) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const s = await getAdminSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/adminSession";
 import { getAuthUrl, isGmailConfigured } from "@/lib/gmail";
+import { verifyAdminSession } from "@/lib/adminSession";
 
 export async function GET(request: Request) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const session = await getAdminSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

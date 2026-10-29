@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendSystemEmailUnified } from "@/lib/email";
+import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 const NOTIFY_EMAIL = "info@aliice.app";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://aliice.app";
@@ -92,6 +93,11 @@ async function sendSessionEndEmail(session: {
 // POST /api/chat/session
 // action: "start" | "end"
 export async function POST(req: NextRequest) {
+    try {
+      await requireStaff(req);
+    } catch (err) {
+      return authErrorResponse(err);
+    }
   try {
     const body = await req.json();
     const { action, session_id, organization_id, organization_name, user_id, user_email, user_name, transcript } = body;
@@ -176,6 +182,11 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/chat/session  — close stale open sessions (called by cron)
 export async function PATCH(req: NextRequest) {
+    try {
+      await requireStaff(req);
+    } catch (err) {
+      return authErrorResponse(err);
+    }
   try {
     // Require a secret to prevent public abuse
     const secret = req.headers.get("x-cron-secret");
@@ -233,6 +244,11 @@ export async function PATCH(req: NextRequest) {
 
 // GET /api/chat/session?org_id=xxx  (admin use)
 export async function GET(req: NextRequest) {
+    try {
+      await requireStaff(req);
+    } catch (err) {
+      return authErrorResponse(err);
+    }
   const { searchParams } = new URL(req.url);
   const org_id = searchParams.get("org_id");
   const session_id = searchParams.get("session_id");

@@ -7,6 +7,7 @@ import {
   updateEvent,
   deleteEvent,
 } from "@/lib/googleCalendar";
+import { verifyAdminSession } from "@/lib/adminSession";
 
 /**
  * GET  /api/admin/agenda/events?timeMin=&timeMax=
@@ -17,6 +18,9 @@ import {
  * DELETE ?id=  — delete an event on the logged-in admin's calendar.
  */
 export async function GET(request: Request) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -50,6 +54,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -90,6 +97,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -114,6 +124,9 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+    if (!(await verifyAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

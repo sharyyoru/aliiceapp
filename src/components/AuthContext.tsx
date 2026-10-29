@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { installAuthFetch } from "@/lib/authFetch";
 import type { User } from "@supabase/supabase-js";
 
 type AuthContextValue = {
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    installAuthFetch();
     let isMounted = true;
 
     async function loadUser() {
