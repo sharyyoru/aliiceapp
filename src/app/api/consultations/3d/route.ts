@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   let body: {
     patientId?: string | null;
     reconstructionType?: string | null;

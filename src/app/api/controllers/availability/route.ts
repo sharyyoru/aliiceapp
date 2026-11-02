@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
@@ -16,11 +15,6 @@ type AvailabilityPayload = {
 
 // GET - Fetch availability for all users or specific user
 export async function GET(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -58,11 +52,6 @@ export async function GET(request: NextRequest) {
 
 // POST - Create or update availability
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = (await request.json()) as AvailabilityPayload;
     const { userId, dayOfWeek, startTime, endTime, isAvailable, location = "Geneva" } = body;
@@ -116,11 +105,6 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Remove availability entry
 export async function DELETE(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

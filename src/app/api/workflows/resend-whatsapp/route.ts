@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 
@@ -39,11 +38,6 @@ type ResendPayload = {
 };
 
 export async function POST(request: Request) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = (await request.json()) as ResendPayload;
     const { deals } = body;

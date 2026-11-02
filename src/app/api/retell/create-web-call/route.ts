@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
-import { headers } from "next/headers";
 
 export async function POST() {
-    try {
-      await requireStaff((await headers()));
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const apiKey = process.env.RETELL_API_KEY;
     const agentId = process.env.RETELL_AGENT_ID;
@@ -61,11 +54,6 @@ export async function POST() {
 }
 
 export async function GET() {
-    try {
-      await requireStaff((await headers()));
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   return NextResponse.json({
     status: "ok",
     endpoint: "/api/retell/create-web-call",

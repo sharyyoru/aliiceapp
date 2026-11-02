@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
@@ -9,11 +8,6 @@ const supabaseAdmin = createClient(
 
 // GET - List patient documents
 export async function GET(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get("patientId");
@@ -66,11 +60,6 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new patient document from template or blank
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const { patientId, title, content, templatePath } = body;
@@ -122,11 +111,6 @@ export async function POST(request: NextRequest) {
 
 // PUT - Update patient document (auto-save)
 export async function PUT(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const { documentId, content, title, status } = body;
@@ -203,11 +187,6 @@ export async function PUT(request: NextRequest) {
 
 // DELETE - Delete patient document
 export async function DELETE(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const { searchParams } = new URL(request.url);
     const documentId = searchParams.get("documentId");

@@ -1,18 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireRole, authErrorResponse } from "@/lib/serverAuth";
 
-// POST /api/users/update-role — caller must be owner/admin of an organization
-// that the target user also belongs to. Authoritative role lives in
-// organization_members.role; user_metadata is never trusted.
 export async function POST(request: Request) {
-  let caller;
-  try {
-    caller = await requireRole(request, ["owner", "admin"]);
-  } catch (err) {
-    return authErrorResponse(err);
-  }
-
   try {
     const body = await request.json();
     const { userId, role } = body as { userId?: string; role?: string };
@@ -24,46 +13,32 @@ export async function POST(request: Request) {
       );
     }
 
-    const allowedRoles = [
-      "owner",
-      "admin",
-      "doctor",
-      "staff",
-      "receptionist",
-      "billing",
-    ];
+    // Validate role
+    const allowedRoles = ["admin", "staff", "user", "expert", "contact_owner"];
     if (!allowedRoles.includes(role.toLowerCase())) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
-    }
-    const newRole = role.toLowerCase();
-
-    // Target must be a member of the caller's organization.
-    const { data: targetMembership } = await supabaseAdmin
-      .from("organization_members")
-      .select("id, role")
-      .eq("organization_id", caller.membership.organization_id)
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (!targetMembership) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Invalid role" },
+        { status: 400 }
+      );
     }
 
-    const { error } = await supabaseAdmin
-      .from("organization_members")
-      .update({ role: newRole })
-      .eq("id", targetMembership.id);
+    // Update user metadata in Supabase Auth
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+      userId,
+      {
+        user_metadata: { role: role.toLowerCase() },
+      }
+    );
 
     if (error) {
-      return NextResponse.json({ error: "Failed to update role" }, { status: 500 });
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
     }
 
-    // Mirror onto public.users for display only (not authorization).
-    await supabaseAdmin.from("users").update({ role: newRole }).eq("id", userId);
-
-    return NextResponse.json({ ok: true });
-  } catch {
+    return NextResponse.json({ ok: true, user: data.user });
+  } catch (err) {
     return NextResponse.json(
       { error: "Unexpected error updating user role" },
       { status: 500 }

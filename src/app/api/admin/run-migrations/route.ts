@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { verifyAdminSession } from "@/lib/adminSession";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
@@ -48,9 +47,6 @@ const MIGRATIONS = [
 ];
 
 export async function POST() {
-    if (!(await verifyAdminSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
   const results: { sql: string; success: boolean; error?: string }[] = [];
   
   for (const sql of MIGRATIONS) {
@@ -80,9 +76,6 @@ export async function POST() {
 }
 
 export async function GET() {
-    if (!(await verifyAdminSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
   // Return the SQL that needs to be run
   const sql = MIGRATIONS.join(';\n\n');
   

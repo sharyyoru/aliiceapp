@@ -3,7 +3,6 @@ import fs from "fs";
 import path from "path";
 import JSZip from "jszip";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 // Format date in different styles
 function formatDate(date: Date, style: "long" | "short" | "numeric" = "long", locale: string = "fr-CH"): string {
@@ -96,11 +95,6 @@ function normalizeXmlPlaceholders(content: string): string {
 }
 
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const { templateName, patientId } = body;

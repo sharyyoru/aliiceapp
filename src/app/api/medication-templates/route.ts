@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 
@@ -9,11 +8,6 @@ export const runtime = "nodejs";
  * Optional query params: ?service_id=xxx to filter by linked service
  */
 export async function GET(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const serviceId = request.nextUrl.searchParams.get("service_id");
 
@@ -83,11 +77,6 @@ export async function GET(request: NextRequest) {
  * Body: { name, description?, service_id?, items: [...] }
  */
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const {
@@ -175,11 +164,6 @@ export async function POST(request: NextRequest) {
  * Body: { id, name?, description?, service_id?, items?: [...] }
  */
 export async function PUT(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const { id, name, description, service_id, items } = body as {
@@ -268,11 +252,6 @@ export async function PUT(request: NextRequest) {
  * Body: { id }
  */
 export async function DELETE(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const { id } = body as { id: string };

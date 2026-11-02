@@ -2,7 +2,6 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createPayrexxGateway } from "@/lib/payrexx";
-import { verifyAdminSession as verifyAdmin } from "@/lib/adminSession";
 
 // Subscription payments are unified into client_invoices with
 // invoice_type='subscription'. The shared Payrexx webhook resolves
@@ -47,7 +46,19 @@ function toClientPayment(inv: ClientInvoiceRow) {
   };
 }
 
+async function verifyAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session");
 
+  if (!token) return false;
+
+  try {
+    const decoded = Buffer.from(token.value, "base64").toString();
+    return decoded.startsWith("admin:");
+  } catch {
+    return false;
+  }
+}
 
 function getSupabaseAdmin() {
   return createClient(

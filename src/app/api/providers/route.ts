@@ -1,16 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
 
 export async function GET(req: Request) {
-    try {
-      await requireStaff(req);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { searchParams } = new URL(req.url);
@@ -36,11 +30,6 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-    try {
-      await requireStaff(req);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const body = await req.json();
@@ -81,11 +70,6 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
-    try {
-      await requireStaff(req);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const body = await req.json();
@@ -134,11 +118,6 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-    try {
-      await requireStaff(req);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { searchParams } = new URL(req.url);

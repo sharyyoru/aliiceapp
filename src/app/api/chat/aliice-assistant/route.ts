@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
-import { headers } from "next/headers";
 
 // System prompt for Aliice - the AI assistant
 const SYSTEM_PROMPT = `You are Aliice, the friendly and knowledgeable AI assistant for the ALiice Medical CRM platform. Your role is to help clinic owners and staff set up their system, answer questions, and guide them through features.
@@ -93,11 +91,6 @@ function buildContextMessage(onboardingStatus: OnboardingStatus | null): string 
 }
 
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   // Parse request body first so we can use it in error handling
   let message = "";
   let onboardingStatus: OnboardingStatus | null = null;
@@ -224,11 +217,6 @@ function getFallbackResponse(message: string, onboardingStatus: OnboardingStatus
 }
 
 export async function GET() {
-    try {
-      await requireStaff((await headers()));
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   return NextResponse.json({
     status: "ok",
     assistant: "Aliice",

@@ -1,17 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireRole, authErrorResponse } from "@/lib/serverAuth";
 
-// POST /api/users/create — owner/admin creates a staff user in THEIR org.
-// Role is written to organization_members.role, never to user_metadata.
 export async function POST(request: Request) {
-  let caller;
-  try {
-    caller = await requireRole(request, ["owner", "admin"]);
-  } catch (err) {
-    return authErrorResponse(err);
-  }
-
   try {
     const { email, password, role, firstName, lastName, designation } =
       await request.json();
@@ -23,19 +13,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const allowedRoles = [
-      "owner",
-      "admin",
-      "doctor",
-      "staff",
-      "receptionist",
-      "billing",
-    ];
-    if (!allowedRoles.includes(String(role).toLowerCase())) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
-    }
-    const newRole = String(role).toLowerCase();
-
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -43,6 +20,7 @@ export async function POST(request: Request) {
       user_metadata: {
         first_name: firstName,
         last_name: lastName,
+        role,
         designation,
       },
     });
@@ -58,7 +36,7 @@ export async function POST(request: Request) {
 
     const { error: insertError } = await supabaseAdmin.from("users").insert({
       id: data.user.id,
-      role: newRole,
+      role,
       full_name: fullName || null,
       email,
       designation,
@@ -66,23 +44,7 @@ export async function POST(request: Request) {
 
     if (insertError) {
       return NextResponse.json(
-        { error: "Failed to create user record" },
-        { status: 500 }
-      );
-    }
-
-    const { error: memberError } = await supabaseAdmin
-      .from("organization_members")
-      .insert({
-        organization_id: caller.membership.organization_id,
-        user_id: data.user.id,
-        role: newRole,
-        is_active: true,
-      });
-
-    if (memberError) {
-      return NextResponse.json(
-        { error: "Failed to assign organization membership" },
+        { error: insertError.message },
         { status: 500 }
       );
     }
@@ -90,9 +52,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       id: data.user.id,
       email: data.user.email,
-      role: newRole,
+      role,
     });
-  } catch {
+  } catch (error) {
     return NextResponse.json(
       { error: "Unexpected error creating user" },
       { status: 500 }

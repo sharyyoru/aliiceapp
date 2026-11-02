@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
-import { headers } from "next/headers";
 
 function generateSwissReference(invoiceId: string): string {
   let numericPart = invoiceId.replace(/\D/g, "");
@@ -20,11 +18,6 @@ function generateSwissReference(invoiceId: string): string {
 }
 
 export async function POST() {
-    try {
-      await requireStaff((await headers()));
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     // Fetch all invoices without a reference_number
     const { data: invoices, error } = await supabaseAdmin

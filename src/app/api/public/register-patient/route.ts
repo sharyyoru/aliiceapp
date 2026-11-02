@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       const baseUrl = `${url.protocol}//${url.host}`;
       await fetch(`${baseUrl}/api/workflows/patient-created`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-internal-api-secret": process.env.INTERNAL_API_SECRET || "" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patient_id: patient.id }),
       });
     } catch {

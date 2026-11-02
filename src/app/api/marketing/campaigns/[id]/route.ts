@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 
@@ -8,11 +7,6 @@ type RouteParams = { params: Promise<{ id: string }> };
 
 /** GET /api/marketing/campaigns/:id — campaign detail with recipients. */
 export async function GET(_request: Request, { params }: RouteParams) {
-    try {
-      await requireStaff(_request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const { id } = await params;
     const [{ data: campaign, error: campaignError }, { data: recipients, error: recipientsError }] = await Promise.all([

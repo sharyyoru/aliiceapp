@@ -2,7 +2,6 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { runStageAutomations } from "@/lib/pipelineAutomations";
-import { verifyAdminSession as verifyAdmin } from "@/lib/adminSession";
 
 // Sales funnel stages for tracking clients
 const FUNNEL_STAGES = [
@@ -16,7 +15,19 @@ const FUNNEL_STAGES = [
   { id: "churned", label: "Churned", color: "red", weight: 0 },
 ];
 
+async function verifyAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session");
 
+  if (!token) return false;
+
+  try {
+    const decoded = Buffer.from(token.value, "base64").toString();
+    return decoded.startsWith("admin:");
+  } catch {
+    return false;
+  }
+}
 
 function getSupabaseAdmin() {
   return createClient(

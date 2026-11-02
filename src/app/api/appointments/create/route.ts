@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import { parseSwissDateTimeLocal } from "@/lib/swissTimezone";
 import { brandedEmail, infoRow, infoTable } from "@/utils/emailTemplate";
 import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
@@ -148,11 +147,6 @@ function generateReminderEmailHtml(
 }
 
 export async function POST(request: Request) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = (await request.json()) as CreateAppointmentPayload;
 

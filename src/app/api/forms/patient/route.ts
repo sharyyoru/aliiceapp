@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 // GET /api/forms/patient?patientId=xxx - Get all form submissions for a patient
 export async function GET(request: Request) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get("patientId");
@@ -68,11 +62,6 @@ export async function GET(request: Request) {
 
 // PATCH /api/forms/patient - Update form submission (mark as reviewed, add notes)
 export async function PATCH(request: Request) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const { submissionId, status, notes, reviewedBy } = body;
@@ -126,11 +115,6 @@ export async function PATCH(request: Request) {
 
 // DELETE /api/forms/patient - Delete form submissions
 export async function DELETE(request: Request) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const { submissionIds } = body;

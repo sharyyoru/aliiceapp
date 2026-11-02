@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { getAdminSession } from "@/lib/adminSession";
-import { verifyAdminSession } from "@/lib/adminSession";
 
 // GET /api/admin/notifications — returns unread count + recent notifications for the current admin
 export async function GET(_req: NextRequest) {
-    if (!(await verifyAdminSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
   const s = await getAdminSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -32,9 +28,6 @@ export async function GET(_req: NextRequest) {
 
 // POST /api/admin/notifications/read — mark all or specific as read
 export async function POST(req: NextRequest) {
-    if (!(await verifyAdminSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
   const s = await getAdminSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

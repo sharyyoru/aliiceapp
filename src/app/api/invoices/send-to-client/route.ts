@@ -3,7 +3,6 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createPayrexxGateway } from "@/lib/payrexx";
 import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
 import { addPayButtonToPdf, buildInvoiceEmailHtml } from "@/lib/payButton";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 /**
  * Emails a patient/medical invoice to the client:
@@ -13,11 +12,6 @@ import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
  *  - logs the outbound email to the patient's CRM timeline (best effort).
  */
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     if (!isEmailConfigured()) {
       return NextResponse.json({ error: "Email service not configured" }, { status: 503 });

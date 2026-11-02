@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { formatSwissPhone } from "@/lib/phoneFormatter";
 import { shouldCreateDeal } from "@/lib/dealDeduplication";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 type ImportLead = {
   rowNumber: number;
@@ -149,11 +148,6 @@ async function findExistingPatient(
 }
 
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const { leads, service, filename } = await request.json();
 
@@ -396,7 +390,7 @@ export async function POST(request: NextRequest) {
             try {
               await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/workflows/deal-stage-changed`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "x-internal-api-secret": process.env.INTERNAL_API_SECRET || "" },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   dealId,
                   patientId,

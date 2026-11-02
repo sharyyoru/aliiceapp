@@ -2,13 +2,22 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createPayrexxGateway } from "@/lib/payrexx";
-import { verifyAdminSession as verifyAdmin } from "@/lib/adminSession";
 
 // Reference prefix so the shared Payrexx webhook can distinguish client-billing
 // invoices from patient/medical invoices. Kept in sync with payrexx-webhook.
 const CLIENT_INVOICE_REF_PREFIX = "CLIENT-";
 
-
+async function verifyAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session");
+  if (!token) return false;
+  try {
+    const decoded = Buffer.from(token.value, "base64").toString();
+    return decoded.startsWith("admin:");
+  } catch {
+    return false;
+  }
+}
 
 function getSupabaseAdmin() {
   return createClient(

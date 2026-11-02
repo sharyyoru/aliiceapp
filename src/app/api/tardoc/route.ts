@@ -13,7 +13,6 @@ import {
   type TardocTariffItem,
   type TardocMedicine,
 } from "@/lib/tardoc";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 
@@ -47,11 +46,6 @@ type TardocApiResponse = {
  * - taxPoints: number of tax points for calculation
  */
 export async function GET(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const searchParams = request.nextUrl.searchParams;
     const action = searchParams.get("action") || "tariffs";

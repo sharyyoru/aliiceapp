@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 
@@ -122,11 +121,6 @@ function createUnlayerDesign(paragraphs: string[]): object {
 }
 
 export async function POST(request: Request) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     if (!genAI) {
       return NextResponse.json(

@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getAllForms, getFormById } from "@/lib/formDefinitions";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 // GET /api/forms - Get all form definitions or a specific one
 export async function GET(request: Request) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get("formId");
@@ -38,11 +32,6 @@ export async function GET(request: Request) {
 
 // POST /api/forms - Create a new form submission link for a patient
 export async function POST(request: Request) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const { patientId, formId } = body;

@@ -8,8 +8,6 @@ import {
   confirmNotification,
   getUploadStatus,
 } from "@/lib/medidataProxy";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
-import { headers } from "next/headers";
 
 /**
  * POST /api/medidata/poll
@@ -22,11 +20,6 @@ import { headers } from "next/headers";
  * - Poll every 30 minutes in production (per MediData best practice docs)
  */
 export async function POST() {
-    try {
-      await requireStaff((await headers()));
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const results = {
       downloads: { found: 0, processed: 0, errors: 0, items: [] as any[] },

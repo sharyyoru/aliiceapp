@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
-import { headers } from "next/headers";
 
 /**
  * POST /api/medidata/setup-tables
@@ -9,11 +7,6 @@ import { headers } from "next/headers";
  * Uses supabase rpc or direct table creation attempts.
  */
 export async function POST() {
-    try {
-      await requireStaff((await headers()));
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";

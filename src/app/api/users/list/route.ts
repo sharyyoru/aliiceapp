@@ -1,44 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 export async function GET(request: NextRequest) {
-  let caller;
-  try {
-    caller = await requireRole(request, ["owner", "admin"]);
-  } catch (err) {
-    return authErrorResponse(err);
-  }
   try {
     // Get organization_id from query params if provided
     const { searchParams } = new URL(request.url);
-    const organizationId =
-      searchParams.get("organization_id") ??
-      caller.membership.organization_id;
-
-    if (organizationId !== caller.membership.organization_id) {
-      const { data: other } = await supabaseAdmin
-        .from("organization_members")
-        .select("id")
-        .eq("organization_id", organizationId)
-        .eq("user_id", caller.user.id)
-        .eq("is_active", true)
-        .maybeSingle();
-      if (!other) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    }
-
-    // Authoritative roles come from organization_members, not user_metadata.
-    const { data: memberships } = await supabaseAdmin
-      .from("organization_members")
-      .select("user_id, role")
-      .eq("organization_id", organizationId)
-      .eq("is_active", true);
-    const roleByUser = new Map<string, string>();
-    for (const m of memberships || []) {
-      if (m.user_id && m.role) roleByUser.set(m.user_id, m.role);
-    }
+    const organizationId = searchParams.get("organization_id");
 
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({
       page: 1,
@@ -101,7 +68,7 @@ export async function GET(request: NextRequest) {
           id: user.id,
           email: user.email ?? null,
           full_name: fullName,
-          role: roleByUser.get(user.id) ?? "staff",
+          role: (meta["role"] as string) ?? "staff",
           designation: (meta["designation"] as string) ?? null,
         };
       });
@@ -131,7 +98,7 @@ export async function GET(request: NextRequest) {
         id: user.id,
         email: user.email ?? null,
         full_name: fullName,
-        role: roleByUser.get(user.id) ?? null,
+        role: (meta["role"] as string) ?? null,
         first_name: firstName,
         last_name: lastName,
         designation: (meta["designation"] as string) ?? null,

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { readFile } from "fs/promises";
 import path from "path";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
@@ -10,11 +9,6 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const body = await request.json();
     const { patientId, templatePath, title, patientName } = body;

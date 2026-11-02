@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/adminSession";
 import { sendSystemEmail } from "@/lib/gmail";
 import { createClient } from "@supabase/supabase-js";
-import { verifyAdminSession } from "@/lib/adminSession";
 
 function getSupabase() {
   return createClient(
@@ -12,9 +11,6 @@ function getSupabase() {
 }
 
 export async function POST(request: NextRequest) {
-    if (!(await verifyAdminSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

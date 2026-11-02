@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 export async function POST(request: NextRequest) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     const { patientId, patientName } = await request.json();
     

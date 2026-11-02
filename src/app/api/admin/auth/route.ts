@@ -1,7 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createAdminToken, verifyAdminToken } from "@/lib/adminSession";
+
+// Fallback admin credentials (used if admin_users table doesn't exist)
+const FALLBACK_ADMIN_EMAIL = "sharyyoru@gmail.com";
+const FALLBACK_ADMIN_PASSWORD = "wilsontest";
 
 function getSupabaseAdmin() {
   return createClient(
@@ -39,10 +42,13 @@ export async function POST(request: Request) {
         .from("admin_users")
         .update({ last_login_at: new Date().toISOString() })
         .eq("id", adminUser.id);
+    } else if (emailClean === FALLBACK_ADMIN_EMAIL && passwordClean === FALLBACK_ADMIN_PASSWORD) {
+      // Fallback to hardcoded credentials
+      isValid = true;
     }
 
     if (isValid) {
-      const token = createAdminToken(emailClean);
+      const token = Buffer.from(`admin:${emailClean}:${Date.now()}`).toString("base64");
       
       const cookieStore = await cookies();
       cookieStore.set("admin_session", token, {
@@ -71,7 +77,8 @@ export async function GET() {
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
 
-    if (verifyAdminToken(token.value)) {
+    const decoded = Buffer.from(token.value, "base64").toString();
+    if (decoded.startsWith("admin:")) {
       return NextResponse.json({ authenticated: true });
     }
 

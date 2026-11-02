@@ -46,13 +46,9 @@ export default function UsersPage() {
         }
 
         setCurrentUserId(user.id);
-
-        // Role comes from the server (/api/me reads organization_members) —
-        // user_metadata.role is client-controllable and must not be trusted.
-        const meRes = await fetch("/api/me");
-        const me = meRes.ok ? await meRes.json() : null;
-        const role = ((me?.role as string) || "").toLowerCase();
-        setIsAdmin(role === "admin" || role === "owner");
+        const meta = (user.user_metadata || {}) as Record<string, unknown>;
+        const role = ((meta["role"] as string) || "").toLowerCase();
+        setIsAdmin(role === "admin");
 
         // Fetch users list via API
         const response = await fetch("/api/users/list");

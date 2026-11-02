@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/adminSession";
 import { getGmailAccount, hasCalendarScope, isGmailConfigured } from "@/lib/gmail";
 import { listConnectedAdmins } from "@/lib/googleCalendar";
-import { verifyAdminSession } from "@/lib/adminSession";
 
 /**
  * GET /api/admin/agenda/accounts
@@ -10,9 +9,6 @@ import { verifyAdminSession } from "@/lib/adminSession";
  *   current admin's own connection state.
  */
 export async function GET() {
-    if (!(await verifyAdminSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

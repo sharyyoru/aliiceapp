@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendUnifiedEmail, isEmailConfigured, sanitizeTelLinks, addTrackingPixel, type EmailAttachment } from "@/lib/email";
-import { requireStaff, requireRole, authErrorResponse } from "@/lib/serverAuth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key";
@@ -29,11 +28,6 @@ type InlineAttachment = {
 };
 
 export async function POST(request: Request) {
-    try {
-      await requireStaff(request);
-    } catch (err) {
-      return authErrorResponse(err);
-    }
   try {
     // Runtime check for required environment variables
     if (!isEmailConfigured()) {
