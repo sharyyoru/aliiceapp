@@ -364,7 +364,8 @@ export async function removeAppointmentMeet(ownerKey: string, appt: AppointmentF
               google_event_id: appt.google_event_id,
               google_event_owner: appt.google_event_owner ?? null,
             })
-            .eq("id", appt.id);
+            .eq("id", appt.id)
+            .is("google_event_id", null);
           throw err;
         }
       }
