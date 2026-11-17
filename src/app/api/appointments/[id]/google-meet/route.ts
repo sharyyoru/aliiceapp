@@ -47,7 +47,14 @@ async function shareWithSiblings(
   if (siblingIds.length === 0) return [];
   const { data } = await supabaseAdmin.from("appointments").select(APPOINTMENT_MEET_SELECT).in("id", siblingIds);
   const shareable = ((data || []) as unknown as AppointmentForMeet[])
-    .filter((s) => s.id !== primary.id && !s.google_event_id && s.start_time === primary.start_time && canAccess(s, userId, orgIds))
+    .filter(
+      (s) =>
+        s.id !== primary.id &&
+        !s.google_event_id &&
+        s.start_time === primary.start_time &&
+        appointmentOrgId(s) === appointmentOrgId(primary) &&
+        canAccess(s, userId, orgIds)
+    )
     .map((s) => s.id);
   if (shareable.length === 0) return [];
   const { error } = await supabaseAdmin.from("appointments").update(fields).in("id", shareable);

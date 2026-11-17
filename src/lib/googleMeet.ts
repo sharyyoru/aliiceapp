@@ -281,9 +281,24 @@ export async function upsertAppointmentMeet(
   };
 
   let event: GoogleCalendarEvent | null = null;
-  if (appt.google_event_id) {
+  let eventId = appt.google_event_id || null;
+  if (eventId) {
+    // A shared (multi-doctor) event only follows this appointment while all sharers keep the same slot;
+    // otherwise this appointment gets its own event.
+    const { data: sharers } = await supabaseAdmin
+      .from("appointments")
+      .select("start_time, end_time")
+      .eq("google_event_id", eventId)
+      .neq("id", appt.id);
+    const sameSlot = (t: string | null | undefined, u: string | null | undefined) =>
+      !!t && !!u && new Date(t).getTime() === new Date(u).getTime();
+    if ((sharers || []).some((s) => !sameSlot(s.start_time, appt.start_time) || !sameSlot(s.end_time, appointmentEnd(appt)))) {
+      eventId = null;
+    }
+  }
+  if (eventId) {
     try {
-      event = await updateEvent(accessToken, appt.google_event_id, {
+      event = await updateEvent(accessToken, eventId, {
         ...input,
         ...(attendees.length ? { attendees } : {}),
       });
@@ -296,7 +311,7 @@ export async function upsertAppointmentMeet(
     event = await createEvent(accessToken, { ...input, attendees, addMeet: true });
   }
 
-  const meetLink = event.hangoutLink || (appt.google_event_id === event.id ? appt.meet_link : null) || null;
+  const meetLink = event.hangoutLink || (eventId === event.id ? appt.meet_link : null) || null;
   const { error } = await supabaseAdmin
     .from("appointments")
     .update({
@@ -315,15 +330,21 @@ function isEventGoneError(err: unknown): boolean {
 }
 
 export async function removeAppointmentMeet(ownerKey: string, appt: AppointmentForMeet): Promise<void> {
-  if (appt.google_event_id) {
-    const accessToken = await getMeetAccessToken(appt.google_event_owner || ownerKey);
-    if (!accessToken) throw new Error("GOOGLE_NOT_CONNECTED");
-    // Multi-doctor bookings share one event; only delete it once no other appointment uses it.
+  const accessToken = appt.google_event_id ? await getMeetAccessToken(appt.google_event_owner || ownerKey) : null;
+  if (appt.google_event_id && !accessToken) throw new Error("GOOGLE_NOT_CONNECTED");
+
+  // Detach first, then delete the event once no appointment references it (multi-doctor bookings share one).
+  const { error } = await supabaseAdmin
+    .from("appointments")
+    .update({ meet_link: null, google_event_id: null, google_event_owner: null })
+    .eq("id", appt.id);
+  if (error) throw new Error(error.message);
+
+  if (appt.google_event_id && accessToken) {
     const { count } = await supabaseAdmin
       .from("appointments")
       .select("id", { count: "exact", head: true })
-      .eq("google_event_id", appt.google_event_id)
-      .neq("id", appt.id);
+      .eq("google_event_id", appt.google_event_id);
     if (!count) {
       try {
         await deleteEvent(accessToken, appt.google_event_id);
@@ -332,11 +353,6 @@ export async function removeAppointmentMeet(ownerKey: string, appt: AppointmentF
       }
     }
   }
-  const { error } = await supabaseAdmin
-    .from("appointments")
-    .update({ meet_link: null, google_event_id: null, google_event_owner: null })
-    .eq("id", appt.id);
-  if (error) throw new Error(error.message);
 }
 
 export const APPOINTMENT_MEET_SELECT =
