@@ -922,17 +922,10 @@ export default function CalendarPage() {
     let errorMessage: string | null = null;
     for (const [primaryId, ...siblingIds] of bySlot.values()) {
       try {
-        const { meetLink } = await addAppointmentMeet(primaryId, true);
+        const { meetLink, sharedIds } = await addAppointmentMeet(primaryId, true, siblingIds);
         if (!meetLink) continue;
         links[primaryId] = meetLink;
-        if (siblingIds.length > 0) {
-          const { error } = await supabaseClient
-            .from("appointments")
-            .update({ meet_link: meetLink })
-            .in("id", siblingIds);
-          if (error) throw new Error(error.message);
-          for (const id of siblingIds) links[id] = meetLink;
-        }
+        for (const id of sharedIds) links[id] = meetLink;
       } catch (err) {
         errorMessage = err instanceof Error ? err.message : "Failed to create Google Meet link";
         break;

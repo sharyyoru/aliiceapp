@@ -244,6 +244,7 @@ export type AppointmentForMeet = {
   google_event_id?: string | null;
   google_event_owner?: string | null;
   patient?: { first_name: string | null; last_name: string | null; email: string | null; organization_id?: string | null } | null;
+  provider?: { organization_id?: string | null } | null;
 };
 
 function appointmentSummary(appt: AppointmentForMeet): string {
@@ -317,10 +318,18 @@ export async function removeAppointmentMeet(ownerKey: string, appt: AppointmentF
   if (appt.google_event_id) {
     const accessToken = await getMeetAccessToken(appt.google_event_owner || ownerKey);
     if (!accessToken) throw new Error("GOOGLE_NOT_CONNECTED");
-    try {
-      await deleteEvent(accessToken, appt.google_event_id);
-    } catch (err) {
-      if (!isEventGoneError(err)) throw err;
+    // Multi-doctor bookings share one event; only delete it once no other appointment uses it.
+    const { count } = await supabaseAdmin
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("google_event_id", appt.google_event_id)
+      .neq("id", appt.id);
+    if (!count) {
+      try {
+        await deleteEvent(accessToken, appt.google_event_id);
+      } catch (err) {
+        if (!isEventGoneError(err)) throw err;
+      }
     }
   }
   const { error } = await supabaseAdmin
@@ -331,7 +340,7 @@ export async function removeAppointmentMeet(ownerKey: string, appt: AppointmentF
 }
 
 export const APPOINTMENT_MEET_SELECT =
-  "id, start_time, end_time, title, reason, notes, status, organization_id, meet_link, google_event_id, google_event_owner, patient:patients(first_name, last_name, email, organization_id)";
+  "id, start_time, end_time, title, reason, notes, status, organization_id, meet_link, google_event_id, google_event_owner, patient:patients(first_name, last_name, email, organization_id), provider:providers(organization_id)";
 
 /**
  * Keeps an appointment's Google Calendar event in step after a server-side

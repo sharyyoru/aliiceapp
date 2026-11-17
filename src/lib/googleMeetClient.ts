@@ -52,16 +52,17 @@ export async function disconnectGoogleMeet(organizationId?: string | null): Prom
 
 export async function addAppointmentMeet(
   appointmentId: string,
-  invitePatient = true
-): Promise<{ meetLink: string | null }> {
+  invitePatient = true,
+  shareWithIds: string[] = []
+): Promise<{ meetLink: string | null; sharedIds: string[] }> {
   const res = await fetch(`/api/appointments/${appointmentId}/google-meet`, {
     method: "POST",
     headers: await authHeaders(),
-    body: JSON.stringify({ invitePatient }),
+    body: JSON.stringify({ invitePatient, shareWithIds }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Failed to create Google Meet link");
-  return { meetLink: data.meetLink ?? null };
+  return { meetLink: data.meetLink ?? null, sharedIds: Array.isArray(data.sharedIds) ? data.sharedIds : [] };
 }
 
 export async function removeAppointmentMeet(appointmentId: string): Promise<void> {
