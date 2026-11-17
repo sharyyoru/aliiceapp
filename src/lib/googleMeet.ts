@@ -292,7 +292,13 @@ export async function upsertAppointmentMeet(
       .neq("id", appt.id);
     const sameSlot = (t: string | null | undefined, u: string | null | undefined) =>
       !!t && !!u && new Date(t).getTime() === new Date(u).getTime();
-    if ((sharers || []).some((s) => !sameSlot(s.start_time, appt.start_time) || !sameSlot(s.end_time, appointmentEnd(appt)))) {
+    if (
+      (sharers || []).some(
+        (s) =>
+          !sameSlot(s.start_time, appt.start_time) ||
+          !sameSlot(appointmentEnd({ id: "", start_time: s.start_time, end_time: s.end_time }), appointmentEnd(appt))
+      )
+    ) {
       eventId = null;
     }
   }
@@ -349,7 +355,18 @@ export async function removeAppointmentMeet(ownerKey: string, appt: AppointmentF
       try {
         await deleteEvent(accessToken, appt.google_event_id);
       } catch (err) {
-        if (!isEventGoneError(err)) throw err;
+        if (!isEventGoneError(err)) {
+          // Restore the reference so the removal can be retried.
+          await supabaseAdmin
+            .from("appointments")
+            .update({
+              meet_link: appt.meet_link ?? null,
+              google_event_id: appt.google_event_id,
+              google_event_owner: appt.google_event_owner ?? null,
+            })
+            .eq("id", appt.id);
+          throw err;
+        }
       }
     }
   }
