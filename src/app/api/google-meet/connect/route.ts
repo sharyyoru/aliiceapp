@@ -1,9 +1,11 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import {
   createMeetState,
   getMeetAuthUrl,
   getRequestUserId,
   isGoogleMeetConfigured,
+  MEET_NONCE_COOKIE,
   resolveOwnerKey,
 } from "@/lib/googleMeet";
 
@@ -30,6 +32,15 @@ export async function POST(request: Request) {
       : "/settings?tab=google-meet";
 
   const ownerKey = await resolveOwnerKey(userId, body.organizationId);
-  const state = createMeetState(ownerKey, userId, returnTo);
-  return NextResponse.json({ url: getMeetAuthUrl(state, body.loginHint) });
+  const nonce = crypto.randomUUID();
+  const state = createMeetState(ownerKey, userId, returnTo, nonce);
+  const response = NextResponse.json({ url: getMeetAuthUrl(state, body.loginHint) });
+  response.cookies.set(MEET_NONCE_COOKIE, nonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/api/admin/gmail/callback",
+    maxAge: 15 * 60,
+  });
+  return response;
 }

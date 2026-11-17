@@ -10,7 +10,7 @@ import {
 } from "@/lib/googleMeet";
 
 const APPOINTMENT_SELECT =
-  "id, start_time, end_time, title, reason, notes, organization_id, meet_link, google_event_id, google_event_owner, patient:patients(first_name, last_name, email)";
+  "id, start_time, end_time, title, reason, notes, organization_id, meet_link, google_event_id, google_event_owner, patient:patients(first_name, last_name, email, organization_id)";
 
 async function loadContext(request: NextRequest, id: string) {
   const userId = await getRequestUserId(request);
@@ -21,14 +21,14 @@ async function loadContext(request: NextRequest, id: string) {
   if (!data) return { error: NextResponse.json({ error: "Appointment not found" }, { status: 404 }) };
 
   const appt = data as unknown as AppointmentForMeet;
-  if (appt.organization_id) {
-    const orgIds = await getUserOrganizationIds(userId);
-    if (!orgIds.includes(appt.organization_id)) {
-      return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
-    }
-  }
+  const orgId = appt.organization_id || appt.patient?.organization_id || null;
+  const orgIds = await getUserOrganizationIds(userId);
+  const forbidden = orgId
+    ? !orgIds.includes(orgId)
+    : orgIds.length > 0 || (!!appt.google_event_owner && appt.google_event_owner !== `user:${userId}`);
+  if (forbidden) return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
 
-  const ownerKey = await resolveOwnerKey(userId, appt.organization_id);
+  const ownerKey = await resolveOwnerKey(userId, orgId);
   return { appt, ownerKey };
 }
 

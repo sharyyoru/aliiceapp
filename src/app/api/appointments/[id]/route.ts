@@ -88,7 +88,10 @@ export async function GET(
       );
     }
     
-    return NextResponse.json(data);
+    // Video-call links are only served through the authenticated Google Meet endpoint.
+    const { meet_link: _meetLink, google_event_id: _eventId, google_event_owner: _owner, ...publicData } = data;
+    void _meetLink; void _eventId; void _owner;
+    return NextResponse.json(publicData);
   } catch (err) {
     console.error("Error in GET /api/appointments/[id]:", err);
     return NextResponse.json(

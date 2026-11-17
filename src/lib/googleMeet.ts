@@ -58,14 +58,17 @@ export async function resolveOwnerKey(userId: string, organizationId?: string | 
 }
 
 // ─── OAuth state (HMAC-signed so the owner can't be forged) ───────────────────
-type MeetState = { k: "meet"; o: string; u: string; r: string; t: number };
+type MeetState = { k: "meet"; o: string; u: string; r: string; t: number; n: string };
+
+/** Ties the OAuth flow to the browser that started it (blocks forwarded consent links). */
+export const MEET_NONCE_COOKIE = "aliice_meet_nonce";
 
 function sign(payload: string): string {
   return crypto.createHmac("sha256", GOOGLE_CLIENT_SECRET || "aliice").update(payload).digest("base64url");
 }
 
-export function createMeetState(ownerKey: string, userId: string, returnTo: string): string {
-  const state: MeetState = { k: "meet", o: ownerKey, u: userId, r: returnTo, t: Date.now() };
+export function createMeetState(ownerKey: string, userId: string, returnTo: string, nonce: string): string {
+  const state: MeetState = { k: "meet", o: ownerKey, u: userId, r: returnTo, t: Date.now(), n: nonce };
   const payload = Buffer.from(JSON.stringify(state)).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
@@ -125,9 +128,15 @@ export async function handleMeetCallback(
   origin: string,
   state: MeetState,
   code: string | null,
-  oauthError: string | null
+  oauthError: string | null,
+  browserNonce: string | null
 ): Promise<URL> {
   const target = new URL(state.r || "/settings?tab=google-meet", origin);
+  if (!state.n || !browserNonce || browserNonce !== state.n) {
+    target.searchParams.set("meet", "error");
+    target.searchParams.set("reason", "session_mismatch");
+    return target;
+  }
   if (oauthError || !code) {
     target.searchParams.set("meet", "error");
     target.searchParams.set("reason", oauthError || "missing_code");
@@ -234,7 +243,7 @@ export type AppointmentForMeet = {
   meet_link?: string | null;
   google_event_id?: string | null;
   google_event_owner?: string | null;
-  patient?: { first_name: string | null; last_name: string | null; email: string | null } | null;
+  patient?: { first_name: string | null; last_name: string | null; email: string | null; organization_id?: string | null } | null;
 };
 
 function appointmentSummary(appt: AppointmentForMeet): string {
