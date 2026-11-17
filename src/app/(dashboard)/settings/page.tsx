@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import GoogleMeetSettingsTab from "@/components/googleMeet/GoogleMeetSettingsTab";
 
 const TABS = [
   { id: "external-labs", label: "External Labs" },
@@ -13,6 +14,7 @@ const TABS = [
   { id: "calendar-defaults", label: "Calendar Defaults" },
   { id: "blocked-dates", label: "Blocked Dates" },
   { id: "medidata", label: "MediData Connection" },
+  { id: "google-meet", label: "Google Meet" },
   { id: "booking-categories", label: "Booking Categories" },
   { id: "deal-stages", label: "Deal Stages" },
 ] as const;
@@ -64,6 +66,7 @@ export default function SettingsPage() {
     "calendar-defaults": t("tabs.calendarDefaults"),
     "blocked-dates": t("tabs.blockedDates"),
     "medidata": t("tabs.medidata"),
+    "google-meet": "Google Meet",
     "booking-categories": t("tabs.bookingCategories"),
     "deal-stages": "Deal Stages",
   };
@@ -102,6 +105,7 @@ export default function SettingsPage() {
         {activeTab === "calendar-defaults" && <CalendarDefaultsTab />}
         {activeTab === "blocked-dates" && <BlockedDatesTab />}
         {activeTab === "medidata" && <MediDataConnectionTab />}
+        {activeTab === "google-meet" && <GoogleMeetSettingsTab />}
         {activeTab === "booking-categories" && <BookingCategoriesTab />}
         {activeTab === "deal-stages" && <DealStagesTab />}
       </div>

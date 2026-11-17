@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import AppointmentMeetPanel from "@/components/googleMeet/AppointmentMeetPanel";
+import { addAppointmentMeet, fetchAppointmentMeetLinks, removeAppointmentMeet } from "@/lib/googleMeetClient";
 import { getAppointmentNotes, getAppointmentTitle, getAppointmentDisplayName } from "@/lib/appointmentUtils";
 import {
   formatSwissMonthYear,
@@ -818,6 +820,8 @@ export default function CalendarPage() {
   });
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => initialDate);
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
+  const [meetLinks, setMeetLinks] = useState<Record<string, string>>({});
+  const [createAddMeet, setCreateAddMeet] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [patientSearch, setPatientSearch] = useState("");
@@ -895,6 +899,33 @@ export default function CalendarPage() {
   } | null>(null);
   
   const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ids = appointments.map((a) => a.id);
+    void fetchAppointmentMeetLinks(ids).then((links) => {
+      if (!cancelled) setMeetLinks((prev) => ({ ...prev, ...links }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [appointments]);
+
+  async function attachMeetToNewAppointments(ids: string[]): Promise<string | null> {
+    const links: Record<string, string> = {};
+    let errorMessage: string | null = null;
+    for (const id of ids) {
+      try {
+        const { meetLink } = await addAppointmentMeet(id, true);
+        if (meetLink) links[id] = meetLink;
+      } catch (err) {
+        errorMessage = err instanceof Error ? err.message : "Failed to create Google Meet link";
+        break;
+      }
+    }
+    setMeetLinks((prev) => ({ ...prev, ...links }));
+    return errorMessage;
+  }
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDate, setDraftDate] = useState("");
   const [draftTime, setDraftTime] = useState("");
@@ -2944,6 +2975,13 @@ export default function CalendarPage() {
         
         const result = await response.json();
         const createdAppointments = result.appointments || [];
+
+        if (createAddMeet && createdAppointments.length > 0) {
+          const meetError = await attachMeetToNewAppointments(
+            createdAppointments.map((a: { id: string }) => a.id),
+          );
+          if (meetError) window.alert(`Appointment created, but the Google Meet link failed: ${meetError}`);
+        }
         
         // Focus calendar on the booked date
         if (createdAppointments.length > 0) {
@@ -3043,6 +3081,11 @@ export default function CalendarPage() {
 
         const inserted = data as unknown as CalendarAppointment;
 
+        if (createAddMeet) {
+          const meetError = await attachMeetToNewAppointments([inserted.id]);
+          if (meetError) window.alert(`Appointment created, but the Google Meet link failed: ${meetError}`);
+        }
+
         // Focus calendar on the booked date so the new appointment is visible
         const insertedStart = new Date(inserted.start_time);
         if (!Number.isNaN(insertedStart.getTime())) {
@@ -3078,6 +3121,7 @@ export default function CalendarPage() {
       setDraftTime("");
       setTimeSearch("");
       setDraftLocation("");
+      setCreateAddMeet(false);
       setDraftDescription("");
       setCreatePatientSearch("");
       setCreatePatientId(null);
@@ -3860,6 +3904,25 @@ export default function CalendarPage() {
 
       const updated = data as unknown as CalendarAppointment;
 
+      if (meetLinks[updated.id]) {
+        if (updated.status === "cancelled") {
+          void removeAppointmentMeet(updated.id).then(() =>
+            setMeetLinks((prev) => {
+              const next = { ...prev };
+              delete next[updated.id];
+              return next;
+            }),
+          ).catch((err) => console.error("Failed to cancel Google Meet event:", err));
+        } else if (
+          updated.start_time !== editingAppointment.start_time ||
+          updated.end_time !== editingAppointment.end_time
+        ) {
+          void addAppointmentMeet(updated.id, true).catch((err) =>
+            console.error("Failed to update Google Meet event:", err),
+          );
+        }
+      }
+
       setAppointments((prev) => {
         if (updated.status === "cancelled") {
           return prev.filter((appt) => appt.id !== updated.id);
@@ -3891,6 +3954,12 @@ export default function CalendarPage() {
     try {
       setDeletingAppointment(true);
       setEditError(null);
+
+      if (meetLinks[editingAppointment.id]) {
+        await removeAppointmentMeet(editingAppointment.id).catch((err) =>
+          console.error("Failed to cancel Google Meet event:", err),
+        );
+      }
 
       const { error } = await supabaseClient
         .from("appointments")
@@ -4979,6 +5048,7 @@ export default function CalendarPage() {
                                             </div>
                                           )}
                                           {appt.location && <div className="text-slate-500 mt-1">📍 {appt.location}</div>}
+                                          {meetLinks[appt.id] && <div className="text-sky-600 mt-1">🎥 Google Meet video call</div>}
                                           {notes && <div className="text-slate-600 mt-1 italic border-t border-slate-100 pt-1">📝 {notes}</div>}
                                         </div>
                                       </div>
@@ -5472,6 +5542,18 @@ export default function CalendarPage() {
                   </select>
                 </div>
               </div>
+              <AppointmentMeetPanel
+                appointmentId={editingAppointment.id}
+                meetLink={meetLinks[editingAppointment.id] ?? null}
+                onChange={(link) =>
+                  setMeetLinks((prev) => {
+                    const next = { ...prev };
+                    if (link) next[editingAppointment.id] = link;
+                    else delete next[editingAppointment.id];
+                    return next;
+                  })
+                }
+              />
               {editError ? (
                 <p className="mt-2 text-[11px] text-red-600">{editError}</p>
               ) : null}
@@ -6302,6 +6384,15 @@ export default function CalendarPage() {
                     )}
                   </div>
                 </div>
+                <label className="col-span-full flex cursor-pointer items-center gap-2 rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2" data-testid="create-add-meet">
+                  <input
+                    type="checkbox"
+                    checked={createAddMeet}
+                    onChange={(e) => setCreateAddMeet(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="text-[11px] font-medium text-slate-700">🎥 Video call — add a Google Meet link and email the invite to the patient</span>
+                </label>
                 <div className="space-y-1">
                   <p className="text-[11px] font-medium text-slate-600">{t("modal.fields.consultationDuration")}</p>
                   <div className="relative">

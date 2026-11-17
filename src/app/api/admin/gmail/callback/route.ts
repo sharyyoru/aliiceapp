@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { exchangeCodeForTokens, getGoogleEmail } from "@/lib/gmail";
+import { handleMeetCallback, parseMeetState } from "@/lib/googleMeet";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const stateRaw = url.searchParams.get("state") || "";
   const oauthError = url.searchParams.get("error");
+
+  // Clinic Google Meet connections share this registered redirect URI.
+  const meetState = parseMeetState(stateRaw);
+  if (meetState) {
+    return NextResponse.redirect(await handleMeetCallback(url.origin, meetState, code, oauthError));
+  }
 
   let adminEmail = "";
   let returnTo = "/admin/organizations";
