@@ -911,13 +911,28 @@ export default function CalendarPage() {
     };
   }, [appointments]);
 
-  async function attachMeetToNewAppointments(ids: string[]): Promise<string | null> {
+  async function attachMeetToNewAppointments(
+    created: { id: string; start_time: string }[],
+  ): Promise<string | null> {
+    // Rows booked for the same slot (multi-doctor bookings) share one Meet room.
+    const bySlot = new Map<string, string[]>();
+    for (const a of created) bySlot.set(a.start_time, [...(bySlot.get(a.start_time) ?? []), a.id]);
+
     const links: Record<string, string> = {};
     let errorMessage: string | null = null;
-    for (const id of ids) {
+    for (const [primaryId, ...siblingIds] of bySlot.values()) {
       try {
-        const { meetLink } = await addAppointmentMeet(id, true);
-        if (meetLink) links[id] = meetLink;
+        const { meetLink } = await addAppointmentMeet(primaryId, true);
+        if (!meetLink) continue;
+        links[primaryId] = meetLink;
+        if (siblingIds.length > 0) {
+          const { error } = await supabaseClient
+            .from("appointments")
+            .update({ meet_link: meetLink })
+            .in("id", siblingIds);
+          if (error) throw new Error(error.message);
+          for (const id of siblingIds) links[id] = meetLink;
+        }
       } catch (err) {
         errorMessage = err instanceof Error ? err.message : "Failed to create Google Meet link";
         break;
@@ -2978,7 +2993,7 @@ export default function CalendarPage() {
 
         if (createAddMeet && createdAppointments.length > 0) {
           const meetError = await attachMeetToNewAppointments(
-            createdAppointments.map((a: { id: string }) => a.id),
+            createdAppointments.map((a: { id: string; start_time: string }) => ({ id: a.id, start_time: a.start_time })),
           );
           if (meetError) window.alert(`Appointment created, but the Google Meet link failed: ${meetError}`);
         }
@@ -3082,7 +3097,7 @@ export default function CalendarPage() {
         const inserted = data as unknown as CalendarAppointment;
 
         if (createAddMeet) {
-          const meetError = await attachMeetToNewAppointments([inserted.id]);
+          const meetError = await attachMeetToNewAppointments([{ id: inserted.id, start_time: inserted.start_time }]);
           if (meetError) window.alert(`Appointment created, but the Google Meet link failed: ${meetError}`);
         }
 
