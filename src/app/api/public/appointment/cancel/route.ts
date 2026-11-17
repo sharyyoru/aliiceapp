@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { brandedEmail, LOGO_URL } from "@/utils/emailTemplate";
 import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
+import { syncAppointmentMeet } from "@/lib/googleMeet";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
@@ -115,6 +116,8 @@ export async function POST(request: Request) {
     if (updateError) {
       return NextResponse.json({ error: "Failed to cancel appointment" }, { status: 500 });
     }
+
+    await syncAppointmentMeet(id);
 
     // Send cancellation email
     if (patient?.email) {

@@ -6,17 +6,15 @@ import {
   removeAppointmentMeet,
   resolveOwnerKey,
   upsertAppointmentMeet,
+  APPOINTMENT_MEET_SELECT,
   type AppointmentForMeet,
 } from "@/lib/googleMeet";
-
-const APPOINTMENT_SELECT =
-  "id, start_time, end_time, title, reason, notes, organization_id, meet_link, google_event_id, google_event_owner, patient:patients(first_name, last_name, email, organization_id)";
 
 async function loadContext(request: NextRequest, id: string) {
   const userId = await getRequestUserId(request);
   if (!userId) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
 
-  const { data, error } = await supabaseAdmin.from("appointments").select(APPOINTMENT_SELECT).eq("id", id).maybeSingle();
+  const { data, error } = await supabaseAdmin.from("appointments").select(APPOINTMENT_MEET_SELECT).eq("id", id).maybeSingle();
   if (error) return { error: NextResponse.json({ error: error.message }, { status: 500 }) };
   if (!data) return { error: NextResponse.json({ error: "Appointment not found" }, { status: 404 }) };
 

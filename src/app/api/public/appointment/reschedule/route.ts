@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { parseSwissDateTimeLocal, formatSwissDateWithWeekday, formatSwissTimeAmPm } from "@/lib/swissTimezone";
 import { brandedEmail, infoRow, infoTable, LOGO_URL } from "@/utils/emailTemplate";
 import { sendSystemEmailUnified, isEmailConfigured } from "@/lib/email";
+import { syncAppointmentMeet } from "@/lib/googleMeet";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
@@ -140,6 +141,8 @@ export async function POST(request: Request) {
     if (updateError) {
       return NextResponse.json({ error: "Failed to reschedule appointment" }, { status: 500 });
     }
+
+    await syncAppointmentMeet(id);
 
     // Fetch patient and doctor info for email
     const { data: patient } = await supabase

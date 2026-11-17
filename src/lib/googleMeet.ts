@@ -279,17 +279,23 @@ export async function upsertAppointmentMeet(
     sendUpdates: (invitePatient ? "all" : "none") as "all" | "none",
   };
 
-  let event: GoogleCalendarEvent;
+  let event: GoogleCalendarEvent | null = null;
   if (appt.google_event_id) {
-    event = await updateEvent(accessToken, appt.google_event_id, {
-      ...input,
-      ...(attendees.length ? { attendees } : {}),
-    });
-  } else {
+    try {
+      event = await updateEvent(accessToken, appt.google_event_id, {
+        ...input,
+        ...(attendees.length ? { attendees } : {}),
+      });
+    } catch (err) {
+      // The event is not in the connected calendar (e.g. the clinic switched Google accounts): recreate it.
+      if (!isEventGoneError(err)) throw err;
+    }
+  }
+  if (!event) {
     event = await createEvent(accessToken, { ...input, attendees, addMeet: true });
   }
 
-  const meetLink = event.hangoutLink || appt.meet_link || null;
+  const meetLink = event.hangoutLink || (appt.google_event_id === event.id ? appt.meet_link : null) || null;
   const { error } = await supabaseAdmin
     .from("appointments")
     .update({
@@ -303,14 +309,49 @@ export async function upsertAppointmentMeet(
   return { meetLink, eventId: event.id, htmlLink: event.htmlLink || null };
 }
 
+function isEventGoneError(err: unknown): boolean {
+  return err instanceof Error && /\((404|410)\)/.test(err.message);
+}
+
 export async function removeAppointmentMeet(ownerKey: string, appt: AppointmentForMeet): Promise<void> {
   if (appt.google_event_id) {
     const accessToken = await getMeetAccessToken(appt.google_event_owner || ownerKey);
-    if (accessToken) await deleteEvent(accessToken, appt.google_event_id);
+    if (!accessToken) throw new Error("GOOGLE_NOT_CONNECTED");
+    try {
+      await deleteEvent(accessToken, appt.google_event_id);
+    } catch (err) {
+      if (!isEventGoneError(err)) throw err;
+    }
   }
   const { error } = await supabaseAdmin
     .from("appointments")
     .update({ meet_link: null, google_event_id: null, google_event_owner: null })
     .eq("id", appt.id);
   if (error) throw new Error(error.message);
+}
+
+export const APPOINTMENT_MEET_SELECT =
+  "id, start_time, end_time, title, reason, notes, status, organization_id, meet_link, google_event_id, google_event_owner, patient:patients(first_name, last_name, email, organization_id)";
+
+/**
+ * Keeps an appointment's Google Calendar event in step after a server-side
+ * change (reschedule / cancel). No-op for appointments without a Meet event.
+ */
+export async function syncAppointmentMeet(appointmentId: string): Promise<void> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("appointments")
+      .select(APPOINTMENT_MEET_SELECT)
+      .eq("id", appointmentId)
+      .maybeSingle();
+    const appt = data as unknown as (AppointmentForMeet & { status?: string | null }) | null;
+    if (!appt?.google_event_id || !appt.google_event_owner) return;
+    if (appt.status === "cancelled") {
+      await removeAppointmentMeet(appt.google_event_owner, appt);
+    } else {
+      await upsertAppointmentMeet(appt.google_event_owner, appt, true);
+    }
+  } catch (err) {
+    console.error("[google-meet] failed to sync appointment event:", appointmentId, err);
+  }
 }

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { syncAppointmentMeet } from "@/lib/googleMeet";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
@@ -44,6 +45,10 @@ export async function PATCH(
         { error: error.message },
         { status: 500 }
       );
+    }
+
+    if (data?.google_event_id && ("start_time" in updateData || "end_time" in updateData || "status" in updateData)) {
+      await syncAppointmentMeet(id);
     }
     
     return NextResponse.json(data);
