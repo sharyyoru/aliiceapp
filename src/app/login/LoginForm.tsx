@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { supabaseClient } from "@/lib/supabaseClient";
 
-export default function LoginForm() {
+export default function LoginForm({ accentColor }: { accentColor?: string }) {
+  const accent = accentColor
+    ? { style: { backgroundColor: accentColor, borderColor: accentColor } as const }
+    : {};
+  const accentText = accentColor
+    ? { style: { color: accentColor } as const }
+    : {};
   const t = useTranslations("loginPage");
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -123,6 +129,7 @@ export default function LoginForm() {
         <a
           href="/forgot-password"
           className="text-xs font-medium text-sky-600 hover:text-sky-700"
+          {...accentText}
         >
           {t("forgotPassword") || "Forgot password?"}
         </a>
@@ -132,6 +139,7 @@ export default function LoginForm() {
         type="submit"
         disabled={loading}
         className="inline-flex w-full items-center justify-center rounded-full border border-sky-200/80 bg-sky-600 px-4 py-2 text-xs font-medium text-white shadow-[0_10px_25px_rgba(15,23,42,0.22)] backdrop-blur hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+        {...accent}
       >
         {loading ? t("signingIn") : t("signIn")}
       </button>
