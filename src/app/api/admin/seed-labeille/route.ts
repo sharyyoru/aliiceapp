@@ -312,16 +312,33 @@ export async function GET(req: NextRequest) {
       },
     ];
 
+    // Older DBs may lack html_content / organization_id — probe once, adapt.
+    let hasHtmlContent = true;
+    let hasOrgCol = true;
+    {
+      const { error } = await supabaseAdmin.from("email_templates").select("html_content, organization_id").limit(1);
+      if (error) {
+        if (/html_content/.test(error.message)) hasHtmlContent = false;
+        if (/organization_id/.test(error.message)) hasOrgCol = false;
+      }
+    }
+
     const templateIds: Record<string, string> = {};
     for (const t of templates) {
-      const { data: ex } = await supabaseAdmin.from("email_templates").select("id")
-        .eq("organization_id", orgId).eq("name", t.name).maybeSingle();
+      const row: Record<string, unknown> = hasHtmlContent
+        ? { ...t }
+        : { name: t.name, type: t.type, subject_template: t.subject_template, body_template: t.html_content };
+      if (hasOrgCol) row.organization_id = orgId;
+      const q = supabaseAdmin.from("email_templates").select("id").eq("name", t.name);
+      if (hasOrgCol) q.eq("organization_id", orgId);
+      const { data: ex } = await q.maybeSingle();
       if (ex) {
-        await supabaseAdmin.from("email_templates").update({ ...t, organization_id: orgId }).eq("id", ex.id);
+        const { error } = await supabaseAdmin.from("email_templates").update(row).eq("id", ex.id);
+        if (error) { fail(`template ${t.name}`, error); continue; }
         templateIds[t.name] = ex.id;
       } else {
         const { data, error } = await supabaseAdmin.from("email_templates")
-          .insert({ ...t, organization_id: orgId }).select("id").single();
+          .insert(row).select("id").single();
         if (error) { fail(`template ${t.name}`, error); continue; }
         templateIds[t.name] = data.id;
       }
