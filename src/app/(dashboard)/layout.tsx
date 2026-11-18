@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { getTranslations } from "next-intl/server";
+import OrgLogo from "@/components/OrgLogo";
 import RequireAuth from "@/components/RequireAuth";
 import OrganizationGuard from "@/components/OrganizationGuard";
 import { ShellSidebar, ShellHeader, ShellFrame } from "@/components/ShellVisibility";
@@ -33,13 +33,7 @@ export default async function DashboardLayout({
         <ShellSidebar>
           <aside className="hidden w-60 border-r border-slate-100/80 bg-gradient-to-b from-slate-50/90 to-slate-50/40 px-4 py-5 transition-all duration-200 ease-out sm:flex sm:flex-col peer-checked:sm:w-0 peer-checked:sm:border-r-0 peer-checked:sm:px-0 peer-checked:sm:opacity-0 peer-checked:sm:pointer-events-none app-shell-sidebar">
             <div className="mb-6 flex justify-center px-2">
-              <Image
-                src="/logos/aliice-logo.png"
-                alt="ALiice logo"
-                width={120}
-                height={28}
-                className="h-8 w-auto"
-              />
+              <OrgLogo width={120} height={28} className="h-8 w-auto" />
             </div>
             <nav className="mt-2 text-sm">
               <div className="border-y border-slate-100/80">
@@ -143,13 +137,7 @@ export default async function DashboardLayout({
                     </label>
                     <div className="flex items-center gap-3">
                       <Link href="/dashboard" aria-label={tHeader("goToDashboard")} className="inline-flex items-center">
-                        <Image
-                          src="/logos/aliice-logo.png"
-                          alt="ALiice logo"
-                          width={90}
-                          height={32}
-                          className="h-8 w-auto"
-                        />
+                        <OrgLogo width={90} height={32} className="h-8 w-auto" />
                       </Link>
                     </div>
                   </div>

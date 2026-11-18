@@ -1,7 +1,14 @@
 export const LOGO_URL =
   "https://cdn.jsdelivr.net/gh/sharyyoru/maison-toa@main/public/logos/maisontoa-logo.png";
 
-const SIGNATURE = `
+export type EmailBranding = {
+  logoUrl?: string;
+  orgName?: string;
+  /** HTML block used for the signature/address footer */
+  signatureHtml?: string;
+};
+
+const DEFAULT_SIGNATURE = `
   <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
     <tr>
       <td style="padding: 28px 48px 52px 48px; border-top: 1px solid #e8e3db;">
@@ -20,7 +27,10 @@ const SIGNATURE = `
  * Wraps an HTML body snippet in the Maison Tóā branded email layout.
  * Body content should use inline styles and plain HTML tags only.
  */
-export function brandedEmail(bodyHtml: string): string {
+export function brandedEmail(bodyHtml: string, branding: EmailBranding = {}): string {
+  const logoUrl = branding.logoUrl || LOGO_URL;
+  const orgName = branding.orgName || "Maison Tóā";
+  const signature = branding.signatureHtml || DEFAULT_SIGNATURE;
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -40,7 +50,7 @@ export function brandedEmail(bodyHtml: string): string {
           <tr>
             <td align="center"
                 style="padding: 52px 48px 44px 48px; border-bottom: 1px solid #e8e3db;">
-              <img src="${LOGO_URL}" alt="Maison Tóā" width="110"
+              <img src="${logoUrl}" alt="${orgName}" width="110"
                    style="display: block; width: 110px; height: auto; margin: 0 auto;">
             </td>
           </tr>
@@ -54,7 +64,7 @@ export function brandedEmail(bodyHtml: string): string {
           </tr>
 
           <!-- Signature -->
-          ${SIGNATURE}
+          ${signature}
 
         </table>
       </td>
