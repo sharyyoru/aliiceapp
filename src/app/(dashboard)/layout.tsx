@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import OrgLogo from "@/components/OrgLogo";
+import DemoDataBanner from "@/components/DemoDataBanner";
 import RequireAuth from "@/components/RequireAuth";
 import OrganizationGuard from "@/components/OrganizationGuard";
 import { ShellSidebar, ShellHeader, ShellFrame } from "@/components/ShellVisibility";
@@ -152,6 +153,7 @@ export default async function DashboardLayout({
                   </div>
                 </header>
               </ShellHeader>
+              <DemoDataBanner />
               <PatientTabBar />
               <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">{children}</div>
             </div>

@@ -36,7 +36,17 @@ export default async function LabeilleLoginPage() {
         </div>
         <LoginForm accentColor={accent} />
         <div
-          className="mt-6 border-t pt-4 text-center"
+          className="mt-6 rounded-xl border px-4 py-3 text-center"
+          style={{ borderColor: `${accent}55`, backgroundColor: `${accent}0d` }}
+        >
+          <p className="text-[11px] leading-relaxed" style={{ color: "#8a7a3a" }}>
+            Environnement de démonstration — toutes les données affichées sont
+            fictives et fournies uniquement à des fins de démo. Aucune donnée
+            réelle de patient n&apos;est utilisée.
+          </p>
+        </div>
+        <div
+          className="mt-4 border-t pt-4 text-center"
           style={{ borderColor: `${accent}33` }}
         >
           <p className="text-[11px] text-slate-400">
