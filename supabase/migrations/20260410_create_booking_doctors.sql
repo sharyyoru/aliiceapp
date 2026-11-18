@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS booking_category_doctors (
   doctor_id UUID NOT NULL REFERENCES booking_doctors(id) ON DELETE CASCADE,
   order_index INTEGER NOT NULL DEFAULT 0,
   UNIQUE(category_id, doctor_id)
-);/
+);
 
 -- Seed with the existing hardcoded doctors
 INSERT INTO booking_doctors (name, specialty, image_url, description, slug, enabled, order_index) VALUES

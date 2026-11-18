@@ -32,8 +32,8 @@ for (const file of [".env.local", ".env"]) {
   }
 }
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = process.env.NEW_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_KEY = process.env.NEW_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://www.aliice.app").replace(/\/$/, "");
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error("Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (set them or create .env.local)");

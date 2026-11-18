@@ -86,6 +86,8 @@ CREATE TRIGGER on_auth_user_created
 -- For users who signed up before this trigger
 -- ============================================
 
+ALTER TABLE IF EXISTS public.users ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
 INSERT INTO public.users (id, email, full_name, created_at, updated_at)
 SELECT 
   id,
