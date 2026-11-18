@@ -7,7 +7,18 @@
  * Writes dumps/tables/<table>.json and dumps/auth_users.json
  */
 
-import { mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envFile = resolve(__dirname, "../.env.local");
+if (existsSync(envFile)) {
+  for (const line of readFileSync(envFile, "utf8").split("\n")) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+  }
+}
 
 const BASE = (process.env.EXPORT_BASE || "https://www.aliice.app").replace(/\/$/, "");
 const SECRET = process.env.EXPORT_SECRET;
