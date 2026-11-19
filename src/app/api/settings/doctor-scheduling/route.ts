@@ -16,16 +16,27 @@ export async function GET() {
     // Get provider names from users table
     if (settings && settings.length > 0) {
       const providerIds = settings.map((s) => s.provider_id);
-      const { data: users } = await supabaseAdmin
+      let { data: users } = await supabaseAdmin
         .from("users")
-        .select("id, first_name, last_name, email")
+        .select("id, first_name, last_name, full_name, email")
         .in("id", providerIds);
+      if (!users) {
+        const retry = await supabaseAdmin
+          .from("users")
+          .select("id, full_name, email")
+          .in("id", providerIds);
+        users = retry.data;
+      }
 
       const userMap = new Map(
         (users || []).map((u) => [
           u.id,
           {
-            name: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email || "Unknown",
+            name:
+              [u.first_name, u.last_name].filter(Boolean).join(" ") ||
+              u.full_name ||
+              u.email ||
+              "Unknown",
             email: u.email,
           },
         ])
