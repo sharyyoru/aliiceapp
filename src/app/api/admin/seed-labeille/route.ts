@@ -382,7 +382,7 @@ export async function GET(req: NextRequest) {
             .insert(rowNoType).select("id").single();
           data = retry.data; error = retry.error;
         }
-        if (error) { fail(`template ${t.name}`, error); continue; }
+        if (error || !data) { fail(`template ${t.name}`, error); continue; }
         templateIds[t.name] = data.id;
       }
     }
