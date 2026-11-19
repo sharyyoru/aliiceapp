@@ -376,10 +376,12 @@ export async function GET(req: NextRequest) {
       } else {
         let { data, error } = await supabaseAdmin.from("email_templates")
           .insert(row).select("id").single();
-        if (error && /email_template_type/.test(error.message)) {
-          const { type: _omit, ...rowNoType } = row;
+        // Older DBs have a narrower email_template_type enum — fall back
+        // through the values known to exist in the original schema.
+        for (const candidate of ["patient", "insurance", "post_op"]) {
+          if (!error || !/email_template_type/.test(error.message)) break;
           const retry = await supabaseAdmin.from("email_templates")
-            .insert(rowNoType).select("id").single();
+            .insert({ ...row, type: candidate }).select("id").single();
           data = retry.data; error = retry.error;
         }
         if (error || !data) { fail(`template ${t.name}`, error); continue; }
