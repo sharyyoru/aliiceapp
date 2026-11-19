@@ -209,7 +209,7 @@ export async function GET(req: NextRequest) {
         docUser = data.user;
       }
       const { error: uErr } = await supabaseAdmin.from("users").upsert({
-        id: docUser.id, email, full_name: d.name,
+        id: docUser.id, email, full_name: d.name, provider_id: doctorIds[i],
         role: "doctor", current_organization_id: orgId, onboarding_completed: true,
       });
       if (uErr) { fail(`doctor users row ${d.name}`, uErr); continue; }
@@ -217,8 +217,12 @@ export async function GET(req: NextRequest) {
         { organization_id: orgId, user_id: docUser.id, role: "doctor", job_title: d.specialty, is_active: true },
         { onConflict: "organization_id,user_id" }
       );
+      // Clean up rows from an earlier seed run that used the auth user id.
+      await supabaseAdmin.from("doctor_scheduling_settings").delete().eq("provider_id", docUser.id);
+      // provider_id here references providers.id — the calendar embeds
+      // setting.providers.name and appointments.provider_id joins providers.
       await supabaseAdmin.from("doctor_scheduling_settings").upsert(
-        { provider_id: docUser.id, time_interval_minutes: 30, default_duration_minutes: 45, updated_at: new Date().toISOString() },
+        { provider_id: doctorIds[i], time_interval_minutes: 30, default_duration_minutes: 45, updated_at: new Date().toISOString() },
         { onConflict: "provider_id" }
       );
       const slug = `labeille-${d.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
