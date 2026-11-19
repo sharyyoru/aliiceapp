@@ -470,6 +470,65 @@ async function seedEmailsAndWorkflows(orgId, userId) {
         <strong>Localisation:</strong> {{request.location}}</p>
         <p>Prochaine étape: sélectionner le meilleur spécialiste partenaire — le système réservera le rendez-vous et enverra le formulaire médical au patient.</p>`),
     },
+    // ── nurture / engagement funnel ──
+    {
+      name: "L'Abeille — Nurture J+7",
+      type: "workflow",
+      subject_template: "Votre parcours de santé, {{patient.first_name}}",
+      body_template: "Une semaine avec L'Abeille — conseils santé et prochaines étapes de votre programme.",
+      html_content: labeilleEmail("Une semaine avec L'Abeille", `<p>Bonjour {{patient.first_name}},</p>
+        <p>Cela fait une semaine que vous avez rejoint L'Abeille Medical Concierge. Votre case manager prépare déjà votre parcours personnalisé.</p>
+        <p><strong>Cette semaine:</strong></p>
+        <p>• Complétez votre questionnaire médical si ce n'est pas encore fait<br>
+        • Découvrez nos programmes de longévité et bilans préventifs<br>
+        • Répondez à cet e-mail pour toute question — nous répondons sous 24h</p>
+        <p style="color:${GOLD};font-weight:600;">Votre santé, notre priorité.</p>`),
+    },
+    {
+      name: "L'Abeille — Nurture J+30",
+      type: "workflow",
+      subject_template: "Votre bilan du mois — L'Abeille",
+      body_template: "Un mois avec L'Abeille — point sur vos objectifs santé et recommandations.",
+      html_content: labeilleEmail("Votre mois avec L'Abeille", `<p>Bonjour {{patient.first_name}},</p>
+        <p>Un mois déjà ! Voici un point sur votre parcours :</p>
+        <p>• <strong>Réalisé:</strong> vos consultations et bilans du mois<br>
+        • <strong>À venir:</strong> {{next_appointment}}<br>
+        • <strong>Recommandé pour vous:</strong> bilan cardiologique préventif ou programme longévité</p>
+        <p>Votre case manager reste à votre disposition pour ajuster votre programme.</p>`),
+    },
+    {
+      name: "L'Abeille — Rappel rendez-vous",
+      type: "workflow",
+      subject_template: "Rappel — votre rendez-vous demain à {{appointment.time}}",
+      body_template: "Rappel de votre rendez-vous du {{appointment.date}} avec {{appointment.doctor}}.",
+      html_content: labeilleEmail("Rappel de rendez-vous", `<p>Bonjour {{patient.first_name}},</p>
+        <p>Petit rappel amical — votre rendez-vous est <strong>demain</strong>:</p>
+        <p><strong>{{appointment.date}} à {{appointment.time}}</strong><br>
+        avec <strong>{{appointment.doctor}}</strong><br>
+        Lieu: {{appointment.location}}</p>
+        <p>S'il s'agit d'une téléconsultation, votre lien vidéo est joint à l'invitation. À demain !</p>`),
+    },
+    {
+      name: "L'Abeille — Invitation téléconsultation",
+      type: "workflow",
+      subject_template: "Votre lien de téléconsultation — {{appointment.date}}",
+      body_template: "Votre téléconsultation avec {{appointment.doctor}} — rejoignez via ce lien: {{appointment.meet_link}}",
+      html_content: labeilleEmail("Votre téléconsultation", `<p>Bonjour {{patient.first_name}},</p>
+        <p>Votre consultation avec <strong>{{appointment.doctor}}</strong> se déroulera en vidéo:</p>
+        <p><strong>Date:</strong> {{appointment.date}}<br><strong>Heure:</strong> {{appointment.time}}</p>
+        <p><a href="{{appointment.meet_link}}" style="display:inline-block;background:${GOLD};color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;">Rejoindre la visioconférence</a></p>
+        <p style="color:#8a8578;font-size:13px;">Conseil: rejoignez 5 minutes avant l'heure prévue pour vérifier votre caméra et microphone.</p>`),
+    },
+    {
+      name: "L'Abeille — Formulaire médical",
+      type: "workflow",
+      subject_template: "À compléter avant votre rendez-vous — formulaire médical",
+      body_template: "Merci de compléter votre formulaire médical avant votre consultation.",
+      html_content: labeilleEmail("Votre formulaire médical", `<p>Bonjour {{patient.first_name}},</p>
+        <p>Afin que {{appointment.doctor}} prépare au mieux votre consultation, merci de compléter votre questionnaire médical:</p>
+        <p><a href="{{form.link}}" style="display:inline-block;background:${GOLD};color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;">Compléter le formulaire</a></p>
+        <p style="color:#8a8578;font-size:13px;">Cela ne prend que 5 minutes et permet une consultation plus efficace.</p>`),
+    },
   ];
 
   const templateIds = {};
@@ -511,6 +570,11 @@ async function seedEmailsAndWorkflows(orgId, userId) {
     wf("L'Abeille — Accueil nouveau patient", "patient_created", "L'Abeille — Bienvenue", "Bienvenue chez L'Abeille Medical Concierge"),
     wf("L'Abeille — Confirmation rendez-vous", "appointment_created", "L'Abeille — Confirmation de rendez-vous", "Confirmation de votre rendez-vous"),
     wf("L'Abeille — Suivi post-consultation", "appointment_completed", "L'Abeille — Suivi après consultation", "Votre suivi personnalisé"),
+    wf("L'Abeille — Nurture J+7", "patient_created", "L'Abeille — Nurture J+7", "Votre parcours de santé"),
+    wf("L'Abeille — Nurture J+30", "patient_created", "L'Abeille — Nurture J+30", "Votre bilan du mois"),
+    wf("L'Abeille — Rappel rendez-vous", "appointment_created", "L'Abeille — Rappel rendez-vous", "Rappel — votre rendez-vous demain"),
+    wf("L'Abeille — Invitation téléconsultation", "appointment_updated", "L'Abeille — Invitation téléconsultation", "Votre lien de téléconsultation"),
+    wf("L'Abeille — Formulaire médical", "appointment_created", "L'Abeille — Formulaire médical", "À compléter avant votre rendez-vous"),
     {
       name: "L'Abeille — Demande de spécialiste",
       trigger_type: "form_submitted",
