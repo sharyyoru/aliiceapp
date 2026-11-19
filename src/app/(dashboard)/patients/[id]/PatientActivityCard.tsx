@@ -867,11 +867,15 @@ export default function PatientActivityCard({
   }, [emails]);
 
   useEffect(() => {
-    if (composeFromQueryHandled) return;
-
     const composeParam =
       searchParams.get("composeEmail") ?? searchParams.get("compose");
-    if (!composeParam || emailModalOpen) return;
+    if (!composeParam) {
+      // Only re-arm once the param is gone, so closing the modal while the
+      // URL still has composeEmail=1 doesn't immediately reopen it.
+      if (composeFromQueryHandled) setComposeFromQueryHandled(false);
+      return;
+    }
+    if (composeFromQueryHandled || emailModalOpen) return;
 
     if (composeParam === "1" || composeParam === "true" || composeParam === "email") {
       setActiveTab("emails");
@@ -949,7 +953,6 @@ export default function PatientActivityCard({
         setEmailAttachments([]);
         setEmailAttachmentsError(null);
         setUseSignature(true);
-        setComposeFromQueryHandled(false);
         // Remove composeEmail query param to prevent modal from reopening
         router.replace(`/patients/${patientId}?m_tab=crm&crm_sub=emails`);
       }
@@ -4812,7 +4815,6 @@ export default function PatientActivityCard({
               setEmailAttachments([]);
               setEmailAttachmentsError(null);
               setUseSignature(true);
-              setComposeFromQueryHandled(false);
               // Remove composeEmail query param to prevent modal from reopening
               router.replace(`/patients/${patientId}?m_tab=crm&crm_sub=emails`);
             }
@@ -4855,7 +4857,6 @@ export default function PatientActivityCard({
                     setEmailAttachments([]);
                     setEmailAttachmentsError(null);
                     setUseSignature(true);
-                    setComposeFromQueryHandled(false);
                     // Remove composeEmail query param to prevent modal from reopening
                     router.replace(`/patients/${patientId}?m_tab=crm&crm_sub=emails`);
                   }}
@@ -5178,7 +5179,6 @@ export default function PatientActivityCard({
                     setEmailAttachments([]);
                     setEmailAttachmentsError(null);
                     setUseSignature(true);
-                    setComposeFromQueryHandled(false);
                     // Remove composeEmail query param to prevent modal from reopening
                     router.replace(`/patients/${patientId}?m_tab=crm&crm_sub=emails`);
                   }}
