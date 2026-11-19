@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateContentWithFallback } from "@/lib/geminiWithFallback";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type ChatMessage = {
   role: "user" | "assistant" | "system";
@@ -18,9 +19,6 @@ export async function POST(request: Request) {
         { status: 500 },
       );
     }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const { messages, patientId } = (await request.json()) as {
       messages?: ChatMessage[];
@@ -67,20 +65,20 @@ export async function POST(request: Request) {
 
     const lastUserMessage = trimmed.filter((msg) => msg.role !== "system").slice(-1)[0];
 
-    const chat = model.startChat({
-      history,
-      generationConfig: {
-        temperature: 0.6,
-      },
-      systemInstruction: {
-        role: "user",
-        parts: [{ text: systemInstruction }],
-      },
+    const result = await generateContentWithFallback({
+      apiKey,
+      systemInstruction,
+      generationConfig: { temperature: 0.6 },
+      contents: [
+        ...history,
+        {
+          role: "user",
+          parts: [{ text: lastUserMessage?.content || "" }],
+        },
+      ],
     });
 
-    const result = await chat.sendMessage(lastUserMessage?.content || "");
-    const response = result.response;
-    const text = response.text();
+    const text = result.response.text();
 
     if (!text) {
       return NextResponse.json(

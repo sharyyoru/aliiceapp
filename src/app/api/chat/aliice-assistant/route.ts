@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateContentWithFallback } from "@/lib/geminiWithFallback";
 
 // System prompt for Aliice - the AI assistant
 const SYSTEM_PROMPT = `You are Aliice, the friendly and knowledgeable AI assistant for the ALiice Medical CRM platform. Your role is to help clinic owners and staff set up their system, answer questions, and guide them through features.
@@ -125,11 +125,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Use stable model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
     // Build conversation history for Gemini
     const historyParts: { role: "user" | "model"; parts: { text: string }[] }[] = [];
 
@@ -143,18 +138,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create chat with system prompt and history
-    const chat = model.startChat({
-      history: historyParts,
+    // Send message with system context
+    const fullPrompt = `${SYSTEM_PROMPT}${buildContextMessage(onboardingStatus)}\n\nUser message: ${message}`;
+    const result = await generateContentWithFallback({
+      apiKey,
       generationConfig: {
         maxOutputTokens: 500,
         temperature: 0.7,
       },
+      contents: [...historyParts, { role: "user", parts: [{ text: fullPrompt }] }],
     });
-
-    // Send message with system context
-    const fullPrompt = `${SYSTEM_PROMPT}${buildContextMessage(onboardingStatus)}\n\nUser message: ${message}`;
-    const result = await chat.sendMessage(fullPrompt);
     const response = result.response.text() || getFallbackResponse(message, onboardingStatus);
 
     return NextResponse.json({ response });

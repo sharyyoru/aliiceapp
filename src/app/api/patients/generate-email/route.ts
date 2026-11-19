@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  generateContentWithFallback,
+  GeminiBillingError,
+} from "@/lib/geminiWithFallback";
 
 export const runtime = "nodejs";
-
-const geminiApiKey = process.env.GEMINI_API_KEY;
-
-let genAI: GoogleGenerativeAI | null = null;
-if (geminiApiKey) {
-  genAI = new GoogleGenerativeAI(geminiApiKey);
-}
+export const maxDuration = 60;
 
 type GeneratePatientEmailRequestBody = {
   patientId?: string;
@@ -42,10 +39,14 @@ function formatAppointmentDateTime(startTime: string): string {
 
 export async function POST(request: Request) {
   try {
-    if (!genAI) {
+    const apiKey = (process.env.GEMINI_API_KEY || "").trim();
+    if (!apiKey || apiKey === "your-gemini-api-key") {
       return NextResponse.json(
-        { error: "Missing GEMINI_API_KEY environment variable" },
-        { status: 500 },
+        {
+          error:
+            "AI email generation is not configured: GEMINI_API_KEY is missing or empty on the server.",
+        },
+        { status: 503 },
       );
     }
 
@@ -179,20 +180,29 @@ CRITICAL - do not fabricate:
 - If the goal requires information you do not have, leave a bracketed placeholder instead of making something up.
 `;
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash",
+    const result = await generateContentWithFallback({
+      apiKey,
       systemInstruction: systemPrompt,
-    });
-
-    const result = await model.generateContent({
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 4096,
+        responseMimeType: "application/json",
+      },
       contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.3 },
+      verbose: true,
     });
 
-    const rawContent = result.response.text() || "";
+    const rawContent = (result.response.text() || "").trim();
 
-    let subject = "Clinic update";
-    let bodyText = "Dear patient,\n\nThank you for your message.";
+    if (!rawContent) {
+      return NextResponse.json(
+        { error: "The AI returned an empty response. Please try again." },
+        { status: 502 },
+      );
+    }
+
+    let subject = "";
+    let bodyText = "";
 
     try {
       // Remove markdown code blocks if present
@@ -202,24 +212,35 @@ CRITICAL - do not fabricate:
         body?: string;
       };
 
-      if (parsed.subject && parsed.subject.trim().length > 0) {
-        subject = parsed.subject.trim();
-      }
-
-      if (parsed.body && parsed.body.trim().length > 0) {
-        bodyText = parsed.body.trim();
-      }
+      subject = (parsed.subject || "").trim();
+      bodyText = (parsed.body || "").trim();
     } catch {
-      if (rawContent.trim().length > 0) {
-        bodyText = rawContent.trim();
-      }
+      // Model ignored the JSON instruction: fall back to using its raw text as
+      // the body rather than silently returning a placeholder email.
+      bodyText = rawContent;
     }
 
-    return NextResponse.json({ subject, body: bodyText });
+    if (!bodyText) {
+      return NextResponse.json(
+        { error: "The AI did not return any email content. Please try again." },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({ subject: subject || "Clinic update", body: bodyText });
   } catch (error) {
     console.error("Error generating patient email via Gemini", error);
+    // Report a depleted AI account as itself. Collapsing it into a generic
+    // 500 is why "AI email generation is broken" with no visible cause.
+    if (error instanceof GeminiBillingError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 503 },
+      );
+    }
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Failed to generate email" },
+      { error: `Failed to generate email: ${message}` },
       { status: 500 },
     );
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateContentWithFallback } from "@/lib/geminiWithFallback";
 
 const SOAP_SYSTEM_PROMPT = `You are an AI medical scribe assistant specializing in converting doctor-patient consultation transcripts into structured SOAP notes. You work for aesthetics and medical clinics.
 
@@ -95,15 +95,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("Generating SOAP notes with Gemini API...");
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Try gemini-1.5-flash first (more stable), fallback to gemini-pro
-    let model;
-    try {
-      model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    } catch {
-      model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    }
 
     const prompt = `${SOAP_SYSTEM_PROMPT}
 
@@ -115,7 +106,11 @@ ${transcript}
 ## Instructions:
 Analyze this consultation transcript and generate SOAP notes. Return ONLY valid JSON with no additional text or markdown formatting.`;
 
-    const result = await model.generateContent(prompt);
+    const result = await generateContentWithFallback({
+      apiKey,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      verbose: true,
+    });
     const responseText = result.response.text();
     console.log("Gemini response received, length:", responseText.length);
 

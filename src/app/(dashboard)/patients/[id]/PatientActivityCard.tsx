@@ -183,6 +183,22 @@ function formatDateOnly(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Convert AI-generated plain text into the HTML the rich text editor renders,
+ * keeping paragraph and line breaks intact.
+ */
+function plainTextToHtml(text: string): string {
+  if (/<\/?(p|br|div|ul|ol|strong|em)\b/i.test(text)) return text;
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return escaped
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${paragraph.split(/\r?\n/).join("<br />")}</p>`)
+    .join("");
+}
+
 export default function PatientActivityCard({
   patientId,
   createdAt,
@@ -867,11 +883,17 @@ export default function PatientActivityCard({
   }, [emails]);
 
   useEffect(() => {
-    if (composeFromQueryHandled) return;
-
     const composeParam =
       searchParams.get("composeEmail") ?? searchParams.get("compose");
-    if (!composeParam || emailModalOpen) return;
+
+    // Once the param is gone from the URL, re-arm so a later "Compose email"
+    // link opens the modal again.
+    if (!composeParam) {
+      setComposeFromQueryHandled(false);
+      return;
+    }
+
+    if (composeFromQueryHandled || emailModalOpen) return;
 
     if (composeParam === "1" || composeParam === "true" || composeParam === "email") {
       setActiveTab("emails");
@@ -935,29 +957,36 @@ export default function PatientActivityCard({
     };
   }, []);
 
+  const closeEmailModal = useCallback(() => {
+    if (emailSaving) return;
+    setEmailModalOpen(false);
+    setEmailFullscreen(false);
+    setEmailSaveError(null);
+    setEmailScheduleEnabled(false);
+    setEmailScheduledFor("");
+    setEmailAttachments([]);
+    setEmailAttachmentsError(null);
+    setUseSignature(true);
+    // Keep composeFromQueryHandled = true: resetting it lets the
+    // ?composeEmail=1 effect immediately reopen the modal, because the
+    // router.replace below only clears the param on a later render.
+    setComposeFromQueryHandled(true);
+    router.replace(`/patients/${patientId}?m_tab=crm&crm_sub=emails`);
+  }, [emailSaving, patientId, router]);
+
   // Handle Escape key to close email modal
   useEffect(() => {
     if (!emailModalOpen) return;
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !emailSaving) {
-        setEmailModalOpen(false);
-        setEmailFullscreen(false);
-        setEmailSaveError(null);
-        setEmailScheduleEnabled(false);
-        setEmailScheduledFor("");
-        setEmailAttachments([]);
-        setEmailAttachmentsError(null);
-        setUseSignature(true);
-        setComposeFromQueryHandled(false);
-        // Remove composeEmail query param to prevent modal from reopening
-        router.replace(`/patients/${patientId}?m_tab=crm&crm_sub=emails`);
+      if (event.key === "Escape") {
+        closeEmailModal();
       }
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [emailModalOpen, emailSaving, patientId, router]);
+  }, [emailModalOpen, closeEmailModal]);
 
   useEffect(() => {
     if (!emailModalOpen || platformUsersLoaded) return;
@@ -2206,11 +2235,16 @@ export default function PatientActivityCard({
         }),
       });
 
-      const data = (await response.json()) as {
-        subject?: string;
-        body?: string;
-        error?: string;
-      };
+      const rawResponse = await response.text();
+      let data: { subject?: string; body?: string; error?: string } = {};
+      try {
+        data = JSON.parse(rawResponse);
+      } catch {
+        setEmailAiError(
+          `Email generation failed (${response.status}). ${rawResponse.slice(0, 200)}`.trim(),
+        );
+        return;
+      }
 
       if (!response.ok) {
         setEmailAiError(data?.error ?? "Failed to generate email.");
@@ -2222,7 +2256,10 @@ export default function PatientActivityCard({
       }
 
       if (data.body && data.body.trim().length > 0) {
-        setEmailBody(data.body.trim());
+        // The API returns plain text, but the message field is a rich text
+        // (contentEditable) editor, so line breaks must be converted to HTML
+        // or the whole email collapses into one paragraph.
+        setEmailBody(plainTextToHtml(data.body.trim()));
       }
     } catch {
       setEmailAiError("Unexpected error generating email.");
@@ -4803,18 +4840,8 @@ export default function PatientActivityCard({
         <div 
           className="fixed inset-0 z-[99999] flex items-start justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm py-6 sm:py-8"
           onClick={(e) => {
-            if (e.target === e.currentTarget && !emailSaving) {
-              setEmailModalOpen(false);
-              setEmailFullscreen(false);
-              setEmailSaveError(null);
-              setEmailScheduleEnabled(false);
-              setEmailScheduledFor("");
-              setEmailAttachments([]);
-              setEmailAttachmentsError(null);
-              setUseSignature(true);
-              setComposeFromQueryHandled(false);
-              // Remove composeEmail query param to prevent modal from reopening
-              router.replace(`/patients/${patientId}?m_tab=crm&crm_sub=emails`);
+            if (e.target === e.currentTarget) {
+              closeEmailModal();
             }
           }}
         >
@@ -4845,20 +4872,7 @@ export default function PatientActivityCard({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (emailSaving) return;
-                    setEmailModalOpen(false);
-                    setEmailFullscreen(false);
-                    setEmailSaveError(null);
-                    setEmailScheduleEnabled(false);
-                    setEmailScheduledFor("");
-                    setEmailAttachments([]);
-                    setEmailAttachmentsError(null);
-                    setUseSignature(true);
-                    setComposeFromQueryHandled(false);
-                    // Remove composeEmail query param to prevent modal from reopening
-                    router.replace(`/patients/${patientId}?m_tab=crm&crm_sub=emails`);
-                  }}
+                  onClick={closeEmailModal}
                   className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                   title="Close"
                 >
@@ -5168,20 +5182,7 @@ export default function PatientActivityCard({
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (emailSaving) return;
-                    setEmailModalOpen(false);
-                    setEmailFullscreen(false);
-                    setEmailSaveError(null);
-                    setEmailScheduleEnabled(false);
-                    setEmailScheduledFor("");
-                    setEmailAttachments([]);
-                    setEmailAttachmentsError(null);
-                    setUseSignature(true);
-                    setComposeFromQueryHandled(false);
-                    // Remove composeEmail query param to prevent modal from reopening
-                    router.replace(`/patients/${patientId}?m_tab=crm&crm_sub=emails`);
-                  }}
+                  onClick={closeEmailModal}
                   className="inline-flex items-center rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
                 >
                   {t("cancel")}

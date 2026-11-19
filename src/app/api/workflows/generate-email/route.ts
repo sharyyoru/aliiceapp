@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+  generateContentWithFallback,
+  GeminiBillingError,
+} from "@/lib/geminiWithFallback";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
-const geminiApiKey = process.env.GEMINI_API_KEY;
-
-let genAI: GoogleGenerativeAI | null = null;
-if (geminiApiKey) {
-  genAI = new GoogleGenerativeAI(geminiApiKey);
-}
+const geminiApiKey = (process.env.GEMINI_API_KEY || "").trim();
 
 type TemplateVariable = {
   category?: string;
@@ -122,10 +121,13 @@ function createUnlayerDesign(paragraphs: string[]): object {
 
 export async function POST(request: Request) {
   try {
-    if (!genAI) {
+    if (!geminiApiKey || geminiApiKey === "your-gemini-api-key") {
       return NextResponse.json(
-        { error: "Missing GEMINI_API_KEY environment variable" },
-        { status: 500 },
+        {
+          error:
+            "AI email generation is not configured: GEMINI_API_KEY is missing or empty on the server.",
+        },
+        { status: 503 },
       );
     }
 
@@ -180,14 +182,12 @@ Example output:
 {"subject": "Your Appointment Confirmation", "paragraphs": ["<p>Dear {{patient.first_name}},</p>", "<p>We're excited to confirm your upcoming appointment.</p>", "<p><strong>Date:</strong> {{appointment.date}}<br><strong>Time:</strong> {{appointment.time}}</p>", "<p>We look forward to seeing you!</p>", "<p>Best regards,<br>The {{clinic.name}} Team</p>"]}
 `;
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash",
+    const result = await generateContentWithFallback({
+      apiKey: geminiApiKey,
       systemInstruction: systemPrompt,
-    });
-
-    const result = await model.generateContent({
+      generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
       contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.7 },
+      verbose: true,
     });
 
     const rawContent = result.response.text() || "";
@@ -239,8 +239,16 @@ Example output:
     return NextResponse.json({ subject, html, design, paragraphs });
   } catch (error) {
     console.error("Error generating workflow email via Gemini", error);
+    if (error instanceof GeminiBillingError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
-      { error: "Failed to generate email" },
+      {
+        error: `Failed to generate email: ${error instanceof Error ? error.message : String(error)}`,
+      },
       { status: 500 },
     );
   }
