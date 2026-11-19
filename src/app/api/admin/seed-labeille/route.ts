@@ -193,10 +193,13 @@ export async function GET(req: NextRequest) {
     step(`${doctorIds.length} doctors`);
 
     // ── doctor login users + scheduling + booking pool ──
-    // The calendar reads doctor_scheduling_settings (provider_id → users.id),
-    // so each doctor needs a real user account, org membership and a settings
-    // row. booking_doctors feeds the public booking flow.
+    // On this system a doctor's providers.id IS their auth/user id — the
+    // calendar's doctor columns are keyed by doctor_scheduling_settings.
+    // provider_id which the API resolves to names via users.id, while
+    // appointments.provider_id FKs to providers.id. Making them equal
+    // satisfies both.
     let doctorUserCount = 0;
+    const doctorUserIds: string[] = [];
     for (const [i, d] of DOCTORS.entries()) {
       const email = `doctor${i + 1}@labeille-demo.ch`;
       let docUser = list?.users?.find((u) => u.email?.toLowerCase() === email);
@@ -208,28 +211,33 @@ export async function GET(req: NextRequest) {
         if (error) { fail(`doctor user ${d.name}`, error); continue; }
         docUser = data.user;
       }
-      const userRow: Record<string, unknown> = {
-        id: docUser.id, email, full_name: d.name, provider_id: doctorIds[i],
+      const { error: uErr } = await supabaseAdmin.from("users").upsert({
+        id: docUser.id, email, full_name: d.name,
         role: "doctor", current_organization_id: orgId, onboarding_completed: true,
-      };
-      let { error: uErr } = await supabaseAdmin.from("users").upsert(userRow);
-      if (uErr && /provider_id/.test(uErr.message)) {
-        // Some DBs lack users.provider_id — the calendar only needs
-        // doctor_scheduling_settings → providers, so it's optional.
-        const { provider_id: _drop, ...rowNoProvider } = userRow;
-        uErr = (await supabaseAdmin.from("users").upsert(rowNoProvider)).error;
-      }
+      });
       if (uErr) { fail(`doctor users row ${d.name}`, uErr); continue; }
       await supabaseAdmin.from("organization_members").upsert(
         { organization_id: orgId, user_id: docUser.id, role: "doctor", job_title: d.specialty, is_active: true },
         { onConflict: "organization_id,user_id" }
       );
-      // Clean up rows from an earlier seed run that used the auth user id.
-      await supabaseAdmin.from("doctor_scheduling_settings").delete().eq("provider_id", docUser.id);
-      // provider_id here references providers.id — the calendar embeds
-      // setting.providers.name and appointments.provider_id joins providers.
+
+      // Provider row keyed by the auth user id. If an older seeded provider
+      // row exists under a different id, remap appointments then remove it.
+      const oldId = doctorIds[i];
+      if (oldId && oldId !== docUser.id) {
+        await supabaseAdmin.from("appointments").update({ provider_id: docUser.id }).eq("provider_id", oldId);
+        await supabaseAdmin.from("doctor_scheduling_settings").delete().eq("provider_id", oldId);
+        await supabaseAdmin.from("providers").delete().eq("id", oldId);
+      }
+      const { error: pErr } = await supabaseAdmin.from("providers").upsert({
+        id: docUser.id, name: d.name, specialty: d.specialty,
+        email, organization_id: orgId, role: "doctor",
+      });
+      if (pErr) { fail(`provider row ${d.name}`, pErr); continue; }
+      doctorUserIds.push(docUser.id);
+
       await supabaseAdmin.from("doctor_scheduling_settings").upsert(
-        { provider_id: doctorIds[i], time_interval_minutes: 30, default_duration_minutes: 45, updated_at: new Date().toISOString() },
+        { provider_id: docUser.id, time_interval_minutes: 30, default_duration_minutes: 45, updated_at: new Date().toISOString() },
         { onConflict: "provider_id" }
       );
       const slug = `labeille-${d.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
@@ -339,7 +347,7 @@ export async function GET(req: NextRequest) {
         start.setMinutes(0, 0, 0);
         rows.push({
           patient_id: pid,
-          provider_id: doctorIds[(pi + Math.max(0, m)) % doctorIds.length],
+          provider_id: (doctorUserIds.length ? doctorUserIds : doctorIds)[(pi + Math.max(0, m)) % (doctorUserIds.length ? doctorUserIds.length : doctorIds.length)],
           start_time: start.toISOString(),
           end_time: new Date(start.getTime() + 45 * 6e4).toISOString(),
           status: m < 0 ? "completed" : "scheduled",
