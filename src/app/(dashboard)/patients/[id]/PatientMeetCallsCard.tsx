@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { formatSwissDate, formatSwissTime } from "@/lib/swissTimezone";
+import { openCallPopup } from "@/utils/meetPopup";
 
 type MeetAppointment = {
   id: string;
@@ -75,10 +76,9 @@ export default function PatientMeetCallsCard({ patientId }: { patientId: string 
         </span>
       ) : null}
       {appt.meet_link ? (
-        <a
-          href={appt.meet_link}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={() => openCallPopup(appt.meet_link!)}
           className={`rounded-md px-2.5 py-1 text-xs font-medium ${
             isPast
               ? "text-slate-500 underline-offset-2 hover:underline"
@@ -86,7 +86,7 @@ export default function PatientMeetCallsCard({ patientId }: { patientId: string 
           }`}
         >
           {isPast ? "Link" : "Join"}
-        </a>
+        </button>
       ) : null}
     </li>
   );

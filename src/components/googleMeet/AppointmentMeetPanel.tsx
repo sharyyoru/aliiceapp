@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Video, Loader2, X, Copy, Check } from "lucide-react";
 import { addAppointmentMeet, removeAppointmentMeet } from "@/lib/googleMeetClient";
+import { openCallPopup } from "@/utils/meetPopup";
 
 type Props = {
   appointmentId: string;
@@ -62,14 +63,13 @@ export default function AppointmentMeetPanel({ appointmentId, meetLink, onChange
       </div>
       {meetLink ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <a
-            href={meetLink}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => openCallPopup(meetLink)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
           >
             <Video className="h-3.5 w-3.5" /> Join Google Meet
-          </a>
+          </button>
           <button
             type="button"
             onClick={() => void handleCopy()}
