@@ -10,6 +10,7 @@ import PatientCrmPreferencesCard from "./PatientCrmPreferencesCard";
 import PatientActivityCard from "./PatientActivityCard";
 import CrisalixPlayerModal from "./CrisalixPlayerModal";
 import MedicalConsultationsCard from "./MedicalConsultationsCard";
+import PatientMeetCallsCard from "./PatientMeetCallsCard";
 import PatientDocumentsTab from "./PatientDocumentsTab";
 import PatientModeInitializer from "./PatientModeInitializer";
 import PatientEditingPresence from "./PatientEditingPresence";
@@ -561,6 +562,8 @@ export default async function PatientPage({
             />
 
             <PatientMedicalNotes patientId={patient.id} />
+
+            <PatientMeetCallsCard patientId={patient.id} />
 
             <MedicalConsultationsCard patientId={patient.id} patientFirstName={patient.first_name} patientLastName={patient.last_name} patientEmail={(patient as any).email ?? null} />
           </>
