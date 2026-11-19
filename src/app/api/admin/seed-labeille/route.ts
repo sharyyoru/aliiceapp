@@ -364,30 +364,28 @@ export async function GET(req: NextRequest) {
     step(`${apptCount} appointments`);
 
     // ── dense demo schedule ──
-    // The yearly pass above yields ~1-2 visible bookings/week across 12
-    // doctors. Add a doctor-centric schedule: 3 appointments per doctor per
-    // week for the surrounding 10 weeks so every calendar view is populated.
+    // Continuous daily coverage: 2 appointments per doctor per day for the
+    // surrounding 6 weeks so every calendar view is populated.
     const docIdsForSchedule = doctorUserIds.length ? doctorUserIds : doctorIds;
     if (docIdsForSchedule.length && patientIds.length) {
       const { count: existingDense } = await supabaseAdmin.from("appointments")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", orgId).eq("location", "L'Abeille Concierge");
-      if (!existingDense) {
+      if ((existingDense ?? 0) < 400) {
         const denseRows = [];
-        for (let w = -4; w <= 5; w++) {
+        for (let d = -20; d <= 24; d++) {
           for (const [di, docId] of docIdsForSchedule.entries()) {
-            for (let k = 0; k < 3; k++) {
-              const dayOffset = w * 7 + ((di * 3 + k * 2) % 5) + 1; // Mon-Fri spread
-              const hour = 9 + (((di + k * 3 + w) % 8) + 8) % 8;
-              const start = new Date(now + dayOffset * 864e5);
-              start.setHours(hour, 0, 0, 0);
+            for (let k = 0; k < 2; k++) {
+              const hour = 9 + (((di + k * 5 + d) % 8) + 8) % 8;
+              const start = new Date(now + d * 864e5);
+              start.setHours(hour, (di + k) % 2 * 30, 0, 0);
               denseRows.push({
-                patient_id: patientIds[(di + k + w * 7 + patientIds.length * 4) % patientIds.length],
+                patient_id: patientIds[(di + k + d + patientIds.length * 20) % patientIds.length],
                 provider_id: docId,
                 start_time: start.toISOString(),
                 end_time: new Date(start.getTime() + 45 * 6e4).toISOString(),
-                status: w < 0 || (w === 0 && dayOffset < 0) ? "completed" : "scheduled",
-                reason: APPOINTMENT_REASONS[(di + k * 2 + w + 24) % APPOINTMENT_REASONS.length],
+                status: d < 0 || (d === 0 && hour < new Date().getHours()) ? "completed" : "scheduled",
+                reason: APPOINTMENT_REASONS[(di + k * 2 + d + 240) % APPOINTMENT_REASONS.length],
                 location: "L'Abeille Concierge",
                 source: "manual",
                 organization_id: orgId,
