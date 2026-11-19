@@ -192,6 +192,48 @@ export async function GET(req: NextRequest) {
     }
     step(`${doctorIds.length} doctors`);
 
+    // ── doctor login users + scheduling + booking pool ──
+    // The calendar reads doctor_scheduling_settings (provider_id → users.id),
+    // so each doctor needs a real user account, org membership and a settings
+    // row. booking_doctors feeds the public booking flow.
+    let doctorUserCount = 0;
+    for (const [i, d] of DOCTORS.entries()) {
+      const email = `doctor${i + 1}@labeille-demo.ch`;
+      let docUser = list?.users?.find((u) => u.email?.toLowerCase() === email);
+      if (!docUser) {
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          email, password: DEMO_USER.password, email_confirm: true,
+          user_metadata: { full_name: d.name },
+        });
+        if (error) { fail(`doctor user ${d.name}`, error); continue; }
+        docUser = data.user;
+      }
+      const { error: uErr } = await supabaseAdmin.from("users").upsert({
+        id: docUser.id, email, full_name: d.name,
+        role: "doctor", current_organization_id: orgId, onboarding_completed: true,
+      });
+      if (uErr) { fail(`doctor users row ${d.name}`, uErr); continue; }
+      await supabaseAdmin.from("organization_members").upsert(
+        { organization_id: orgId, user_id: docUser.id, role: "doctor", job_title: d.specialty, is_active: true },
+        { onConflict: "organization_id,user_id" }
+      );
+      await supabaseAdmin.from("doctor_scheduling_settings").upsert(
+        { provider_id: docUser.id, time_interval_minutes: 30, default_duration_minutes: 45, updated_at: new Date().toISOString() },
+        { onConflict: "provider_id" }
+      );
+      const slug = `labeille-${d.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+      const { data: exBd } = await supabaseAdmin.from("booking_doctors").select("id").eq("slug", slug).maybeSingle();
+      if (!exBd) {
+        const { error: bdErr } = await supabaseAdmin.from("booking_doctors").insert({
+          name: d.name, specialty: d.specialty, slug, enabled: true, order_index: 100 + i,
+          description: `${d.specialty} — L'Abeille Medical Concierge partner specialist.`,
+        });
+        if (bdErr) fail(`booking doctor ${d.name}`, bdErr);
+      }
+      doctorUserCount++;
+    }
+    step(`${doctorUserCount} doctor users + scheduling + booking entries`);
+
     // ── patients + history ──
     const patientIds: string[] = [];
     const now = Date.now();
