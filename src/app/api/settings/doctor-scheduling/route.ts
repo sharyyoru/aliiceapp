@@ -16,7 +16,7 @@ export async function GET() {
     // Get provider names from users table
     if (settings && settings.length > 0) {
       const providerIds = settings.map((s) => s.provider_id);
-      let { data: users } = await supabaseAdmin
+      let { data: users }: { data: { id: string; first_name?: string | null; last_name?: string | null; full_name?: string | null; email?: string | null }[] | null } = await supabaseAdmin
         .from("users")
         .select("id, first_name, last_name, full_name, email")
         .in("id", providerIds);
