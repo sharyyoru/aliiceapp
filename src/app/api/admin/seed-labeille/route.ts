@@ -352,12 +352,19 @@ export async function GET(req: NextRequest) {
         if (/organization_id/.test(error.message)) hasOrgCol = false;
       }
     }
+    // Some DBs use a narrower email_template_type enum without "workflow" —
+    // reuse an existing row's type in that case.
+    let templateType: string | null = "workflow";
+    {
+      const { data: anyTpl } = await supabaseAdmin.from("email_templates").select("type").limit(1).maybeSingle();
+      if (anyTpl?.type && anyTpl.type !== "workflow") templateType = anyTpl.type;
+    }
 
     const templateIds: Record<string, string> = {};
     for (const t of templates) {
       const row: Record<string, unknown> = hasHtmlContent
-        ? { ...t }
-        : { name: t.name, type: t.type, subject_template: t.subject_template, body_template: t.html_content };
+        ? { ...t, type: templateType ?? t.type }
+        : { name: t.name, type: templateType ?? t.type, subject_template: t.subject_template, body_template: t.html_content };
       if (hasOrgCol) row.organization_id = orgId;
       const q = supabaseAdmin.from("email_templates").select("id").eq("name", t.name);
       if (hasOrgCol) q.eq("organization_id", orgId);
@@ -367,8 +374,14 @@ export async function GET(req: NextRequest) {
         if (error) { fail(`template ${t.name}`, error); continue; }
         templateIds[t.name] = ex.id;
       } else {
-        const { data, error } = await supabaseAdmin.from("email_templates")
+        let { data, error } = await supabaseAdmin.from("email_templates")
           .insert(row).select("id").single();
+        if (error && /email_template_type/.test(error.message)) {
+          const { type: _omit, ...rowNoType } = row;
+          const retry = await supabaseAdmin.from("email_templates")
+            .insert(rowNoType).select("id").single();
+          data = retry.data; error = retry.error;
+        }
         if (error) { fail(`template ${t.name}`, error); continue; }
         templateIds[t.name] = data.id;
       }
