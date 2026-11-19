@@ -208,10 +208,17 @@ export async function GET(req: NextRequest) {
         if (error) { fail(`doctor user ${d.name}`, error); continue; }
         docUser = data.user;
       }
-      const { error: uErr } = await supabaseAdmin.from("users").upsert({
+      const userRow: Record<string, unknown> = {
         id: docUser.id, email, full_name: d.name, provider_id: doctorIds[i],
         role: "doctor", current_organization_id: orgId, onboarding_completed: true,
-      });
+      };
+      let { error: uErr } = await supabaseAdmin.from("users").upsert(userRow);
+      if (uErr && /provider_id/.test(uErr.message)) {
+        // Some DBs lack users.provider_id — the calendar only needs
+        // doctor_scheduling_settings → providers, so it's optional.
+        const { provider_id: _drop, ...rowNoProvider } = userRow;
+        uErr = (await supabaseAdmin.from("users").upsert(rowNoProvider)).error;
+      }
       if (uErr) { fail(`doctor users row ${d.name}`, uErr); continue; }
       await supabaseAdmin.from("organization_members").upsert(
         { organization_id: orgId, user_id: docUser.id, role: "doctor", job_title: d.specialty, is_active: true },
