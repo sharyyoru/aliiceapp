@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { aiErrorMessage, generateAiText, isAiConfigured } from "@/lib/aiText";
 
 export const runtime = "nodejs";
 
@@ -10,17 +10,12 @@ type ChatMessage = {
 
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
+    if (!isAiConfigured()) {
       return NextResponse.json(
-        { error: "Missing GEMINI_API_KEY environment variable" },
+        { error: "AI is not configured: set GEMINI_API_KEY (or OPENAI_API_KEY)" },
         { status: 500 },
       );
     }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const { messages, patientId } = (await request.json()) as {
       messages?: ChatMessage[];
@@ -56,31 +51,16 @@ export async function POST(request: Request) {
         "\n\nThis chat has been linked to a specific patient in the clinic's CRM. When staff refer to 'this patient' or 'the patient', assume they mean that linked patient. However, you still must never insert real patient details directly; always refer to them using the CRM template variables like {{patient.first_name}} and {{patient.last_name}} rather than concrete values.";
     }
 
-    // Convert messages to Gemini format
-    const history = trimmed
-      .filter((msg) => msg.role !== "system")
-      .slice(0, -1)
-      .map((msg) => ({
-        role: msg.role === "assistant" ? "model" : "user",
-        parts: [{ text: msg.content }],
-      }));
-
-    const lastUserMessage = trimmed.filter((msg) => msg.role !== "system").slice(-1)[0];
-
-    const chat = model.startChat({
-      history,
-      generationConfig: {
-        temperature: 0.6,
-      },
-      systemInstruction: {
-        role: "user",
-        parts: [{ text: systemInstruction }],
-      },
+    const text = await generateAiText({
+      system: systemInstruction,
+      messages: trimmed
+        .filter((msg) => msg.role !== "system")
+        .map((msg) => ({
+          role: msg.role === "assistant" ? ("assistant" as const) : ("user" as const),
+          content: msg.content,
+        })),
+      temperature: 0.6,
     });
-
-    const result = await chat.sendMessage(lastUserMessage?.content || "");
-    const response = result.response;
-    const text = response.text();
 
     if (!text) {
       return NextResponse.json(
@@ -98,7 +78,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error in /api/chat", error);
     return NextResponse.json(
-      { error: "Failed to generate chat response" },
+      { error: aiErrorMessage(error, "Failed to generate chat response") },
       { status: 500 },
     );
   }

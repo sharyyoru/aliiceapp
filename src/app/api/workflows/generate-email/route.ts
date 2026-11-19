@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { aiErrorMessage, generateAiText, isAiConfigured } from "@/lib/aiText";
 
 export const runtime = "nodejs";
-
-const geminiApiKey = process.env.GEMINI_API_KEY;
-
-let genAI: GoogleGenerativeAI | null = null;
-if (geminiApiKey) {
-  genAI = new GoogleGenerativeAI(geminiApiKey);
-}
 
 type TemplateVariable = {
   category?: string;
@@ -122,9 +115,9 @@ function createUnlayerDesign(paragraphs: string[]): object {
 
 export async function POST(request: Request) {
   try {
-    if (!genAI) {
+    if (!isAiConfigured()) {
       return NextResponse.json(
-        { error: "Missing GEMINI_API_KEY environment variable" },
+        { error: "AI is not configured: set GEMINI_API_KEY (or OPENAI_API_KEY)" },
         { status: 500 },
       );
     }
@@ -180,17 +173,11 @@ Example output:
 {"subject": "Your Appointment Confirmation", "paragraphs": ["<p>Dear {{patient.first_name}},</p>", "<p>We're excited to confirm your upcoming appointment.</p>", "<p><strong>Date:</strong> {{appointment.date}}<br><strong>Time:</strong> {{appointment.time}}</p>", "<p>We look forward to seeing you!</p>", "<p>Best regards,<br>The {{clinic.name}} Team</p>"]}
 `;
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash",
-      systemInstruction: systemPrompt,
+    const rawContent = await generateAiText({
+      system: systemPrompt,
+      messages: userPrompt,
+      temperature: 0.7,
     });
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.7 },
-    });
-
-    const rawContent = result.response.text() || "";
 
     let subject = "Clinic update";
     let paragraphs: string[] = ["<p>Thank you for your message.</p>"];
@@ -238,9 +225,9 @@ Example output:
 
     return NextResponse.json({ subject, html, design, paragraphs });
   } catch (error) {
-    console.error("Error generating workflow email via Gemini", error);
+    console.error("Error generating workflow email", error);
     return NextResponse.json(
-      { error: "Failed to generate email" },
+      { error: aiErrorMessage(error, "Failed to generate email") },
       { status: 500 },
     );
   }

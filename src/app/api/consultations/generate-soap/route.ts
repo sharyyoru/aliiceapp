@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateAiText, isAiConfigured } from "@/lib/aiText";
 
 const SOAP_SYSTEM_PROMPT = `You are an AI medical scribe assistant specializing in converting doctor-patient consultation transcripts into structured SOAP notes. You work for aesthetics and medical clinics.
 
@@ -76,9 +76,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey || apiKey === "your-gemini-api-key") {
+    if (!isAiConfigured()) {
       console.log("No valid Gemini API key, returning placeholder SOAP notes");
       // Return placeholder SOAP notes if no API key
       return NextResponse.json({
@@ -95,16 +93,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("Generating SOAP notes with Gemini API...");
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Try gemini-1.5-flash first (more stable), fallback to gemini-pro
-    let model;
-    try {
-      model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    } catch {
-      model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    }
-
     const prompt = `${SOAP_SYSTEM_PROMPT}
 
 Patient: ${patientName || "Unknown"}
@@ -115,8 +103,7 @@ ${transcript}
 ## Instructions:
 Analyze this consultation transcript and generate SOAP notes. Return ONLY valid JSON with no additional text or markdown formatting.`;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const responseText = await generateAiText({ messages: prompt });
     console.log("Gemini response received, length:", responseText.length);
 
     // Parse the JSON response
