@@ -49,6 +49,11 @@ const DOCTORS = [
   { name: "Pragmos Clinic Madrid", specialty: "Regenerative Medicine" },
   { name: "Swiss Health Coach Meeting", specialty: "Health Coaching" },
   { name: "Dr Mensah", specialty: "Case Management" },
+  // Concierge specialist network (per partner meeting: UK/Spain/global)
+  { name: "Dr Ibañez — Madrid Heart Institute", specialty: "Cardiology" },
+  { name: "Dr Whitfield — Harley Street, London", specialty: "Internal Medicine" },
+  { name: "Zurich Heart Centre", specialty: "Cardiology & Cardiac Surgery" },
+  { name: "Dr Ortega — Barcelona Longevity Center", specialty: "Endocrinology & Longevity" },
 ];
 
 const PATIENTS = [
@@ -64,6 +69,21 @@ const PATIENTS = [
   { first_name: "Thomas", last_name: "Weber", gender: "male", dob: "1958-02-19", town: "Carouge", nationality: "German" },
   { first_name: "Nathalie", last_name: "Perrenoud", gender: "female", dob: "1993-06-27", town: "Genève", nationality: "Swiss" },
   { first_name: "Viktor", last_name: "Hessel", gender: "male", dob: "1983-10-05", town: "Morges", nationality: "Dutch" },
+  // Concierge leads — clients originate from the UK and Spain
+  { first_name: "James", last_name: "Harrington", gender: "male", dob: "1971-02-11", town: "London", nationality: "British" },
+  { first_name: "Charlotte", last_name: "Reeves", gender: "female", dob: "1986-09-23", town: "London", nationality: "British" },
+  { first_name: "William", last_name: "Ashworth", gender: "male", dob: "1959-04-30", town: "Manchester", nationality: "British" },
+  { first_name: "Lucía", last_name: "Fernández", gender: "female", dob: "1982-12-14", town: "Madrid", nationality: "Spanish" },
+  { first_name: "Mateo", last_name: "Vargas", gender: "male", dob: "1977-08-19", town: "Barcelona", nationality: "Spanish" },
+  { first_name: "Carmen", last_name: "Ortiz", gender: "female", dob: "1968-01-07", town: "Marbella", nationality: "Spanish" },
+  { first_name: "Francesca", last_name: "Bellini", gender: "female", dob: "1991-05-28", town: "Genève", nationality: "Italian" },
+  { first_name: "Mikhail", last_name: "Sorokin", gender: "male", dob: "1963-11-02", town: "Genève", nationality: "Russian" },
+  { first_name: "Aïcha", last_name: "Diallo", gender: "female", dob: "1989-03-16", town: "Lausanne", nationality: "Senegalese" },
+  { first_name: "George", last_name: "Papadakis", gender: "male", dob: "1974-07-25", town: "Zurich", nationality: "Greek" },
+  { first_name: "Ingrid", last_name: "Solberg", gender: "female", dob: "1981-10-12", town: "Montreux", nationality: "Norwegian" },
+  { first_name: "Rafael", last_name: "Dominguez", gender: "male", dob: "1966-06-03", town: "Madrid", nationality: "Spanish" },
+  { first_name: "Emily", last_name: "Cartwright", gender: "female", dob: "1995-02-20", town: "London", nationality: "British" },
+  { first_name: "Hassan", last_name: "El Amrani", gender: "male", dob: "1979-09-09", town: "Genève", nationality: "Moroccan" },
 ];
 
 const APPOINTMENT_REASONS = [
@@ -310,6 +330,16 @@ export async function GET(req: NextRequest) {
           <p>Merci pour votre consultation. Votre compte-rendu est disponible dans votre dossier patient. Votre prochaine étape: {{next_step}}.</p>
           <p>N'hésitez pas à répondre à cet e-mail pour toute question.</p>`),
       },
+      {
+        name: "L'Abeille — Notification nouvelle demande", type: "workflow",
+        subject_template: "Nouvelle demande de spécialiste — {{patient.first_name}} {{patient.last_name}}",
+        body_template: "Un patient demande un spécialiste. Attribuer le meilleur praticien disponible et réserver le rendez-vous.",
+        html_content: labeilleEmail("Nouvelle demande de spécialiste", `<p>Bonjour Martha,</p>
+          <p><strong>{{patient.first_name}} {{patient.last_name}}</strong> vient de soumettre une demande de spécialiste.</p>
+          <p><strong>Spécialité demandée:</strong> {{request.specialty}}<br>
+          <strong>Localisation:</strong> {{request.location}}</p>
+          <p>Prochaine étape: sélectionner le meilleur spécialiste partenaire — le système réservera le rendez-vous et enverra le formulaire médical au patient.</p>`),
+      },
     ];
 
     // Older DBs may lack html_content / organization_id — probe once, adapt.
@@ -360,6 +390,40 @@ export async function GET(req: NextRequest) {
       wf("L'Abeille — Accueil nouveau patient", "patient_created", "L'Abeille — Bienvenue", "Bienvenue chez L'Abeille Medical Concierge"),
       wf("L'Abeille — Confirmation rendez-vous", "appointment_created", "L'Abeille — Confirmation de rendez-vous", "Confirmation de votre rendez-vous"),
       wf("L'Abeille — Suivi post-consultation", "appointment_completed", "L'Abeille — Suivi après consultation", "Votre suivi personnalisé"),
+      {
+        name: "L'Abeille — Demande de spécialiste",
+        trigger_type: "form_submitted",
+        active: true,
+        organization_id: orgId,
+        config: {
+          nodes: [
+            { id: "trigger-1", type: "trigger", data: { triggerType: "form_submitted", config: {} }, nextNodeId: "action-1" },
+            {
+              id: "action-1", type: "action", nextNodeId: "action-2",
+              data: {
+                actionType: "send_email",
+                config: {
+                  template_id: templateIds["L'Abeille — Notification nouvelle demande"] || null,
+                  recipient: "specific_email",
+                  email_address: "partner@labelle-medical-concierge.com",
+                  subject: "Nouvelle demande de spécialiste — {{patient.first_name}} {{patient.last_name}}",
+                },
+              },
+            },
+            {
+              id: "action-2", type: "action",
+              data: {
+                actionType: "create_task",
+                config: {
+                  title: "Assigner un spécialiste pour {{patient.first_name}} {{patient.last_name}}",
+                  assign_to_users: [userId],
+                  due_days: 1,
+                },
+              },
+            },
+          ],
+        },
+      },
     ];
     for (const w of workflows) {
       const { data: ex } = await supabaseAdmin.from("workflows").select("id")
@@ -371,6 +435,119 @@ export async function GET(req: NextRequest) {
       }
     }
     step(`${workflows.length} workflows`);
+
+    // ── concierge pipeline: categories, services, stages, deals, tasks ──
+    const CATS = [
+      { name: "Concierge Cardiology", description: "Cardiac screening, second opinions and specialist referrals", sort_order: 1 },
+      { name: "Concierge Dentistry", description: "Smile design, implants and dental rehabilitation", sort_order: 2 },
+      { name: "Longevity Programs", description: "Preventive health, biomarkers and longevity protocols", sort_order: 3 },
+      { name: "Global Specialist Referral", description: "Access to partner specialists worldwide (UK, Spain, Switzerland)", sort_order: 4 },
+    ];
+    const SERVICES = [
+      { cat: "Concierge Cardiology", name: "Cardiac health check-up", price: 1200 },
+      { cat: "Concierge Cardiology", name: "Cardiologist referral & coordination", price: 450 },
+      { cat: "Concierge Dentistry", name: "Full smile assessment", price: 800 },
+      { cat: "Concierge Dentistry", name: "Implant consultation", price: 600 },
+      { cat: "Longevity Programs", name: "Annual longevity programme", price: 9500 },
+      { cat: "Longevity Programs", name: "Buchinger fasting week (Marbella)", price: 4200 },
+      { cat: "Global Specialist Referral", name: "Specialist request & placement", price: 350 },
+      { cat: "Global Specialist Referral", name: "International second opinion", price: 900 },
+    ];
+    const catIds: Record<string, string> = {};
+    for (const c of CATS) {
+      const { data: ex } = await supabaseAdmin.from("service_categories").select("id")
+        .eq("organization_id", orgId).eq("name", c.name).maybeSingle();
+      if (ex) { catIds[c.name] = ex.id; continue; }
+      const { data, error } = await supabaseAdmin.from("service_categories")
+        .insert({ ...c, organization_id: orgId }).select("id").single();
+      if (error) { fail(`category ${c.name}`, error); continue; }
+      catIds[c.name] = data.id;
+    }
+    const serviceIds: string[] = [];
+    for (const s of SERVICES) {
+      if (!catIds[s.cat]) continue;
+      const { data: ex } = await supabaseAdmin.from("services").select("id")
+        .eq("organization_id", orgId).eq("name", s.name).maybeSingle();
+      if (ex) { serviceIds.push(ex.id); continue; }
+      const { data, error } = await supabaseAdmin.from("services").insert({
+        name: s.name, description: s.name, category_id: catIds[s.cat],
+        base_price: s.price, organization_id: orgId, duration_minutes: 45,
+      }).select("id").single();
+      if (error) { fail(`service ${s.name}`, error); continue; }
+      serviceIds.push(data.id);
+    }
+    step(`${serviceIds.length} concierge services`);
+
+    // Pipeline stages mirror the agreed flow: lead → specialist request →
+    // Marta assigns → booked → follow-up.
+    const STAGES = [
+      { name: "New Lead", type: "lead", sort_order: 1, is_default: true },
+      { name: "Specialist Requested", type: "lead", sort_order: 2 },
+      { name: "Assigned to Specialist", type: "consultation", sort_order: 3 },
+      { name: "Appointment Booked", type: "consultation", sort_order: 4 },
+      { name: "In Treatment", type: "surgery", sort_order: 5 },
+      { name: "Follow-Up Care", type: "follow_up", sort_order: 6 },
+      { name: "Closed Won", type: "other", sort_order: 7 },
+    ];
+    const stageIds: string[] = [];
+    for (const s of STAGES) {
+      const { data: ex } = await supabaseAdmin.from("deal_stages").select("id")
+        .eq("organization_id", orgId).eq("name", s.name).maybeSingle();
+      if (ex) { stageIds.push(ex.id); continue; }
+      const { data, error } = await supabaseAdmin.from("deal_stages")
+        .insert({ ...s, organization_id: orgId }).select("id").single();
+      if (error) { fail(`stage ${s.name}`, error); continue; }
+      stageIds.push(data.id);
+    }
+    step(`${stageIds.length} pipeline stages`);
+
+    let dealCount = 0;
+    for (const [i, pid] of patientIds.entries()) {
+      const { data: ex } = await supabaseAdmin.from("deals").select("id").eq("patient_id", pid).limit(1);
+      if (ex?.length) continue;
+      const { error } = await supabaseAdmin.from("deals").insert({
+        patient_id: pid,
+        stage_id: stageIds[i % stageIds.length],
+        service_id: serviceIds.length ? serviceIds[i % serviceIds.length] : null,
+        pipeline: "Concierge Referrals",
+        title: "Concierge referral — L'Abeille",
+        value: 1500 + (i * 1370) % 20000,
+        location: ["Genève", "Madrid", "London", "Marbella"][i % 4],
+        owner_id: userId, owner_name: "Martha Schiller",
+        organization_id: orgId,
+        notes: "Lead concierge — demande de spécialiste traitée par Martha.",
+      });
+      if (error) fail(`deal ${pid}`, error);
+      else dealCount++;
+    }
+    step(`${dealCount} deals`);
+
+    const TASKS = [
+      { name: "Assigner un cardiologue à Madrid", content: "Lead James Harrington demande un cardiologue à Madrid — vérifier dispos Dr Ibañez, bloquer créneau.", type: "todo", priority: "high" },
+      { name: "Envoyer questionnaire médical", content: "Envoyer le formulaire médical au patient avant le rendez-vous.", type: "email", priority: "medium" },
+      { name: "Confirmer le rendez-vous", content: "Appeler le patient pour confirmer la téléconsultation.", type: "call", priority: "medium" },
+      { name: "Relance formulaire non complété", content: "Le patient n'a pas encore rempli le formulaire médical — relancer.", type: "email", priority: "low" },
+      { name: "Compte-rendu post-consultation", content: "Transmettre le compte-rendu du spécialiste au dossier patient.", type: "todo", priority: "medium" },
+    ];
+    let taskCount = 0;
+    for (const [i, pid] of patientIds.entries()) {
+      const { data: ex } = await supabaseAdmin.from("tasks").select("id").eq("patient_id", pid).limit(1);
+      if (ex?.length) continue;
+      const t = TASKS[i % TASKS.length];
+      const { error } = await supabaseAdmin.from("tasks").insert({
+        patient_id: pid, name: t.name, content: t.content,
+        status: ["not_started", "in_progress", "completed"][i % 3],
+        priority: t.priority, type: t.type,
+        activity_date: new Date(Date.now() + (i % 10 - 3) * 864e5).toISOString(),
+        created_by_user_id: userId, created_by_name: "Martha Schiller",
+        assigned_user_id: i % 2 === 0 ? userId : null,
+        assigned_user_name: i % 2 === 0 ? "Martha Schiller" : null,
+        organization_id: orgId,
+      });
+      if (error) fail(`task ${pid}`, error);
+      else taskCount++;
+    }
+    step(`${taskCount} tasks`);
 
     return NextResponse.json({
       ok: true,
