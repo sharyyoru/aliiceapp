@@ -217,19 +217,64 @@ async function getOrCreateDemoUser(orgId) {
 }
 
 async function seedDoctors(orgId) {
+  const { data: list } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   const ids = [];
   for (const [i, d] of DOCTORS.entries()) {
     const email = `doctor${i + 1}@labeille-demo.ch`;
-    const { data: existing } = await supabase
+
+    // Doctor login user — on this system a provider's id IS the auth user id
+    // (calendar keys doctor_scheduling_settings.provider_id → users.id, while
+    // appointments.provider_id FKs providers.id; making them equal serves both).
+    let docUser = list?.users?.find((u) => u.email?.toLowerCase() === email);
+    if (!docUser) {
+      const { data, error } = await supabase.auth.admin.createUser({
+        email, password: DEMO_USER.password, email_confirm: true,
+        user_metadata: { full_name: d.name },
+      });
+      if (error) { fail(`doctor user ${d.name}`, error); continue; }
+      docUser = data.user;
+    }
+    await supabase.from("users").upsert({
+      id: docUser.id, email, full_name: d.name, provider_id: docUser.id,
+      role: "doctor", current_organization_id: orgId, onboarding_completed: true,
+    });
+    await supabase.from("organization_members").upsert(
+      { organization_id: orgId, user_id: docUser.id, role: "doctor", job_title: d.specialty, is_active: true },
+      { onConflict: "organization_id,user_id" }
+    );
+
+    // Remap an older provider row (random id) to the user-keyed id
+    const { data: oldProv } = await supabase
       .from("providers").select("id").eq("organization_id", orgId).eq("name", d.name).maybeSingle();
-    if (existing) { ids.push(existing.id); continue; }
-    const { data, error } = await supabase.from("providers").insert({
-      name: d.name, specialty: d.specialty, email, organization_id: orgId, role: "doctor",
-    }).select("id").single();
+    if (oldProv && oldProv.id !== docUser.id) {
+      await supabase.from("appointments").update({ provider_id: docUser.id }).eq("provider_id", oldProv.id);
+      await supabase.from("doctor_scheduling_settings").delete().eq("provider_id", oldProv.id);
+      await supabase.from("providers").delete().eq("id", oldProv.id);
+    }
+    const { error } = await supabase.from("providers").upsert({
+      id: docUser.id, name: d.name, specialty: d.specialty,
+      email, organization_id: orgId, role: "doctor",
+    });
     if (error) { fail(`provider ${d.name}`, error); continue; }
-    ids.push(data.id);
+
+    await supabase.from("doctor_scheduling_settings").upsert(
+      { provider_id: docUser.id, time_interval_minutes: 30, default_duration_minutes: 45, updated_at: new Date().toISOString() },
+      { onConflict: "provider_id" }
+    );
+
+    // Public booking flow pool
+    const slug = `labeille-${d.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+    const { data: exBd } = await supabase.from("booking_doctors").select("id").eq("slug", slug).maybeSingle();
+    if (!exBd) {
+      const { error: bdErr } = await supabase.from("booking_doctors").insert({
+        name: d.name, specialty: d.specialty, slug, enabled: true, order_index: 100 + i,
+        description: `${d.specialty} — L'Abeille Medical Concierge partner specialist.`,
+      });
+      if (bdErr) fail(`booking doctor ${d.name}`, bdErr);
+    }
+    ids.push(docUser.id);
   }
-  ok(`${ids.length} doctors`);
+  ok(`${ids.length} doctors (login: doctorN@labeille-demo.ch / ${DEMO_USER.password})`);
   return ids;
 }
 
@@ -349,6 +394,39 @@ async function seedAppointments(orgId, patientIds, doctorIds) {
     else created += rows.length;
   }
   ok(`${created} appointments (yearly calendar)`);
+
+  // Dense schedule: 3 appointments per doctor per week for the surrounding
+  // 10 weeks so every calendar view is populated.
+  if (!doctorIds.length || !patientIds.length) return;
+  const { count: existingDense } = await supabase.from("appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", orgId).eq("location", "L'Abeille Concierge");
+  if (existingDense) return;
+  const dense = [];
+  for (let w = -4; w <= 5; w++) {
+    for (const [di, docId] of doctorIds.entries()) {
+      for (let k = 0; k < 3; k++) {
+        const dayOffset = w * 7 + ((di * 3 + k * 2) % 5) + 1;
+        const hour = 9 + (((di + k * 3 + w) % 8) + 8) % 8;
+        const start = new Date(now + dayOffset * 864e5);
+        start.setHours(hour, 0, 0, 0);
+        dense.push({
+          patient_id: patientIds[(di + k + w * 7 + patientIds.length * 4) % patientIds.length],
+          provider_id: docId,
+          start_time: start.toISOString(),
+          end_time: new Date(start.getTime() + 45 * 6e4).toISOString(),
+          status: w < 0 || (w === 0 && dayOffset < 0) ? "completed" : "scheduled",
+          reason: APPOINTMENT_REASONS[(di + k * 2 + w + 24) % APPOINTMENT_REASONS.length],
+          location: "L'Abeille Concierge",
+          source: "manual",
+          organization_id: orgId,
+        });
+      }
+    }
+  }
+  const { error } = await supabase.from("appointments").insert(dense);
+  if (error) fail("dense appointments", error);
+  else ok(`${dense.length} dense schedule appointments`);
 }
 
 async function seedEmailsAndWorkflows(orgId, userId) {
