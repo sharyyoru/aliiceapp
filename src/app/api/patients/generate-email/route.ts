@@ -1,15 +1,8 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { aiErrorMessage, generateAiText, isAiConfigured } from "@/lib/aiText";
 
 export const runtime = "nodejs";
-
-const geminiApiKey = process.env.GEMINI_API_KEY;
-
-let genAI: GoogleGenerativeAI | null = null;
-if (geminiApiKey) {
-  genAI = new GoogleGenerativeAI(geminiApiKey);
-}
 
 type GeneratePatientEmailRequestBody = {
   patientId?: string;
@@ -42,9 +35,9 @@ function formatAppointmentDateTime(startTime: string): string {
 
 export async function POST(request: Request) {
   try {
-    if (!genAI) {
+    if (!isAiConfigured()) {
       return NextResponse.json(
-        { error: "Missing GEMINI_API_KEY environment variable" },
+        { error: "AI is not configured: set GEMINI_API_KEY (or OPENAI_API_KEY)" },
         { status: 500 },
       );
     }
@@ -179,17 +172,11 @@ CRITICAL - do not fabricate:
 - If the goal requires information you do not have, leave a bracketed placeholder instead of making something up.
 `;
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash",
-      systemInstruction: systemPrompt,
+    const rawContent = await generateAiText({
+      system: systemPrompt,
+      messages: userPrompt,
+      temperature: 0.3,
     });
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.3 },
-    });
-
-    const rawContent = result.response.text() || "";
 
     let subject = "Clinic update";
     let bodyText = "Dear patient,\n\nThank you for your message.";
@@ -217,9 +204,9 @@ CRITICAL - do not fabricate:
 
     return NextResponse.json({ subject, body: bodyText });
   } catch (error) {
-    console.error("Error generating patient email via Gemini", error);
+    console.error("Error generating patient email", error);
     return NextResponse.json(
-      { error: "Failed to generate email" },
+      { error: aiErrorMessage(error, "Failed to generate email") },
       { status: 500 },
     );
   }

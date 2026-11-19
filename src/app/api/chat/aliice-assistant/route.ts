@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateAiText, isAiConfigured } from "@/lib/aiText";
 
 // System prompt for Aliice - the AI assistant
 const SYSTEM_PROMPT = `You are Aliice, the friendly and knowledgeable AI assistant for the ALiice Medical CRM platform. Your role is to help clinic owners and staff set up their system, answer questions, and guide them through features.
@@ -114,10 +114,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-
   // If no API key or invalid, use fallback responses
-  if (!apiKey || apiKey === "your-gemini-api-key") {
+  if (!isAiConfigured()) {
     console.log("No valid Gemini API key, using fallback response");
     return NextResponse.json({
       response: getFallbackResponse(message, onboardingStatus)
@@ -125,37 +123,20 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Use stable model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const history = Array.isArray(conversationHistory)
+      ? conversationHistory.map((msg: ConversationMessage) => ({
+          role: msg.role === "assistant" ? ("assistant" as const) : ("user" as const),
+          content: msg.content,
+        }))
+      : [];
 
-    // Build conversation history for Gemini
-    const historyParts: { role: "user" | "model"; parts: { text: string }[] }[] = [];
-
-    // Add conversation history
-    if (conversationHistory && Array.isArray(conversationHistory)) {
-      conversationHistory.forEach((msg: ConversationMessage) => {
-        historyParts.push({
-          role: msg.role === "assistant" ? "model" : "user",
-          parts: [{ text: msg.content }]
-        });
-      });
-    }
-
-    // Create chat with system prompt and history
-    const chat = model.startChat({
-      history: historyParts,
-      generationConfig: {
-        maxOutputTokens: 500,
-        temperature: 0.7,
-      },
-    });
-
-    // Send message with system context
     const fullPrompt = `${SYSTEM_PROMPT}${buildContextMessage(onboardingStatus)}\n\nUser message: ${message}`;
-    const result = await chat.sendMessage(fullPrompt);
-    const response = result.response.text() || getFallbackResponse(message, onboardingStatus);
+    const text = await generateAiText({
+      messages: [...history, { role: "user", content: fullPrompt }],
+      temperature: 0.7,
+      maxOutputTokens: 500,
+    });
+    const response = text || getFallbackResponse(message, onboardingStatus);
 
     return NextResponse.json({ response });
 
